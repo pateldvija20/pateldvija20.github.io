@@ -1,0 +1,28 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f3f2ee;
+  --text: #000912;
+  --mat-blue: #00332a;
+  --font-display: "Bricolage Grotesque", serif;
+  --font-body: "Atkinson Hyperlegible Mono", monospace;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-display);
+}
