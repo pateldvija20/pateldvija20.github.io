@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import LoadingScreen from "@/components/Loading/LoadingScreen";
+import { HomeInteractive } from "@/components/HomeInteractive";
 
 export default function Home() {
   const [loaded, setLoaded] = useState(false);
@@ -9,12 +10,7 @@ export default function Home() {
   return (
     <>
       {!loaded && <LoadingScreen onComplete={() => setLoaded(true)} />}
-      <div
-        style={{
-          minHeight: "100vh",
-          background: "#F3F2EE",
-        }}
-      />
+      {loaded && <HomeInteractive />}
     </>
   );
 }

@@ -1,0 +1,428 @@
+/* Property 1=Default */
+
+position: absolute;
+width: 893.59px;
+height: 710.13px;
+left: 137.28px;
+top: 63px;
+
+
+
+/* Union */
+
+box-sizing: border-box;
+
+position: absolute;
+left: 0.03%;
+right: 0.68%;
+top: 0%;
+bottom: 0%;
+
+/* Linear */
+background: linear-gradient(151.73deg, #FFDB4A -3.31%, #C2A327 82.51%);
+
+
+/* case-paper-white */
+
+position: absolute;
+left: 4.17%;
+right: 5.18%;
+top: 11.41%;
+bottom: 4.1%;
+
+background: #FDFEFF;
+box-shadow: 3px -3px 12px rgba(0, 0, 0, 0.16);
+border-radius: 3px;
+
+
+/* Subtract */
+
+position: absolute;
+left: 0%;
+right: 0%;
+top: 0%;
+bottom: 0%;
+
+background: #FDFEFF;
+mix-blend-mode: normal;
+border-radius: 12px;
+
+
+/* case-paper-white */
+
+position: absolute;
+left: 1.89%;
+right: 7.47%;
+top: 5.96%;
+bottom: 9.55%;
+
+background: #FDFEFF;
+box-shadow: 3px -3px 12px rgba(0, 0, 0, 0.16);
+border-radius: 3px;
+transform: rotate(4.16deg);
+
+
+/* Subtract */
+
+position: absolute;
+left: 0%;
+right: 0%;
+top: 0%;
+bottom: 0%;
+
+background: #FDFEFF;
+mix-blend-mode: normal;
+border-radius: 12px;
+transform: rotate(4.16deg);
+
+
+/* case-paper-white */
+
+position: absolute;
+left: 3.72%;
+right: 5.63%;
+top: 9.24%;
+bottom: 6.27%;
+
+background: #FDFEFF;
+box-shadow: 3px -3px 12px rgba(0, 0, 0, 0.16);
+border-radius: 3px;
+transform: rotate(-0.77deg);
+
+
+/* Subtract */
+
+position: absolute;
+left: 0%;
+right: 0%;
+top: 0%;
+bottom: 0%;
+
+background: #FDFEFF;
+mix-blend-mode: normal;
+border-radius: 12px;
+transform: rotate(-0.77deg);
+
+
+/* case-paper-white */
+
+position: absolute;
+left: 4.73%;
+right: 4.62%;
+top: 3.26%;
+bottom: 12.25%;
+
+background: #FDFEFF;
+box-shadow: 3px -3px 12px rgba(0, 0, 0, 0.16);
+border-radius: 3px;
+transform: rotate(-3.85deg);
+
+
+/* Subtract */
+
+position: absolute;
+left: 0%;
+right: 0%;
+top: 0%;
+bottom: 0%;
+
+background: #FDFEFF;
+mix-blend-mode: normal;
+border-radius: 12px;
+transform: rotate(-3.85deg);
+
+
+/* Subtract */
+
+box-sizing: border-box;
+
+position: absolute;
+left: 0%;
+right: 0.74%;
+top: 8.31%;
+bottom: 0.06%;
+
+/* Linear */
+background: linear-gradient(296.07deg, #FFE682 1.05%, #FFDB4A 90.19%);
+transform: rotate(0.03deg);
+
+
+/* Frame 29 */
+
+/* Auto layout */
+display: flex;
+flex-direction: column;
+align-items: flex-start;
+padding: 0px;
+gap: 24px;
+
+position: absolute;
+width: 177px;
+height: 236px;
+left: 64px;
+top: 300px;
+
+
+
+/* case-study-tiltes */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 0px;
+gap: 60px;
+
+width: 177px;
+height: 47px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+align-self: stretch;
+flex-grow: 0;
+
+
+/* Case Study Name */
+
+width: 177px;
+height: 23px;
+
+font-family: 'Kingthings Trypewriter 2';
+font-style: normal;
+font-weight: 400;
+font-size: 20px;
+line-height: 23px;
+/* identical to box height */
+text-align: center;
+text-transform: capitalize;
+
+color: #000912;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Case study Description- lorem ipsum Defining a design-to-code annotation and layer documentation syntax is structural and operational. Low Effort handles this layout architecture perfectly without burning through your Pro plan's reasoning token allocation. */
+
+display: none;
+width: 293px;
+height: 162px;
+
+font-family: 'Atkinson Hyperlegible Mono';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 18px;
+letter-spacing: -0.01em;
+text-transform: capitalize;
+
+color: #000912;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 1;
+
+
+/* case-study-tiltes */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 0px;
+gap: 60px;
+
+width: 177px;
+height: 23px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+align-self: stretch;
+flex-grow: 0;
+
+
+/* Case Study Name */
+
+width: 177px;
+height: 23px;
+
+font-family: 'Kingthings Trypewriter 2';
+font-style: normal;
+font-weight: 400;
+font-size: 20px;
+line-height: 23px;
+/* identical to box height */
+text-align: center;
+text-transform: capitalize;
+
+color: #000912;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Case study Description- lorem ipsum Defining a design-to-code annotation and layer documentation syntax is structural and operational. Low Effort handles this layout architecture perfectly without burning through your Pro plan's reasoning token allocation. */
+
+display: none;
+width: 293px;
+height: 162px;
+
+font-family: 'Atkinson Hyperlegible Mono';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 18px;
+letter-spacing: -0.01em;
+text-transform: capitalize;
+
+color: #000912;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 1;
+
+
+/* case-study-tiltes */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 0px;
+gap: 60px;
+
+width: 177px;
+height: 47px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 2;
+align-self: stretch;
+flex-grow: 0;
+
+
+/* Case Study Name */
+
+width: 177px;
+height: 23px;
+
+font-family: 'Kingthings Trypewriter 2';
+font-style: normal;
+font-weight: 400;
+font-size: 20px;
+line-height: 23px;
+/* identical to box height */
+text-align: center;
+text-transform: capitalize;
+
+color: #000912;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Case study Description- lorem ipsum Defining a design-to-code annotation and layer documentation syntax is structural and operational. Low Effort handles this layout architecture perfectly without burning through your Pro plan's reasoning token allocation. */
+
+display: none;
+width: 293px;
+height: 162px;
+
+font-family: 'Atkinson Hyperlegible Mono';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 18px;
+letter-spacing: -0.01em;
+text-transform: capitalize;
+
+color: #000912;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 1;
+
+
+/* case-study-tiltes */
+
+/* Auto layout */
+display: flex;
+flex-direction: row;
+align-items: flex-start;
+padding: 0px;
+gap: 60px;
+
+width: 177px;
+height: 47px;
+
+
+/* Inside auto layout */
+flex: none;
+order: 3;
+align-self: stretch;
+flex-grow: 0;
+
+
+/* Case Study Name */
+
+width: 177px;
+height: 23px;
+
+font-family: 'Kingthings Trypewriter 2';
+font-style: normal;
+font-weight: 400;
+font-size: 20px;
+line-height: 23px;
+/* identical to box height */
+text-align: center;
+text-transform: capitalize;
+
+color: #000912;
+
+
+/* Inside auto layout */
+flex: none;
+order: 0;
+flex-grow: 0;
+
+
+/* Case study Description- lorem ipsum Defining a design-to-code annotation and layer documentation syntax is structural and operational. Low Effort handles this layout architecture perfectly without burning through your Pro plan's reasoning token allocation. */
+
+display: none;
+width: 293px;
+height: 162px;
+
+font-family: 'Atkinson Hyperlegible Mono';
+font-style: normal;
+font-weight: 400;
+font-size: 14px;
+line-height: 18px;
+letter-spacing: -0.01em;
+text-transform: capitalize;
+
+color: #000912;
+
+
+/* Inside auto layout */
+flex: none;
+order: 1;
+flex-grow: 1;
