@@ -29,7 +29,7 @@ function UiNavContainer() {
 
 function Paper() {
   return (
-    <div className="absolute content-stretch flex h-[797px] items-center justify-center left-[240px] p-[10px] top-[105px]" data-name="paper">
+    <div className="absolute content-stretch flex h-[797px] items-center justify-center left-[240px] p-[10px] top-[105px] w-[546.626px]" data-name="paper">
       <div className="h-[703.787px] relative shrink-0 w-[526.626px]" data-name="paper-white">
         <img alt="" className="absolute block inset-0 max-w-none size-full" height="703.787" src={imgPaperWhite.src} width="526.626" />
       </div>

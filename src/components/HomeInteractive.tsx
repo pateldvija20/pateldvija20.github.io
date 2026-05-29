@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import HomeImport from '../imports/Home-1/Home-1-1716';
 import BookOpen from '../imports/Home-1/Frame35';
 import BookCover from '../imports/Frame31-1/Frame31-6-430';
+import BookHoverImg from '../imports/BookHover/BookHover';
 import FileClosed from '../imports/Frame36/Frame36';
 import FileOpen from '../imports/FilePurple/FilePurple';
+import FileHoverImg from '../imports/FileHover/FileHover';
 import FolderDefault from '../imports/FolderYellow-7/FolderYellow-6-1565';
 import FolderHover from '../imports/FolderYellow-3/FolderYellow-6-1194';
 import FolderOpenView from '../imports/FolderYellow-5/FolderYellow-6-1333';
@@ -61,8 +63,6 @@ export function HomeInteractive() {
   const loaderHiddenRef = useRef(false);
 
   const [activeNav, setActiveNav] = useState<LayerKey>('book');
-  const [loaderVisible, setLoaderVisible] = useState(true);
-  const [loaderFading, setLoaderFading] = useState(false);
   const [bookOpen, setBookOpen] = useState(false);
   const bookOpenRef = useRef(false);
   const [fileOpen, setFileOpen] = useState(false);
@@ -70,16 +70,15 @@ export function HomeInteractive() {
   const [folderOpen, setFolderOpen] = useState(false);
   const folderOpenRef = useRef(false);
   const [folderHovered, setFolderHovered] = useState(false);
+  const [bookHovered, setBookHovered] = useState(false);
+  const [fileHovered, setFileHovered] = useState(false);
 
   // Stable helper: always reads latest DOM state
   const q = (name: LayerKey): HTMLElement | null =>
     (sceneRef.current?.querySelector(`[data-name="${name}"]`) as HTMLElement | null) ?? null;
 
   const hideLoader = useCallback(() => {
-    if (loaderHiddenRef.current) return;
     loaderHiddenRef.current = true;
-    setLoaderFading(true);
-    setTimeout(() => setLoaderVisible(false), 300);
   }, []);
 
   // ─── Book hover + click ───────────────────────────────────────────────────
@@ -92,21 +91,28 @@ export function HomeInteractive() {
     const coverEl = bookCoverRef.current;
 
     const onEnter = () => {
-      if (!bookOpenRef.current && coverEl) {
-        coverEl.style.transition = 'transform 300ms cubic-bezier(0.4,0,0.2,1)';
-        coverEl.style.transform = 'rotate(0deg) scale(1.02)';
+      if (!bookOpenRef.current) {
+        setBookHovered(true);
+        if (coverEl) {
+          coverEl.style.transition = 'transform 300ms cubic-bezier(0.4,0,0.2,1)';
+          coverEl.style.transform = 'rotate(0deg) scale(1.02)';
+        }
       }
     };
     const onLeave = () => {
-      if (!bookOpenRef.current && coverEl) {
-        coverEl.style.transition = 'transform 300ms cubic-bezier(0.4,0,0.2,1)';
-        coverEl.style.transform = 'rotate(-5.31deg) scale(1)';
+      if (!bookOpenRef.current) {
+        setBookHovered(false);
+        if (coverEl) {
+          coverEl.style.transition = 'transform 300ms cubic-bezier(0.4,0,0.2,1)';
+          coverEl.style.transform = 'rotate(-5.31deg) scale(1)';
+        }
       }
     };
     const onClick = () => {
       const next = !bookOpenRef.current;
       bookOpenRef.current = next;
       setBookOpen(next);
+      if (next) setBookHovered(false);
       if (btn) btn.style.opacity = next ? '0' : '1';
     };
 
@@ -127,12 +133,14 @@ export function HomeInteractive() {
 
     const onEnter = () => {
       if (!fileOpenRef.current) {
+        setFileHovered(true);
         coverEl.style.transition = 'transform 300ms cubic-bezier(0.4,0,0.2,1)';
         coverEl.style.transform = 'rotate(0deg) scale(1.02)';
       }
     };
     const onLeave = () => {
       if (!fileOpenRef.current) {
+        setFileHovered(false);
         coverEl.style.transition = 'transform 300ms cubic-bezier(0.4,0,0.2,1)';
         coverEl.style.transform = 'rotate(-28.02deg) scale(1)';
       }
@@ -142,6 +150,7 @@ export function HomeInteractive() {
       const next = !fileOpenRef.current;
       fileOpenRef.current = next;
       setFileOpen(next);
+      if (next) setFileHovered(false);
       coverEl.style.transition = 'transform 300ms cubic-bezier(0.4,0,0.2,1)';
       coverEl.style.transform = next ? 'rotate(0deg) scale(1)' : 'rotate(-28.02deg) scale(1)';
     };
@@ -222,10 +231,10 @@ export function HomeInteractive() {
     const coverEl = folderCoverRef.current;
     if (coverEl) {
       coverEl.style.position = 'absolute';
-      coverEl.style.left = '170px';
-      coverEl.style.top = '112px';
-      coverEl.style.width = '1099px';
-      coverEl.style.height = '797px';
+      coverEl.style.left = '273px';
+      coverEl.style.top = '155px';
+      coverEl.style.width = '894px';
+      coverEl.style.height = '711px';
       coverEl.style.visibility = 'visible';
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -255,6 +264,18 @@ export function HomeInteractive() {
         if (shouldFlip !== wasFlipped) {
           el.style.transition = FLIP_TIMING;
           el.style.transform = shouldFlip ? FLIP_OUT : '';
+
+          const coverEl =
+            layer === 'book' ? bookCoverRef.current :
+            layer === 'file' ? fileCoverRef.current :
+            layer === 'folder' ? folderCoverRef.current : null;
+          if (coverEl) {
+            const initRot =
+              layer === 'book' ? 'rotate(-5.31deg)' :
+              layer === 'file' ? 'rotate(-28.02deg)' : '';
+            coverEl.style.transition = FLIP_TIMING;
+            coverEl.style.transform = shouldFlip ? FLIP_OUT : initRot;
+          }
         }
         el.style.pointerEvents = 'none';
       });
@@ -289,6 +310,18 @@ export function HomeInteractive() {
         el.style.transform = SCATTER[layer];
         el.style.pointerEvents = 'auto';
         el.style.cursor = 'pointer';
+
+        const coverEl =
+          layer === 'book' ? bookCoverRef.current :
+          layer === 'file' ? fileCoverRef.current :
+          layer === 'folder' ? folderCoverRef.current : null;
+        if (coverEl) {
+          const initRot =
+            layer === 'book' ? 'rotate(-5.31deg)' :
+            layer === 'file' ? 'rotate(-28.02deg)' : '';
+          coverEl.style.transition = `transform 500ms ${SPRING}`;
+          coverEl.style.transform = `${SCATTER[layer]} ${initRot}`.trim();
+        }
       }, i * 40);
     });
 
@@ -305,29 +338,35 @@ export function HomeInteractive() {
     ALL_LAYERS.forEach((l) => {
       const el = q(l);
       if (!el) return;
+      const coverEl =
+        l === 'book' ? bookCoverRef.current :
+        l === 'file' ? fileCoverRef.current :
+        l === 'folder' ? folderCoverRef.current : null;
+      const initRot =
+        l === 'book' ? 'rotate(-5.31deg)' :
+        l === 'file' ? 'rotate(-28.02deg)' : '';
+
       if (l === layer) {
         el.style.zIndex = '100';
-        if (l === 'file' && fileCoverRef.current) {
-          fileCoverRef.current.style.zIndex = el.style.zIndex;
-        }
-        if (l === 'folder' && folderCoverRef.current) {
-          folderCoverRef.current.style.zIndex = el.style.zIndex;
-        }
+        if (coverEl) coverEl.style.zIndex = el.style.zIndex;
         el.style.transition = 'transform 350ms cubic-bezier(0.4, 0, 0.2, 1)';
         el.style.transform = 'translate(0px, 0px) rotate(0deg) scale(1.04)';
         el.style.pointerEvents = 'auto';
         el.style.cursor = 'pointer';
+        if (coverEl) {
+          coverEl.style.transition = 'transform 350ms cubic-bezier(0.4, 0, 0.2, 1)';
+          coverEl.style.transform = `translate(0px, 0px) ${initRot} scale(1.04)`.trim();
+        }
       } else {
         el.style.zIndex = String(Z_BASE[l]);
-        if (l === 'file' && fileCoverRef.current) {
-          fileCoverRef.current.style.zIndex = el.style.zIndex;
-        }
-        if (l === 'folder' && folderCoverRef.current) {
-          folderCoverRef.current.style.zIndex = el.style.zIndex;
-        }
+        if (coverEl) coverEl.style.zIndex = el.style.zIndex;
         el.style.transform = SCATTER_TRANSFORMS[l] ?? '';
         el.style.pointerEvents = 'none';
         el.style.cursor = 'default';
+        if (coverEl) {
+          coverEl.style.transition = 'transform 350ms cubic-bezier(0.4, 0, 0.2, 1)';
+          coverEl.style.transform = `${SCATTER_TRANSFORMS[l] ?? ''} ${initRot}`.trim();
+        }
       }
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -388,7 +427,8 @@ export function HomeInteractive() {
             height: '1024px',
             top: '50%',
             left: '50%',
-            transform: 'translate(-50%, -50%)',
+            transform: 'translate(-50%, -50%) scale(min(calc(100vw / 1440px), calc(100vh / 1024px)))',
+            transformOrigin: 'center center',
           }}
         >
           <HomeImport />
@@ -409,7 +449,7 @@ export function HomeInteractive() {
                 transformOrigin: 'center center',
               }}
             >
-              <BookCover />
+              {bookHovered ? <BookHoverImg /> : <BookCover />}
             </div>
           )}
 
@@ -450,7 +490,7 @@ export function HomeInteractive() {
               transformOrigin: 'center center',
             }}
           >
-            {fileOpen ? <FileOpen /> : <FileClosed />}
+            {fileOpen ? <FileOpen /> : fileHovered ? <FileHoverImg /> : <FileClosed />}
           </div>
 
           {/* ── Folder overlay (default / hover / open) ───────────────────── */}
@@ -516,21 +556,6 @@ export function HomeInteractive() {
             ))}
           </div>
 
-          {/* ── Loader overlay ────────────────────────────────────────────── */}
-          {loaderVisible && (
-            <div
-              data-name="loader"
-              style={{
-                position: 'absolute',
-                inset: 0,
-                backgroundColor: '#f3f2ee',
-                zIndex: 500,
-                opacity: loaderFading ? 0 : 1,
-                transition: 'opacity 300ms ease',
-                pointerEvents: 'none',
-              }}
-            />
-          )}
         </div>
       </div>
     </div>

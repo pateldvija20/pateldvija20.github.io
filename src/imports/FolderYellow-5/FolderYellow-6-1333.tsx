@@ -1,4 +1,7 @@
-// Stub: FolderOpenView — Figma component not yet exported
-export default function FolderYellow61333() {
-  return <div data-stub="FolderYellow-6-1333 (FolderOpenView)" style={{ width: '100%', height: '100%' }} />;
+export default function FolderOpenView() {
+  return (
+    <div style={{ display: 'inline-block' }}>
+      <img src="/assets/FolderOpen.svg" alt="" style={{ width: 'auto', height: 'auto', display: 'block' }} />
+    </div>
+  );
 }
