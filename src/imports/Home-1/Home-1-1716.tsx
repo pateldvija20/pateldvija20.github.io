@@ -456,7 +456,7 @@ export default function Home() {
       </div>
       <UiNavContainer />
       
-      <div className="absolute bg-[#00332a] h-[800px] left-[170px] overflow-clip rounded-[19px] top-[112px] w-[1100px]" data-name="mat-grid">
+      <div className="absolute bg-[#00332a] h-[800px] left-[170px] overflow-visible rounded-[19px] top-[112px] w-[1100px]" data-name="mat-grid">
         <svg className="absolute block inset-0 size-full" fill="none" preserveAspectRatio="none" viewBox="0 0 1100 800">
           <path d="M1100 0H0V800H1100V0Z" fill="var(--fill-0, #21523D)" id="Vector" />
         </svg>
