@@ -1053,7 +1053,7 @@ export function HomeInteractive() {
   }, [triggerScatter, coverOf]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div style={{ overflow: 'hidden' }}>
+    <div className="overflow-hidden">
       {/* Fixed-size 1440×1024 scene, centered in the viewport */}
       <div
         ref={sceneRef}
@@ -1074,11 +1074,8 @@ export function HomeInteractive() {
           {!bookOpen && (
             <div
               ref={bookCoverRef}
+              className="absolute isolate pointer-events-none overflow-visible"
               style={{
-                position: 'absolute',
-                isolation: 'isolate',
-                pointerEvents: 'none',
-                overflow: 'visible',
                 transform: LAYER_TILT['book'],
                 transformOrigin: 'center center',
               }}
@@ -1089,14 +1086,13 @@ export function HomeInteractive() {
 
           {bookOpen && (
             <div
+              className="absolute cursor-pointer"
               style={{
-                position: 'absolute',
                 left: 144,
                 top: 137,
                 width: 1152,
                 height: 747,
                 zIndex: 200,
-                cursor: 'pointer',
               }}
               onClick={() => {
                 bookOpenRef.current = false;
@@ -1113,11 +1109,8 @@ export function HomeInteractive() {
           {/* ── File overlay (always mounted — closed or open) ───────────── */}
           <div
             ref={fileCoverRef}
+            className="absolute isolate cursor-pointer overflow-visible"
             style={{
-              position: 'absolute',
-              isolation: 'isolate',
-              cursor: 'pointer',
-              overflow: 'visible',
               transform: LAYER_TILT['file'],
               transformOrigin: 'center center',
             }}
@@ -1129,13 +1122,7 @@ export function HomeInteractive() {
           {/* Position and visibility are set dynamically in initial setup useEffect */}
           <div
             ref={folderCoverRef}
-            style={{
-              position: 'absolute',
-              isolation: 'isolate',
-              visibility: 'hidden',
-              cursor: 'pointer',
-              overflow: 'visible',
-            }}
+            className="absolute isolate invisible cursor-pointer overflow-visible"
           >
             {folderOpen
               ? <FolderOpenView />
@@ -1147,35 +1134,14 @@ export function HomeInteractive() {
           {/* ── Reactive nav overlay ──────────────────────────────────────── */}
           {/* Matches the import's nav: left:1304px, vertically centered */}
           <div
-            style={{
-              position: 'absolute',
-              top: '50%',
-              left: '1304px',
-              transform: 'translateY(-50%)',
-              zIndex: 600,
-              fontFamily: "'Atkinson Hyperlegible Mono', monospace",
-              fontWeight: 500,
-              fontSize: '12px',
-              lineHeight: 'normal',
-              color: '#000912',
-              whiteSpace: 'nowrap',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'flex-end',
-              gap: '8px',
-            }}
+            className="absolute top-1/2 -translate-y-1/2 flex flex-col items-end gap-2 whitespace-nowrap font-mono text-xs font-medium leading-normal text-[#000912]"
+            style={{ left: '1304px', zIndex: 600 }}
           >
             {NAV_ITEMS.map(({ layer, label }) => (
               <div
                 key={layer}
                 onClick={(e) => handleNavClick(layer, e)}
-                style={{
-                  display: 'flex',
-                  gap: '8px',
-                  alignItems: 'flex-start',
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                }}
+                className="flex gap-2 items-start cursor-pointer select-none"
               >
                 {activeNav === layer ? (
                   <>
@@ -1191,17 +1157,7 @@ export function HomeInteractive() {
             <button
               className="mode-toggle-desktop"
               onClick={handleModeToggle}
-              style={{
-                fontFamily: "'Atkinson Hyperlegible Mono', monospace",
-                fontWeight: 500,
-                fontSize: '12px',
-                color: '#000912',
-                background: 'none',
-                border: 'none',
-                padding: 0,
-                cursor: 'pointer',
-                userSelect: 'none',
-              }}
+              className="mode-toggle-desktop font-mono text-xs font-medium text-[#000912] bg-transparent border-none p-0 cursor-pointer select-none"
             >
               {mode === 'scatter' ? 'Stacked' : 'Scatter'}
             </button>
@@ -1209,23 +1165,9 @@ export function HomeInteractive() {
 
           {/* Mode toggle — mobile (viewport < 1024px), top-left below date/time */}
           <button
-            className="mode-toggle-mobile"
+            className="mode-toggle-mobile absolute font-mono text-xs font-medium text-[#000912] bg-transparent border-none p-0 cursor-pointer select-none"
             onClick={handleModeToggle}
-            style={{
-              position: 'absolute',
-              top: '80px',
-              left: '36px',
-              zIndex: 600,
-              fontFamily: "'Atkinson Hyperlegible Mono', monospace",
-              fontWeight: 500,
-              fontSize: '12px',
-              color: '#000912',
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-              userSelect: 'none',
-            }}
+            style={{ top: '80px', left: '36px', zIndex: 600 }}
           >
             {mode === 'scatter' ? 'Stacked' : 'Scatter'}
           </button>
