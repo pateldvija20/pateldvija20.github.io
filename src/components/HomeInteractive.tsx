@@ -133,6 +133,14 @@ export function HomeInteractive() {
     paper: LAYER_TILT['paper'] ?? '',
   });
 
+  // Stores the actual resting scatter position for each layer (predefined or custom-dropped)
+  const scatterPositionsRef = useRef<Record<string, string>>({
+    book: getScatterTransform('book'),
+    folder: getScatterTransform('folder'),
+    file: getScatterTransform('file'),
+    paper: getScatterTransform('paper'),
+  });
+
   const [activeNav, setActiveNav] = useState<LayerKey>('book');
   const [mode, setMode] = useState<'scatter' | 'stacked'>('scatter');
   const [bookOpen, setBookOpen] = useState(false);
@@ -276,8 +284,40 @@ export function HomeInteractive() {
     const scaleMatch = base.match(/scale\(([\d.]+)\)/);
     const baseScale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
     const coverRot = parseTiltDeg(coverBase);
-    if (el) gsap.set(el, { x: parsedBase.x + x, y: parsedBase.y + y, rotation: parsedBase.rotation, scale: baseScale });
-    if (coverEl) gsap.set(coverEl, { x: parsedBase.x + x, y: parsedBase.y + y, rotation: parsedBase.rotation + coverRot, scale: baseScale });
+
+    // Visual absolute offset from mat center
+    const cursorX = parsedBase.x + x;
+    const cursorY = parsedBase.y + y;
+
+    // Check normalized mouse cursor distance relative to green mat bounds (1100x800px)
+    let dist = 1.0;
+    const scene = sceneRef.current;
+    if (scene) {
+      const rect = scene.getBoundingClientRect();
+      const mouseXInScene = (lastMouseRef.current.x - rect.left) / scaleRef.current;
+      const mouseYInScene = (lastMouseRef.current.y - rect.top) / scaleRef.current;
+      const mouseX = mouseXInScene - 720;
+      const mouseY = mouseYInScene - 512;
+      const dxNormalized = Math.abs(mouseX) / 550;
+      const dyNormalized = Math.abs(mouseY) / 400;
+      dist = Math.max(dxNormalized, dyNormalized);
+    }
+
+    let appliedX = cursorX;
+    let appliedY = cursorY;
+    let appliedRot = parsedBase.rotation;
+
+    if (dist < 1 && modeRef.current === 'scatter') {
+      // Magnetic center snapping effect:
+      // Uses a non-linear spring curve (dist^3) for smooth, jump-free interpolation
+      const t = Math.pow(dist, 3);
+      appliedX = cursorX * t;
+      appliedY = cursorY * t;
+      appliedRot = parsedBase.rotation * t;
+    }
+
+    if (el) gsap.set(el, { x: appliedX, y: appliedY, rotation: appliedRot, scale: baseScale });
+    if (coverEl) gsap.set(coverEl, { x: appliedX, y: appliedY, rotation: appliedRot + coverRot, scale: baseScale });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Scale tracking ───────────────────────────────────────────────────────
@@ -353,27 +393,65 @@ export function HomeInteractive() {
       if (drag.hasMoved && modeRef.current === 'scatter') {
         const el = sceneRef.current?.querySelector(`[data-name="${drag.layer}"]`) as HTMLElement | null;
         const coverEl = coverOf(drag.layer);
-        const { x: mouseX, y: mouseY } = lastMouseRef.current;
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const isDesktop = vw >= 1024;
-        const dx = Math.abs(mouseX - vw / 2);
-        const dy = Math.abs(mouseY - vh / 2);
-        const snapCenter = isDesktop
-          ? dx < 275 * scaleRef.current
-          : Math.hypot(dx, dy) < 120;
+        
+        const base = baseTransformsRef.current[drag.layer] ?? '';
+        const parsedBase = parseScatterTransform(base);
+        const finalX = parsedBase.x + dragOffsets[drag.layer].x;
+        const finalY = parsedBase.y + dragOffsets[drag.layer].y;
+
+        // Snaps to center if dropped inside green mat's boundaries ([-550, 550] x [-400, 400] region)
+        let snapCenter = false;
+        const scene = sceneRef.current;
+        if (scene) {
+          const rect = scene.getBoundingClientRect();
+          const mouseXInScene = (e.clientX - rect.left) / scaleRef.current;
+          const mouseYInScene = (e.clientY - rect.top) / scaleRef.current;
+          const mouseX = mouseXInScene - 720;
+          const mouseY = mouseYInScene - 512;
+          snapCenter = Math.abs(mouseX) < 550 && Math.abs(mouseY) < 400;
+        }
 
         if (snapCenter) {
-          // Rule 4 snap: become selected, raise z
+          const prev = selectedLayerRef.current;
+          if (prev && prev !== drag.layer) {
+            if (prev === 'book') {
+              bookOpenRef.current = false;
+              setBookOpen(false);
+              const btn = document.querySelector('[data-name="Book"]') as HTMLElement;
+              if (btn) btn.style.opacity = '1';
+            } else if (prev === 'file') {
+              fileOpenRef.current = false;
+              setFileOpen(false);
+            } else if (prev === 'folder') {
+              folderOpenRef.current = false;
+              setFolderOpen(false);
+            }
+            const prevEl = sceneRef.current?.querySelector(`[data-name="${prev}"]`) as HTMLElement | null;
+            const prevCover = coverOf(prev);
+            const parsed = parseScatterTransform(scatterPositionsRef.current[prev] ?? getScatterTransform(prev));
+            if (prevEl) prevEl.style.zIndex = '30';
+            if (prevCover) prevCover.style.zIndex = '30';
+            baseTransformsRef.current[prev] = scatterPositionsRef.current[prev] ?? getScatterTransform(prev);
+            dragOffsets[prev] = { x: 0, y: 0 };
+            gsap.to(prevEl, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'power3.inOut', duration: 0.6 });
+            if (prevCover) {
+              const coverRot = parseTiltDeg(COVER_INIT_TRANSFORMS[prev] ?? '');
+              gsap.to(prevCover, { x: parsed.x, y: parsed.y, rotation: parsed.rotation + coverRot, scale: 1, ease: 'power3.inOut', duration: 0.6 });
+            }
+          }
+
+          // Rule 4 snap: become selected, raise z, center it
           selectedLayerRef.current = drag.layer as LayerKey;
           setSelectedLayer(drag.layer as LayerKey);
+          baseTransformsRef.current[drag.layer] = 'rotate(0deg) scale(1.04)';
           dragOffsets[drag.layer] = { x: 0, y: 0 };
+          
           if (el) el.style.zIndex = '100';
           if (coverEl) coverEl.style.zIndex = '100';
           gsap.to(el, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'back.out(1.7)', duration: 0.7 });
           if (coverEl) gsap.to(coverEl, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'back.out(1.7)', duration: 0.7 });
         } else {
-          // Rule 4 non-snap: return to scatter, lower z
+          // Free drop: stay exactly where dropped!
           if (drag.layer === 'book' && bookOpenRef.current) {
             bookOpenRef.current = false;
             setBookOpen(false);
@@ -386,11 +464,17 @@ export function HomeInteractive() {
           }
           if (el) el.style.zIndex = '30';
           if (coverEl) coverEl.style.zIndex = '30';
-          const parsed = parseScatterTransform(getScatterTransform(drag.layer) ?? '');
-          dragOffsets[drag.layer] = { x: parsed.x, y: parsed.y };
-          gsap.to(el, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'back.out(1.2)', duration: 0.6 });
-          if (coverEl) gsap.to(coverEl, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'back.out(1.2)', duration: 0.6 });
+          
+          // Save the new absolute visual drop position as the base transform and resting scatter transform!
+          const customPos = `translate(${finalX}px, ${finalY}px) rotate(${parsedBase.rotation}deg) scale(1)`;
+          baseTransformsRef.current[drag.layer] = customPos;
+          scatterPositionsRef.current[drag.layer] = customPos;
           dragOffsets[drag.layer] = { x: 0, y: 0 };
+
+          // Subtle bounce settle to scale: 1
+          gsap.to(el, { x: finalX, y: finalY, rotation: parsedBase.rotation, scale: 1, ease: 'back.out(1.2)', duration: 0.4 });
+          if (coverEl) gsap.to(coverEl, { x: finalX, y: finalY, rotation: parsedBase.rotation + parseTiltDeg(COVER_INIT_TRANSFORMS[drag.layer] ?? ''), scale: 1, ease: 'back.out(1.2)', duration: 0.4 });
+          
           if (selectedLayerRef.current === drag.layer) {
             selectedLayerRef.current = null;
             setSelectedLayer(null);
@@ -482,7 +566,6 @@ export function HomeInteractive() {
     };
     const onClick = (e: Event) => {
       if (modeRef.current === 'stacked' && 'file' !== deckRef.current[0]) return;
-      (e as MouseEvent).stopPropagation?.();
       const next = !fileOpenRef.current;
       fileOpenRef.current = next;
       setFileOpen(next);
@@ -863,6 +946,8 @@ export function HomeInteractive() {
   // ─── Layer selection ──────────────────────────────────────────────────────
   const selectLayer = useCallback((layer: LayerKey) => {
     setActiveNav(layer);
+    selectedLayerRef.current = layer;
+    setSelectedLayer(layer);
     ALL_LAYERS.forEach((l) => {
       const el = q(l);
       if (!el) return;
@@ -898,6 +983,20 @@ export function HomeInteractive() {
           gsap.to(coverEl, { x: 0, y: 0, rotation: parseTiltDeg(initRot), scale: 1.04, duration: 0.6, ease: 'back.out(1.7)' });
         }
       } else {
+        // Reset open states for non-selected layers
+        if (l === 'book') {
+          bookOpenRef.current = false;
+          setBookOpen(false);
+          const btn = document.querySelector('[data-name="Book"]') as HTMLElement;
+          if (btn) btn.style.opacity = '1';
+        } else if (l === 'file') {
+          fileOpenRef.current = false;
+          setFileOpen(false);
+        } else if (l === 'folder') {
+          folderOpenRef.current = false;
+          setFolderOpen(false);
+        }
+
         el.style.zIndex = String(SCATTER_Z);
         if (coverEl) coverEl.style.zIndex = String(SCATTER_Z);
         el.style.pointerEvents = 'none';
@@ -940,26 +1039,155 @@ export function HomeInteractive() {
 
     if (modeRef.current === 'scatter') {
       if (selectedLayerRef.current === layer) {
+        // Selected card on the green mat: keep it centered at (0, 0)!
+        baseTransformsRef.current[layer] = 'rotate(0deg) scale(1.04)';
+        dragOffsets[layer] = { x: 0, y: 0 };
         gsap.to(el, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'back.out(1.7)', duration: 0.6 });
-        if (cover) gsap.to(cover, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'back.out(1.7)', duration: 0.6 });
+        if (cover) {
+          const coverBase = layer === 'book' ? COVER_INIT_TRANSFORMS['book']
+            : layer === 'file' ? COVER_INIT_TRANSFORMS['file']
+            : layer === 'folder' ? COVER_INIT_TRANSFORMS['folder']
+            : COVER_INIT_TRANSFORMS[layer] ?? '';
+          const coverRot = parseTiltDeg(coverBase);
+          
+          const isHovered = cover.firstElementChild?.matches(':hover') || false;
+          if (layer === 'file') setFileHovered(isHovered);
+          if (layer === 'book') setBookHovered(isHovered);
+          if (layer === 'folder') setFolderHovered(isHovered);
+
+          const finalRot = isHovered ? 0 : coverRot;
+          gsap.to(cover, { x: 0, y: 0, rotation: finalRot, scale: 1.04, ease: 'back.out(1.7)', duration: 0.6 });
+        }
       } else {
-        const parsed = parseScatterTransform(getScatterTransform(layer));
+        // Unselected card: return to its resting scatter position!
+        const prevPos = scatterPositionsRef.current[layer];
+        const parsed = parseScatterTransform(prevPos);
+        baseTransformsRef.current[layer] = prevPos;
+        dragOffsets[layer] = { x: 0, y: 0 };
         gsap.to(el, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'back.out(1.7)', duration: 0.6 });
-        if (cover) gsap.to(cover, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'back.out(1.7)', duration: 0.6 });
+        if (cover) {
+          const coverBase = layer === 'book' ? COVER_INIT_TRANSFORMS['book']
+            : layer === 'file' ? COVER_INIT_TRANSFORMS['file']
+            : layer === 'folder' ? COVER_INIT_TRANSFORMS['folder']
+            : COVER_INIT_TRANSFORMS[layer] ?? '';
+          const coverRot = parseTiltDeg(coverBase);
+          gsap.to(cover, { x: parsed.x, y: parsed.y, rotation: parsed.rotation + coverRot, scale: 1, ease: 'back.out(1.7)', duration: 0.6 });
+        }
       }
     } else {
       const tiltDeg = parseTiltDeg(LAYER_TILT[layer] ?? '');
       gsap.to(el, { x: 0, y: 0, rotation: tiltDeg, scale: 1, ease: 'back.out(1.7)', duration: 0.6 });
       if (cover) gsap.to(cover, { x: 0, y: 0, rotation: tiltDeg, scale: 1, ease: 'back.out(1.7)', duration: 0.6 });
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [coverOf]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Book cover remounts when bookOpen goes false — restore position after mount
   useEffect(() => {
     if (!bookOpen) {
-      requestAnimationFrame(() => closeLayer('book'));
+      closeLayer('book');
     }
   }, [bookOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Book 3D opening animation ──────────────────────────────────────────
+  useEffect(() => {
+    const openEl = sceneRef.current?.querySelector('.book-open-container') as HTMLElement | null;
+    if (!openEl) return;
+
+    if (bookOpen) {
+      openEl.style.display = 'block';
+      gsap.fromTo(openEl,
+        { scaleX: 0.1, rotationX: -20, opacity: 0, transformPerspective: 1200, transformOrigin: 'center center' },
+        { scaleX: 1, rotationX: 0, opacity: 1, duration: 0.8, ease: 'back.out(1.3)' }
+      );
+    } else {
+      gsap.to(openEl, {
+        scaleX: 0.1,
+        rotationX: -20,
+        opacity: 0,
+        transformPerspective: 1200,
+        transformOrigin: 'center center',
+        duration: 0.6,
+        ease: 'power3.in',
+        onComplete() {
+          openEl.style.display = 'none';
+        }
+      });
+    }
+  }, [bookOpen]);
+
+  // ─── File open page fanning animation ─────────────────────────────────────
+  useEffect(() => {
+    const coverEl = fileCoverRef.current;
+    if (!coverEl) return;
+    const openEl = coverEl.querySelector('.file-open-container') as HTMLElement | null;
+    const closedEl = coverEl.querySelector('.file-closed-container') as HTMLElement | null;
+    if (!openEl || !closedEl) return;
+
+    if (fileOpen) {
+      openEl.style.display = 'block';
+      gsap.fromTo(closedEl,
+        { opacity: 1 },
+        { opacity: 0, duration: 0.45, ease: 'power2.out' }
+      );
+      gsap.fromTo(openEl,
+        { scale: 1.05, y: 55, rotation: 0, opacity: 0 },
+        { scale: 1.05, y: 0, rotation: 0, opacity: 1, duration: 0.75, ease: 'back.out(1.2)' }
+      );
+    } else {
+      gsap.fromTo(closedEl,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.5, ease: 'power2.inOut', delay: 0.1 }
+      );
+      gsap.to(openEl, {
+        scale: 1.05,
+        y: 55,
+        rotation: 0,
+        opacity: 0,
+        duration: 0.5,
+        ease: 'power3.inOut',
+        onComplete() {
+          openEl.style.display = 'none';
+        }
+      });
+    }
+  }, [fileOpen]);
+
+  // ─── Folder open page fanning animation ───────────────────────────────────
+  useEffect(() => {
+    const coverEl = folderCoverRef.current;
+    if (!coverEl) return;
+    const openEl = coverEl.querySelector('.folder-open-container') as HTMLElement | null;
+    const closedEl = coverEl.querySelector('.folder-closed-container') as HTMLElement | null;
+    if (!openEl || !closedEl) return;
+
+    if (folderOpen) {
+      openEl.style.display = 'block';
+      gsap.fromTo(closedEl,
+        { opacity: 1 },
+        { opacity: 0, duration: 0.45, ease: 'power2.out' }
+      );
+      gsap.fromTo(openEl,
+        { scale: 1.05, y: 55, rotation: 0, opacity: 0 },
+        { scale: 1.05, y: 0, rotation: 0, opacity: 1, duration: 0.75, ease: 'back.out(1.2)' }
+      );
+    } else {
+      gsap.fromTo(closedEl,
+        { opacity: 0 },
+        { opacity: 1, duration: 0.5, ease: 'power2.inOut', delay: 0.1 }
+      );
+      gsap.to(openEl, {
+        scale: 1.05,
+        y: 55,
+        rotation: 0,
+        opacity: 0,
+        duration: 0.5,
+        ease: 'power3.inOut',
+        onComplete() {
+          openEl.style.display = 'none';
+        }
+      });
+    }
+  }, [folderOpen]);
 
   // ─── Scatter ──────────────────────────────────────────────────────────────
   const triggerScatter = useCallback(() => {
@@ -969,6 +1197,16 @@ export function HomeInteractive() {
     selectedLayerRef.current = null;
     setSelectedLayer(null);
     hasScatteredRef.current = true;
+
+    // Reset open states for all interactive objects to prevent overlapping open states
+    bookOpenRef.current = false;
+    setBookOpen(false);
+    fileOpenRef.current = false;
+    setFileOpen(false);
+    folderOpenRef.current = false;
+    setFolderOpen(false);
+    const btn = document.querySelector('[data-name="Book"]') as HTMLElement;
+    if (btn) btn.style.opacity = '1';
 
     const SCATTER_Z = 30;
 
@@ -1101,8 +1339,13 @@ export function HomeInteractive() {
       if (coverEl) { coverEl.style.zIndex = '201'; }
     };
 
+    const preventNativeDrag = (e: Event) => e.preventDefault();
+    scene.addEventListener('dragstart', preventNativeDrag);
     scene.addEventListener('mousedown', onMouseDown);
-    return () => scene.removeEventListener('mousedown', onMouseDown);
+    return () => {
+      scene.removeEventListener('dragstart', preventNativeDrag);
+      scene.removeEventListener('mousedown', onMouseDown);
+    };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Promote layer to deck top (shared by scene click + nav click) ──────────
@@ -1263,14 +1506,31 @@ export function HomeInteractive() {
       // Rule 2: deselect previous, restore to scatter position
       const prev = selectedLayerRef.current;
       if (prev && prev !== hitLayer) {
+        if (prev === 'book') {
+          bookOpenRef.current = false;
+          setBookOpen(false);
+          const btn = document.querySelector('[data-name="Book"]') as HTMLElement;
+          if (btn) btn.style.opacity = '1';
+        } else if (prev === 'file') {
+          fileOpenRef.current = false;
+          setFileOpen(false);
+        } else if (prev === 'folder') {
+          folderOpenRef.current = false;
+          setFolderOpen(false);
+        }
+
         const prevEl = (scene.querySelector(`[data-name="${prev}"]`) as HTMLElement | null);
         const prevCover = coverOf(prev);
-        const parsed = parseScatterTransform(getScatterTransform(prev) ?? '');
+        const parsed = parseScatterTransform(scatterPositionsRef.current[prev] ?? getScatterTransform(prev));
         if (prevEl) prevEl.style.zIndex = '30';
         if (prevCover) prevCover.style.zIndex = '30';
+        baseTransformsRef.current[prev] = scatterPositionsRef.current[prev] ?? getScatterTransform(prev);
+        dragOffsets[prev] = { x: 0, y: 0 };
         gsap.to(prevEl, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'power3.inOut', duration: 0.6 });
-        if (prevCover) gsap.to(prevCover, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'power3.inOut', duration: 0.6 });
-        dragOffsets[prev] = { x: parsed.x, y: parsed.y };
+        if (prevCover) {
+          const coverRot = parseTiltDeg(COVER_INIT_TRANSFORMS[prev] ?? '');
+          gsap.to(prevCover, { x: parsed.x, y: parsed.y, rotation: parsed.rotation + coverRot, scale: 1, ease: 'power3.inOut', duration: 0.6 });
+        }
       }
 
       // Rule 2: fly clicked card to center, raise z
@@ -1281,6 +1541,7 @@ export function HomeInteractive() {
       const cover = coverOf(hitLayer);
       if (el) el.style.zIndex = '100';
       if (cover) cover.style.zIndex = '100';
+      baseTransformsRef.current[hitLayer] = 'rotate(0deg) scale(1.04)';
       dragOffsets[hitLayer] = { x: 0, y: 0 };
       gsap.to(el, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'back.out(1.7)', duration: 0.7 });
       if (cover) gsap.to(cover, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'back.out(1.7)', duration: 0.7 });
@@ -1376,42 +1637,41 @@ export function HomeInteractive() {
           <HomeImport />
 
           {/* ── Book cover overlay (replaces old inline book visual) ──────── */}
-          {!bookOpen && (
-            <div
-              ref={bookCoverRef}
-              className="absolute isolate pointer-events-none overflow-visible"
-              style={{
-                transform: LAYER_TILT['book'],
-                transformOrigin: 'center center',
-              }}
-            >
-              <div className="pointer-events-auto cursor-pointer">
-                {bookHovered ? <BookHoverImg /> : <BookCover />}
-              </div>
+          <div
+            ref={bookCoverRef}
+            className="absolute isolate pointer-events-none overflow-visible"
+            style={{
+              transform: LAYER_TILT['book'],
+              transformOrigin: 'center center',
+              display: 'flex',
+              visibility: bookOpen ? 'hidden' : 'visible',
+            }}
+          >
+            <div className="pointer-events-auto cursor-pointer">
+              {bookHovered ? <BookHoverImg /> : <BookCover />}
             </div>
-          )}
+          </div>
 
-          {bookOpen && (
-            <div
-              className="absolute cursor-pointer"
-              style={{
-                left: 144,
-                top: 137,
-                width: 1152,
-                height: 747,
-                zIndex: 200,
-              }}
-              onClick={() => {
-                bookOpenRef.current = false;
-                setBookOpen(false);
-                const btn = document.querySelector('[data-name="Book"]') as HTMLElement;
-                if (btn) btn.style.opacity = '1';
-                // closeLayer fires via useEffect after cover remounts
-              }}
-            >
-              <BookOpen />
-            </div>
-          )}
+          {/* ── Book open container overlay (always mounted for beautiful page-flip opening) ──────── */}
+          <div
+            className="book-open-container absolute cursor-pointer overflow-visible"
+            style={{
+              left: 144,
+              top: 137,
+              width: 1152,
+              height: 747,
+              zIndex: 200,
+              display: bookOpen ? 'block' : 'none',
+            }}
+            onClick={() => {
+              bookOpenRef.current = false;
+              setBookOpen(false);
+              const btn = document.querySelector('[data-name="Book"]') as HTMLElement;
+              if (btn) btn.style.opacity = '1';
+            }}
+          >
+            <BookOpen />
+          </div>
 
           {/* ── File overlay (always mounted — closed or open) ───────────── */}
           <div
@@ -1422,8 +1682,19 @@ export function HomeInteractive() {
               transformOrigin: 'center center',
             }}
           >
-            <div className="pointer-events-auto cursor-pointer">
-              {fileOpen ? <FileOpen /> : fileHovered ? <FileHoverImg /> : <FileClosed />}
+            <div className="pointer-events-auto cursor-pointer relative flex items-center justify-center" style={{ display: 'grid' }}>
+              {/* Closed file state */}
+              <div className="file-closed-container" style={{ gridArea: '1 / 1 / 2 / 2' }}>
+                {fileHovered ? <FileHoverImg /> : <FileClosed />}
+              </div>
+              
+              {/* Open file pages fanning state */}
+              <div 
+                className="file-open-container" 
+                style={{ gridArea: '1 / 1 / 2 / 2', display: 'none' }}
+              >
+                <FileOpen />
+              </div>
             </div>
           </div>
 
@@ -1433,12 +1704,19 @@ export function HomeInteractive() {
             ref={folderCoverRef}
             className="absolute isolate invisible pointer-events-none overflow-visible"
           >
-            <div className="pointer-events-auto cursor-pointer">
-              {folderOpen
-                ? <FolderOpenView />
-                : folderHovered
-                ? <FolderHover />
-                : <FolderDefault />}
+            <div className="pointer-events-auto cursor-pointer relative flex items-center justify-center" style={{ display: 'grid' }}>
+              {/* Closed folder state */}
+              <div className="folder-closed-container" style={{ gridArea: '1 / 1 / 2 / 2' }}>
+                {folderHovered ? <FolderHover /> : <FolderDefault />}
+              </div>
+
+              {/* Open folder pages fanning state */}
+              <div 
+                className="folder-open-container"
+                style={{ gridArea: '1 / 1 / 2 / 2', display: 'none' }}
+              >
+                <FolderOpenView />
+              </div>
             </div>
           </div>
 
