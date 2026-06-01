@@ -1445,8 +1445,8 @@ export function HomeInteractive() {
           {/* ── Reactive nav overlay ──────────────────────────────────────── */}
           {/* Matches the import's nav: left:1304px, vertically centered */}
           <div
-            className="absolute top-1/2 -translate-y-1/2 flex flex-col items-end gap-2 whitespace-nowrap font-mono text-xs font-medium leading-normal text-[#000912]"
-            style={{ left: '1304px', zIndex: 600 }}
+            className="absolute top-1/2 -translate-y-1/2 flex flex-col items-end gap-2 whitespace-nowrap font-['Bricolage_Grotesque',sans-serif] text-xs leading-normal text-[#000912]"
+            style={{ left: '1304px', zIndex: 600, fontWeight: 600 }}
           >
             {NAV_ITEMS.map(({ layer, label }) => (
               <div
@@ -1467,7 +1467,7 @@ export function HomeInteractive() {
             {/* Mode toggle — desktop (viewport ≥ 1024px) */}
             <button
               onClick={handleModeToggle}
-              className="mode-toggle-desktop font-mono text-xs font-medium text-[#000912] bg-transparent border-none p-0 cursor-pointer select-none"
+              className="mode-toggle-desktop font-['Bricolage_Grotesque',sans-serif] text-xs text-[#000912] bg-transparent border-none p-0 cursor-pointer select-none"
             >
               {mode === 'scatter' ? 'Stacked' : 'Scatter'}
             </button>
@@ -1475,9 +1475,9 @@ export function HomeInteractive() {
 
           {/* Mode toggle — mobile (viewport < 1024px), top-left below date/time */}
           <button
-            className="mode-toggle-mobile absolute font-mono text-xs font-medium text-[#000912] bg-transparent border-none p-0 cursor-pointer select-none"
+            className="mode-toggle-mobile absolute font-['Bricolage_Grotesque',sans-serif] text-xs text-[#000912] bg-transparent border-none p-0 cursor-pointer select-none"
             onClick={handleModeToggle}
-            style={{ top: '80px', left: '36px', zIndex: 600 }}
+            style={{ top: '80px', left: '36px', zIndex: 600, fontWeight: 600 }}
           >
             {mode === 'scatter' ? 'Stacked' : 'Scatter'}
           </button>

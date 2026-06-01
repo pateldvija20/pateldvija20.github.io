@@ -1,3 +1,5 @@
+"use client";
+import { useEffect, useState } from "react";
 import svgPaths from "./svg-64rhvgan4y";
 import imgPaperWhite from "./cf17858120044e118ec26cb20dee96ba9de94036.png";
 import imgImg08021 from "./abf26651fdd9701f637a82f94511f740463a4a81.png";
@@ -448,11 +450,26 @@ function Folder() {
 }
 
 export default function Home() {
+  const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    setNow(new Date());
+    const id = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const dateStr = now
+    ? now.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "2-digit" }).toUpperCase()
+    : "";
+  const timeStr = now
+    ? now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
+    : "";
+
   return (
     <div className="bg-[#f3f2ee] relative size-full" data-name="Home">
       <div className="-translate-x-full [word-break:break-word] absolute font-['Bricolage_Grotesque:Medium',sans-serif] font-medium leading-[0] left-[1380px] text-[#000912] text-[12px] text-right top-[60px] uppercase whitespace-nowrap" style={{ fontVariationSettings: "'opsz' 14, 'wdth' 100" }}>
-        <p className="leading-[1.6] mb-0 whitespace-pre">{`24 May \`26 `}</p>
-        <p className="leading-[1.6] whitespace-pre">8:09 PM</p>
+        <p className="leading-[1.6] mb-0 whitespace-pre">{dateStr}</p>
+        <p className="leading-[1.6] whitespace-pre">{timeStr}</p>
       </div>
       <UiNavContainer />
       <div className="absolute bg-[#00332a] h-[800px] left-[170px] overflow-clip rounded-[19px] top-[112px] w-[1100px]" data-name="mat-grid">
