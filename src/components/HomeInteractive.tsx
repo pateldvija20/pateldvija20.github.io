@@ -164,17 +164,102 @@ export function HomeInteractive() {
     layer === 'folder' ? folderCoverRef.current : null
   , []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const syncZ = useCallback((deck: LayerKey[]) => {
+  const updateStackPositionsImmediateZ = useCallback(() => {
+    const deck = deckRef.current;
     deck.forEach((layer, rank) => {
-      const z = DECK_Z[rank];
-      const el = (sceneRef.current?.querySelector(`[data-name="${layer}"]`) as HTMLElement | null) ?? null;
+      const el = q(layer);
       const cover = coverOf(layer);
+      const z = DECK_Z[rank];
       if (el) {
         el.style.zIndex = String(z);
-        el.style.pointerEvents = rank === 0 ? 'auto' : 'none';
-        el.style.cursor = rank === 0 ? 'pointer' : 'default';
+        el.style.pointerEvents = 'none';
+        el.style.cursor = 'default';
+        if (layer === 'paper') {
+          const child = el.querySelector('[data-name="paper-white"]') as HTMLElement | null;
+          if (child) {
+            child.style.pointerEvents = 'auto';
+            child.style.cursor = 'pointer';
+          }
+        }
       }
-      if (cover) cover.style.zIndex = String(z + 1);
+      if (cover) {
+        cover.style.zIndex = String(z + 1);
+        cover.style.pointerEvents = 'none';
+        cover.style.cursor = 'default';
+        const child = cover.firstElementChild as HTMLElement | null;
+        if (child) {
+          child.style.pointerEvents = 'auto';
+          child.style.cursor = 'pointer';
+        }
+      }
+    });
+  }, [coverOf]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const updateStackPositions = useCallback((animate: boolean) => {
+    const deck = deckRef.current;
+    deck.forEach((layer, rank) => {
+      const el = q(layer);
+      const cover = coverOf(layer);
+      const z = DECK_Z[rank];
+
+      // Update z-indices and interactions immediately
+      if (el) {
+        el.style.zIndex = String(z);
+        el.style.pointerEvents = 'none';
+        el.style.cursor = 'default';
+        if (layer === 'paper') {
+          const child = el.querySelector('[data-name="paper-white"]') as HTMLElement | null;
+          if (child) {
+            child.style.pointerEvents = 'auto';
+            child.style.cursor = 'pointer';
+          }
+        }
+      }
+      if (cover) {
+        cover.style.zIndex = String(z + 1);
+        cover.style.pointerEvents = 'none';
+        cover.style.cursor = 'default';
+        const child = cover.firstElementChild as HTMLElement | null;
+        if (child) {
+          child.style.pointerEvents = 'auto';
+          child.style.cursor = 'pointer';
+        }
+      }
+
+      const targetY = rank * 10;
+      const targetScale = 1 - rank * 0.02;
+      const elRot = parseTiltDeg(LAYER_TILT[layer] ?? '');
+      const coverRot = parseTiltDeg(COVER_INIT_TRANSFORMS[layer] ?? '');
+
+      if (animate) {
+        gsap.to(el, {
+          x: 0,
+          y: targetY,
+          scale: targetScale,
+          rotation: elRot,
+          opacity: 1,
+          duration: 0.7,
+          ease: 'back.out(1.6)',
+        });
+        if (cover) {
+          gsap.to(cover, {
+            x: 0,
+            y: targetY,
+            scale: targetScale,
+            rotation: coverRot,
+            opacity: 1,
+            duration: 0.7,
+            ease: 'back.out(1.6)',
+          });
+        }
+      } else {
+        if (el) {
+          gsap.set(el, { x: 0, y: targetY, scale: targetScale, rotation: elRot, opacity: 1 });
+        }
+        if (cover) {
+          gsap.set(cover, { x: 0, y: targetY, scale: targetScale, rotation: coverRot, opacity: 1 });
+        }
+      }
     });
   }, [coverOf]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -285,8 +370,8 @@ export function HomeInteractive() {
           dragOffsets[drag.layer] = { x: 0, y: 0 };
           if (el) el.style.zIndex = '100';
           if (coverEl) coverEl.style.zIndex = '100';
-          gsap.to(el, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'power2.out', duration: 0.5 });
-          if (coverEl) gsap.to(coverEl, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'power2.out', duration: 0.5 });
+          gsap.to(el, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'back.out(1.7)', duration: 0.7 });
+          if (coverEl) gsap.to(coverEl, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'back.out(1.7)', duration: 0.7 });
         } else {
           // Rule 4 non-snap: return to scatter, lower z
           if (drag.layer === 'book' && bookOpenRef.current) {
@@ -303,8 +388,8 @@ export function HomeInteractive() {
           if (coverEl) coverEl.style.zIndex = '30';
           const parsed = parseScatterTransform(getScatterTransform(drag.layer) ?? '');
           dragOffsets[drag.layer] = { x: parsed.x, y: parsed.y };
-          gsap.to(el, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'power2.in', duration: 0.4 });
-          if (coverEl) gsap.to(coverEl, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'power2.in', duration: 0.4 });
+          gsap.to(el, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'back.out(1.2)', duration: 0.6 });
+          if (coverEl) gsap.to(coverEl, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'back.out(1.2)', duration: 0.6 });
           dragOffsets[drag.layer] = { x: 0, y: 0 };
           if (selectedLayerRef.current === drag.layer) {
             selectedLayerRef.current = null;
@@ -331,20 +416,27 @@ export function HomeInteractive() {
 
   // ─── Book hover + click ───────────────────────────────────────────────────
   useEffect(() => {
-    const bookEl = q('book');
-    if (!bookEl) return;
-
-    const btn = bookEl.querySelector('[data-name="Book"]') as HTMLElement;
-
     const coverEl = bookCoverRef.current;
+    if (!coverEl) return;
+
+    const btn = document.querySelector('[data-name="Book"]') as HTMLElement;
+
+    const activeEl = coverEl.firstElementChild as HTMLElement | null;
+    if (!activeEl) return;
 
     const onEnter = () => {
       if (modeRef.current === 'stacked' && 'book' !== deckRef.current[0]) return;
-      if (!bookOpenRef.current) setBookHovered(true);
+      if (!bookOpenRef.current) {
+        setBookHovered(true);
+        gsap.to(coverEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
+      }
     };
     const onLeave = () => {
       if (modeRef.current === 'stacked' && 'book' !== deckRef.current[0]) return;
-      if (!bookOpenRef.current) setBookHovered(false);
+      if (!bookOpenRef.current) {
+        setBookHovered(false);
+        gsap.to(coverEl, { rotation: -5.31, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
+      }
     };
     const onClick = () => {
       if (modeRef.current === 'stacked' && 'book' !== deckRef.current[0]) return;
@@ -356,33 +448,36 @@ export function HomeInteractive() {
       // closeLayer for book fires via useEffect after cover remounts
     };
 
-    bookEl.addEventListener('mouseenter', onEnter);
-    bookEl.addEventListener('mouseleave', onLeave);
-    bookEl.addEventListener('click', onClick);
+    activeEl.addEventListener('mouseenter', onEnter);
+    activeEl.addEventListener('mouseleave', onLeave);
+    activeEl.addEventListener('click', onClick);
     return () => {
-      bookEl.removeEventListener('mouseenter', onEnter);
-      bookEl.removeEventListener('mouseleave', onLeave);
-      bookEl.removeEventListener('click', onClick);
+      activeEl.removeEventListener('mouseenter', onEnter);
+      activeEl.removeEventListener('mouseleave', onLeave);
+      activeEl.removeEventListener('click', onClick);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [bookOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── File hover + click ───────────────────────────────────────────────────
   useEffect(() => {
     const coverEl = fileCoverRef.current;
     if (!coverEl) return;
 
+    const activeEl = coverEl.firstElementChild as HTMLElement | null;
+    if (!activeEl) return;
+
     const onEnter = () => {
       if (modeRef.current === 'stacked' && 'file' !== deckRef.current[0]) return;
       if (!fileOpenRef.current) {
         setFileHovered(true);
-        gsap.to(coverEl, { rotation: 0, scale: 1.02, duration: 0.3, ease: 'power2.out' });
+        gsap.to(coverEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
       }
     };
     const onLeave = () => {
       if (modeRef.current === 'stacked' && 'file' !== deckRef.current[0]) return;
       if (!fileOpenRef.current) {
         setFileHovered(false);
-        gsap.to(coverEl, { rotation: -28.02, scale: 1, duration: 0.3, ease: 'power2.out' });
+        gsap.to(coverEl, { rotation: -28.02, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
       }
     };
     const onClick = (e: Event) => {
@@ -395,28 +490,37 @@ export function HomeInteractive() {
       if (!next) closeLayer('file');
     };
 
-    coverEl.addEventListener('mouseenter', onEnter);
-    coverEl.addEventListener('mouseleave', onLeave);
-    coverEl.addEventListener('click', onClick);
+    activeEl.addEventListener('mouseenter', onEnter);
+    activeEl.addEventListener('mouseleave', onLeave);
+    activeEl.addEventListener('click', onClick);
     return () => {
-      coverEl.removeEventListener('mouseenter', onEnter);
-      coverEl.removeEventListener('mouseleave', onLeave);
-      coverEl.removeEventListener('click', onClick);
+      activeEl.removeEventListener('mouseenter', onEnter);
+      activeEl.removeEventListener('mouseleave', onLeave);
+      activeEl.removeEventListener('click', onClick);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fileOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Folder hover + click ─────────────────────────────────────────────────
   useEffect(() => {
     const coverEl = folderCoverRef.current;
     if (!coverEl) return;
 
+    const activeEl = coverEl.firstElementChild as HTMLElement | null;
+    if (!activeEl) return;
+
     const onEnter = () => {
       if (modeRef.current === 'stacked' && 'folder' !== deckRef.current[0]) return;
-      if (!folderOpenRef.current) setFolderHovered(true);
+      if (!folderOpenRef.current) {
+        setFolderHovered(true);
+        gsap.to(coverEl, { scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
+      }
     };
     const onLeave = () => {
       if (modeRef.current === 'stacked' && 'folder' !== deckRef.current[0]) return;
-      if (!folderOpenRef.current) setFolderHovered(false);
+      if (!folderOpenRef.current) {
+        setFolderHovered(false);
+        gsap.to(coverEl, { scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
+      }
     };
     const onClick = () => {
       if (modeRef.current === 'stacked' && 'folder' !== deckRef.current[0]) return;
@@ -450,14 +554,39 @@ export function HomeInteractive() {
       el.style.zIndex = String(Z_BASE[layer]);
       if (layer === 'book' && bookCoverRef.current) {
         bookCoverRef.current.style.zIndex = String(Z_BASE['book'] + 1);
+        bookCoverRef.current.style.pointerEvents = 'none';
+        const child = bookCoverRef.current.firstElementChild as HTMLElement | null;
+        if (child) {
+          child.style.pointerEvents = 'auto';
+          child.style.cursor = 'pointer';
+        }
       }
       if (layer === 'file' && fileCoverRef.current) {
         fileCoverRef.current.style.zIndex = String(Z_BASE['file'] + 1);
+        fileCoverRef.current.style.pointerEvents = 'none';
+        const child = fileCoverRef.current.firstElementChild as HTMLElement | null;
+        if (child) {
+          child.style.pointerEvents = 'auto';
+          child.style.cursor = 'pointer';
+        }
       }
       if (layer === 'folder' && folderCoverRef.current) {
         folderCoverRef.current.style.zIndex = String(Z_BASE['folder'] + 1);
+        folderCoverRef.current.style.pointerEvents = 'none';
+        const child = folderCoverRef.current.firstElementChild as HTMLElement | null;
+        if (child) {
+          child.style.pointerEvents = 'auto';
+          child.style.cursor = 'pointer';
+        }
       }
-      el.style.pointerEvents = layer === 'book' ? 'auto' : 'none';
+      el.style.pointerEvents = 'none';
+      if (layer === 'paper') {
+        const child = el.querySelector('[data-name="paper-white"]') as HTMLElement | null;
+        if (child) {
+          child.style.pointerEvents = 'auto';
+          child.style.cursor = 'pointer';
+        }
+      }
     });
 
     // Hide the static nav from import — we render a reactive overlay
@@ -476,10 +605,9 @@ export function HomeInteractive() {
     const oldFolder = scene.querySelector('[data-name="folder-yellow"]') as HTMLElement | null;
     if (oldFolder) oldFolder.style.visibility = 'hidden';
 
-    // Restore rounded-corner clipping on mat-grid — cover overlays are siblings
-    // of HomeImport so they are unaffected by mat-grid's overflow property.
+    // Allow original layers inside mat-grid to render outside its bounds without clipping
     const matEl = scene.querySelector('[data-name="mat-grid"]') as HTMLElement | null;
-    if (matEl) matEl.style.overflow = 'hidden';
+    if (matEl) matEl.style.overflow = 'visible';
 
     // Center all covers on the mat (left:170 top:112 w:1100 h:800 in the 1440×1024 scene)
     const centerOnMat = (coverEl: HTMLDivElement | null) => {
@@ -492,6 +620,7 @@ export function HomeInteractive() {
       coverEl.style.display = 'flex';
       coverEl.style.alignItems = 'center';
       coverEl.style.justifyContent = 'center';
+      coverEl.style.overflow = 'visible'; // Prevent clipping of rotated/scaled covers
     };
 
     centerOnMat(bookCoverRef.current);
@@ -500,7 +629,6 @@ export function HomeInteractive() {
     const coverEl = folderCoverRef.current;
     centerOnMat(coverEl);
     if (coverEl) {
-      coverEl.style.overflow = 'visible';
       coverEl.style.visibility = 'visible';
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -518,94 +646,184 @@ export function HomeInteractive() {
       const deck = deckRef.current;
 
       if (e.deltaY > 0) {
+        // Scroll Down: demote top card to bottom
         isAnimatingRef.current = true;
+        setBookHovered(false);
+        setFileHovered(false);
+        setFolderHovered(false);
+
         const demoted = deck[0];
         const demotedEl = q(demoted);
         const demotedCover = coverOf(demoted);
-        const tilt = LAYER_TILT[demoted] ?? '';
-        const rotDeg = parseTiltDeg(tilt);
 
-        // Exit behind stack (scale down + fade, short travel)
-        gsap.to(demotedEl, {
-          y: '60%',
-          scale: 0.85,
-          opacity: 0,
-          rotation: rotDeg,
-          duration: 0.7,
-          ease: 'power1.inOut',
+        const targetY = 3 * 10;
+        const targetScale = 1 - 3 * 0.02;
+        const elRot = parseTiltDeg(LAYER_TILT[demoted] ?? '');
+        const coverRot = parseTiltDeg(COVER_INIT_TRANSFORMS[demoted] ?? '');
+
+        // Symmetrical GSAP scroll down timeline
+        const cycleTl = gsap.timeline({
           onComplete() {
-            deckRef.current = [...deck.slice(1), demoted];
-            syncZ(deckRef.current);
-            setActiveNav(deckRef.current[0]);
-
-            // Snap below stack, then animate into resting bottom position
-            gsap.set(demotedEl,    { y: '120%', scale: 1, opacity: 1, rotation: rotDeg });
-            if (demotedCover) gsap.set(demotedCover, { y: '120%', scale: 1, opacity: 1, rotation: rotDeg });
-
-            requestAnimationFrame(() => requestAnimationFrame(() => {
-              baseTransformsRef.current[demoted] = `translateY(8px) scale(0.96) ${tilt}`.trim();
-              dragOffsets[demoted] = { x: 0, y: 0 };
-              gsap.to(demotedEl,    { y: 8, scale: 0.96, rotation: rotDeg, duration: 0.42, ease: 'back.out(1.7)' });
-              if (demotedCover) gsap.to(demotedCover, { y: 8, scale: 0.96, rotation: rotDeg, duration: 0.42, ease: 'back.out(1.7)' });
-            }));
-
             isAnimatingRef.current = false;
-          },
+          }
         });
+
+        // 1. Lift and slide the top card up (to be clear of the deck)
+        cycleTl.to(demotedEl, {
+          y: -180,
+          scale: 1.04,
+          rotation: elRot - 5,
+          duration: 0.35,
+          ease: 'power2.out',
+        }, 0);
         if (demotedCover) {
-          gsap.to(demotedCover, { y: '60%', scale: 0.85, opacity: 0, rotation: rotDeg, duration: 0.7, ease: 'power1.inOut' });
+          cycleTl.to(demotedCover, {
+            y: -180,
+            scale: 1.04,
+            rotation: coverRot - 5,
+            duration: 0.35,
+            ease: 'power2.out',
+          }, 0);
         }
 
-        // Remaining layers shift visually — no deck state
-        deck.slice(1).forEach((layer) => {
+        // 2. Simultaneously shift remaining cards up
+        deck.slice(1).forEach((layer, index) => {
           const el = q(layer);
           const cover = coverOf(layer);
-          const rot = parseTiltDeg(LAYER_TILT[layer] ?? '');
-          gsap.to(el,    { y: 6, rotation: rot, duration: 0.55, ease: 'power1.inOut' });
-          gsap.to(cover, { y: 6, rotation: rot, duration: 0.55, ease: 'power1.inOut' });
-          const t = setTimeout(() => {
-            baseTransformsRef.current[layer] = LAYER_TILT[layer] ?? '';
-            dragOffsets[layer] = { x: 0, y: 0 };
-            gsap.to(el,    { y: 0, rotation: rot, duration: 0.55, ease: 'power1.inOut' });
-            gsap.to(cover, { y: 0, rotation: rot, duration: 0.55, ease: 'power1.inOut' });
-          }, 200);
-          remainingShiftTimersRef.current.push(t);
+          const newRank = index;
+          const targetY = newRank * 10;
+          const targetScale = 1 - newRank * 0.02;
+
+          cycleTl.to(el, {
+            y: targetY,
+            scale: targetScale,
+            duration: 0.5,
+            ease: 'power3.out',
+          }, 0);
+          if (cover) {
+            cycleTl.to(cover, {
+              y: targetY,
+              scale: targetScale,
+              duration: 0.5,
+              ease: 'power3.out',
+            }, 0);
+          }
         });
 
+        // 3. Midpoint depth swap: put demoted card behind the stack
+        cycleTl.call(() => {
+          deckRef.current = [...deck.slice(1), demoted];
+          updateStackPositionsImmediateZ();
+          setActiveNav(deckRef.current[0]);
+        }, undefined, 0.35);
+
+        // 4. Slide demoted card down into its resting slot behind the other cards
+        cycleTl.to(demotedEl, {
+          y: targetY,
+          scale: targetScale,
+          rotation: elRot,
+          duration: 0.45,
+          ease: 'back.out(1.5)',
+        }, 0.35);
+        if (demotedCover) {
+          cycleTl.to(demotedCover, {
+            y: targetY,
+            scale: targetScale,
+            rotation: coverRot,
+            duration: 0.45,
+            ease: 'back.out(1.5)',
+          }, 0.35);
+        }
+
       } else if (e.deltaY < 0) {
+        // Scroll Up: promote bottom card to top
         isAnimatingRef.current = true;
+        setBookHovered(false);
+        setFileHovered(false);
+        setFolderHovered(false);
+
         const promoted = deck[deck.length - 1];
         const promotedEl = q(promoted);
         const promotedCover = coverOf(promoted);
-        const tilt = LAYER_TILT[promoted] ?? '';
-        const rotDeg = parseTiltDeg(tilt);
 
-        // Teleport above stack (invisible snap)
-        gsap.set(promotedEl, { y: '-120%', rotation: rotDeg });
-        if (promotedCover) gsap.set(promotedCover, { y: '-120%', rotation: rotDeg });
+        const targetY = 0;
+        const targetScale = 1.0;
+        const elRot = parseTiltDeg(LAYER_TILT[promoted] ?? '');
+        const coverRot = parseTiltDeg(COVER_INIT_TRANSFORMS[promoted] ?? '');
 
-        // Immediately update deck state — not in a callback
-        deckRef.current = [promoted, ...deck.slice(0, -1)];
-        syncZ(deckRef.current);
-        setActiveNav(promoted);
-
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          gsap.to(promotedEl, {
-            y: 0,
-            rotation: rotDeg,
-            duration: 0.7,
-            ease: 'power1.inOut',
-            onComplete() {
-              gsap.set(promotedEl, { clearProps: 'transform' });
-              isAnimatingRef.current = false;
-            },
-          });
-          if (promotedCover) {
-            gsap.to(promotedCover, { y: 0, rotation: rotDeg, duration: 0.7, ease: 'power1.inOut',
-              onComplete() { gsap.set(promotedCover, { clearProps: 'transform' }); },
-            });
+        // Symmetrical GSAP scroll up timeline
+        const cycleTl = gsap.timeline({
+          onComplete() {
+            isAnimatingRef.current = false;
           }
-        }));
+        });
+
+        // 1. Slide the bottom card out downwards (behind the stack)
+        cycleTl.to(promotedEl, {
+          y: 180,
+          scale: 0.94,
+          rotation: elRot + 5,
+          duration: 0.35,
+          ease: 'power2.out',
+        }, 0);
+        if (promotedCover) {
+          cycleTl.to(promotedCover, {
+            y: 180,
+            scale: 0.94,
+            rotation: coverRot + 5,
+            duration: 0.35,
+            ease: 'power2.out',
+          }, 0);
+        }
+
+        // 2. Shift remaining cards down simultaneously
+        deck.slice(0, -1).forEach((layer, index) => {
+          const el = q(layer);
+          const cover = coverOf(layer);
+          const newRank = index + 1;
+          const targetY = newRank * 10;
+          const targetScale = 1 - newRank * 0.02;
+
+          cycleTl.to(el, {
+            y: targetY,
+            scale: targetScale,
+            duration: 0.5,
+            ease: 'power3.out',
+          }, 0);
+          if (cover) {
+            cycleTl.to(cover, {
+              y: targetY,
+              scale: targetScale,
+              duration: 0.5,
+              ease: 'power3.out',
+            }, 0);
+          }
+        });
+
+        // 3. Midpoint depth swap: put promoted card on top of the stack
+        cycleTl.call(() => {
+          deckRef.current = [promoted, ...deck.slice(0, -1)];
+          updateStackPositionsImmediateZ();
+          setActiveNav(deckRef.current[0]);
+        }, undefined, 0.35);
+
+        // 4. Slide promoted card up onto the top resting slot (in front of other cards)
+        cycleTl.to(promotedEl, {
+          y: targetY,
+          scale: targetScale,
+          rotation: elRot,
+          duration: 0.45,
+          ease: 'back.out(1.5)',
+        }, 0.35);
+        if (promotedCover) {
+          cycleTl.to(promotedCover, {
+            y: targetY,
+            scale: targetScale,
+            rotation: coverRot,
+            duration: 0.45,
+            ease: 'back.out(1.5)',
+          }, 0.35);
+        }
       }
     };
 
@@ -660,28 +878,55 @@ export function HomeInteractive() {
         dragOffsets[l] = { x: 0, y: 0 };
         el.style.zIndex = '100';
         if (coverEl) coverEl.style.zIndex = '100';
-        el.style.pointerEvents = 'auto';
-        el.style.cursor = 'pointer';
-        gsap.to(el, { x: 0, y: 0, rotation: 0, scale: 1.04, duration: 0.35, ease: 'power2.out' });
+        el.style.pointerEvents = 'none';
+        el.style.cursor = 'default';
+        if (l === 'paper') {
+          const child = el.querySelector('[data-name="paper-white"]') as HTMLElement | null;
+          if (child) {
+            child.style.pointerEvents = 'auto';
+            child.style.cursor = 'pointer';
+          }
+        }
+        gsap.to(el, { x: 0, y: 0, rotation: 0, scale: 1.04, duration: 0.6, ease: 'back.out(1.7)' });
         if (coverEl) {
-          coverEl.style.pointerEvents = 'auto';
-          gsap.to(coverEl, { x: 0, y: 0, rotation: parseTiltDeg(initRot), scale: 1.04, duration: 0.35, ease: 'power2.out' });
+          coverEl.style.pointerEvents = 'none';
+          const child = coverEl.firstElementChild as HTMLElement | null;
+          if (child) {
+            child.style.pointerEvents = 'auto';
+            child.style.cursor = 'pointer';
+          }
+          gsap.to(coverEl, { x: 0, y: 0, rotation: parseTiltDeg(initRot), scale: 1.04, duration: 0.6, ease: 'back.out(1.7)' });
         }
       } else {
         el.style.zIndex = String(SCATTER_Z);
         if (coverEl) coverEl.style.zIndex = String(SCATTER_Z);
         el.style.pointerEvents = 'none';
         el.style.cursor = 'default';
+        if (l === 'paper') {
+          const child = el.querySelector('[data-name="paper-white"]') as HTMLElement | null;
+          if (child) {
+            child.style.pointerEvents = 'none';
+            child.style.cursor = 'default';
+          }
+        }
+        if (coverEl) {
+          coverEl.style.pointerEvents = 'none';
+          const child = coverEl.firstElementChild as HTMLElement | null;
+          if (child) {
+            child.style.pointerEvents = 'none';
+            child.style.cursor = 'default';
+          }
+        }
         if (hasScatteredRef.current && getScatterTransform(l)) {
           const sp = parseScatterTransform(getScatterTransform(l));
           baseTransformsRef.current[l] = getScatterTransform(l);
-          gsap.to(el, { x: sp.x, y: sp.y, rotation: sp.rotation, scale: 1, duration: 0.35, ease: 'power2.in' });
-          if (coverEl) gsap.to(coverEl, { x: sp.x, y: sp.y, rotation: sp.rotation + parseTiltDeg(initRot), scale: 1, duration: 0.35, ease: 'power2.in' });
+          gsap.to(el, { x: sp.x, y: sp.y, rotation: sp.rotation, scale: 1, duration: 0.5, ease: 'power3.inOut' });
+          if (coverEl) gsap.to(coverEl, { x: sp.x, y: sp.y, rotation: sp.rotation + parseTiltDeg(initRot), scale: 1, duration: 0.5, ease: 'power3.inOut' });
         } else {
           const tiltRot = parseTiltDeg(LAYER_TILT[l] ?? '');
           baseTransformsRef.current[l] = LAYER_TILT[l] ?? '';
-          gsap.to(el, { x: 0, y: 0, rotation: tiltRot, scale: 1, duration: 0.35, ease: 'power2.in' });
-          if (coverEl) gsap.to(coverEl, { x: 0, y: 0, rotation: parseTiltDeg(initRot), scale: 1, duration: 0.35, ease: 'power2.in' });
+          gsap.to(el, { x: 0, y: 0, rotation: tiltRot, scale: 1, duration: 0.5, ease: 'power3.inOut' });
+          if (coverEl) gsap.to(coverEl, { x: 0, y: 0, rotation: parseTiltDeg(initRot), scale: 1, duration: 0.5, ease: 'power3.inOut' });
         }
       }
     });
@@ -695,17 +940,17 @@ export function HomeInteractive() {
 
     if (modeRef.current === 'scatter') {
       if (selectedLayerRef.current === layer) {
-        gsap.to(el, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'power2.out', duration: 0.3 });
-        if (cover) gsap.to(cover, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'power2.out', duration: 0.3 });
+        gsap.to(el, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'back.out(1.7)', duration: 0.6 });
+        if (cover) gsap.to(cover, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'back.out(1.7)', duration: 0.6 });
       } else {
         const parsed = parseScatterTransform(getScatterTransform(layer));
-        gsap.to(el, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'power2.out', duration: 0.3 });
-        if (cover) gsap.to(cover, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'power2.out', duration: 0.3 });
+        gsap.to(el, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'back.out(1.7)', duration: 0.6 });
+        if (cover) gsap.to(cover, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'back.out(1.7)', duration: 0.6 });
       }
     } else {
       const tiltDeg = parseTiltDeg(LAYER_TILT[layer] ?? '');
-      gsap.to(el, { x: 0, y: 0, rotation: tiltDeg, scale: 1, ease: 'power2.out', duration: 0.3 });
-      if (cover) gsap.to(cover, { x: 0, y: 0, rotation: tiltDeg, scale: 1, ease: 'power2.out', duration: 0.3 });
+      gsap.to(el, { x: 0, y: 0, rotation: tiltDeg, scale: 1, ease: 'back.out(1.7)', duration: 0.6 });
+      if (cover) gsap.to(cover, { x: 0, y: 0, rotation: tiltDeg, scale: 1, ease: 'back.out(1.7)', duration: 0.6 });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -736,8 +981,15 @@ export function HomeInteractive() {
         baseTransformsRef.current[layerKey] = getScatterTransform(layerKey);
         dragOffsets[layerKey] = { x: 0, y: 0 };
         el.style.zIndex = String(SCATTER_Z);
-        el.style.pointerEvents = 'auto';
-        el.style.cursor = 'pointer';
+        el.style.pointerEvents = 'none';
+        el.style.cursor = 'default';
+        if (layerKey === 'paper') {
+          const child = el.querySelector('[data-name="paper-white"]') as HTMLElement | null;
+          if (child) {
+            child.style.pointerEvents = 'auto';
+            child.style.cursor = 'pointer';
+          }
+        }
         gsap.to(el, { x: sp.x, y: sp.y, rotation: sp.rotation, duration: SCATTER_DURATION / 1000, ease: 'back.out(1.7)', delay });
       }
 
@@ -747,14 +999,15 @@ export function HomeInteractive() {
       const coverRef = coverRefMap[layerKey];
       if (coverRef?.current) {
         coverRef.current.style.zIndex = String(SCATTER_Z);
+        coverRef.current.style.pointerEvents = 'none';
+        const child = coverRef.current.firstElementChild as HTMLElement | null;
+        if (child) {
+          child.style.pointerEvents = 'auto';
+          child.style.cursor = 'pointer';
+        }
         gsap.to(coverRef.current, { x: sp.x, y: sp.y, rotation: sp.rotation, duration: SCATTER_DURATION / 1000, ease: 'back.out(1.7)', delay });
       }
     });
-
-    // Covers must not intercept clicks while scattered
-    if (bookCoverRef.current) bookCoverRef.current.style.pointerEvents = 'none';
-    if (fileCoverRef.current) fileCoverRef.current.style.pointerEvents = 'none';
-    if (folderCoverRef.current) folderCoverRef.current.style.pointerEvents = 'none';
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Scatter on mount ─────────────────────────────────────────────────────
@@ -779,7 +1032,14 @@ export function HomeInteractive() {
         dragOffsets[layerKey] = { x: 0, y: 0 };
         el.style.pointerEvents = 'none';
         el.style.cursor = 'default';
-        gsap.to(el, { x: 0, y: 0, rotation: tiltRot, scale: 1, ease: 'power2.out', duration: 0.6, delay: i * 0.04 });
+        if (layerKey === 'paper') {
+          const child = el.querySelector('[data-name="paper-white"]') as HTMLElement | null;
+          if (child) {
+            child.style.pointerEvents = 'auto';
+            child.style.cursor = 'pointer';
+          }
+        }
+        gsap.to(el, { x: 0, y: 0, rotation: tiltRot, scale: 1, ease: 'back.out(1.5)', duration: 0.7, delay: i * 0.04 });
       }
 
       const coverRefMap: Record<string, React.RefObject<HTMLDivElement | null>> = {
@@ -787,18 +1047,17 @@ export function HomeInteractive() {
       };
       const coverRef = coverRefMap[layerKey];
       if (coverRef?.current) {
-        coverRef.current.style.pointerEvents = 'auto';
-        gsap.to(coverRef.current, { x: 0, y: 0, rotation: parseTiltDeg(COVER_INIT_TRANSFORMS[layerKey] ?? ''), scale: 1, ease: 'power2.out', duration: 0.6, delay: i * 0.04 });
+        coverRef.current.style.pointerEvents = 'none';
+        const child = coverRef.current.firstElementChild as HTMLElement | null;
+        if (child) {
+          child.style.pointerEvents = 'auto';
+          child.style.cursor = 'pointer';
+        }
+        gsap.to(coverRef.current, { x: 0, y: 0, rotation: parseTiltDeg(COVER_INIT_TRANSFORMS[layerKey] ?? ''), scale: 1, ease: 'back.out(1.5)', duration: 0.7, delay: i * 0.04 });
       }
     });
 
-    syncZ(deckRef.current);
-
-    // Restore top-of-deck pointer events
-    const topEl = scene.querySelector(`[data-name="${deckRef.current[0]}"]`) as HTMLElement | null;
-    if (topEl) { topEl.style.pointerEvents = 'auto'; topEl.style.cursor = 'pointer'; }
-
-    setActiveNav(deckRef.current[0]);
+    updateStackPositionsImmediateZ();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Drag start (native mousedown on scene layers) ───────────────────────
@@ -817,7 +1076,10 @@ export function HomeInteractive() {
       // Find which draggable layer was hit
       const draggable = (['book', 'folder', 'file', 'paper'] as const).find((layer) => {
         const el = scene.querySelector(`[data-name="${layer}"]`) as HTMLElement | null;
-        return el?.contains(target);
+        const cover = coverOf(layer);
+        const hitEl = el && el.contains(target);
+        const hitCover = cover && cover.contains(target);
+        return hitEl || hitCover;
       });
       if (!draggable) return;
       console.log('[drag] start', draggable, e.clientX, e.clientY);
@@ -849,49 +1111,98 @@ export function HomeInteractive() {
     const scene = sceneRef.current;
     if (!scene) return;
     isAnimatingRef.current = true;
+
+    setBookHovered(false);
+    setFileHovered(false);
+    setFolderHovered(false);
+
     const el = scene.querySelector(`[data-name="${layer}"]`) as HTMLElement | null;
     const cover = coverOf(layer);
-    const tilt = LAYER_TILT[layer] ?? '';
-    const rotDeg = parseTiltDeg(tilt);
     const deck = deckRef.current;
+    const currentRank = deck.indexOf(layer);
 
-    gsap.to(el, {
-      y: -20,
-      duration: 0.15,
-      ease: 'power2.out',
+    const elRot = parseTiltDeg(LAYER_TILT[layer] ?? '');
+    const coverRot = parseTiltDeg(COVER_INIT_TRANSFORMS[layer] ?? '');
+
+    // 1. Slide the clicked card out to the side
+    const promoteTl = gsap.timeline({
       onComplete() {
-        gsap.set(el, { y: '-120%', rotation: rotDeg });
-        if (cover) gsap.set(cover, { y: '-120%', rotation: rotDeg });
-
-        deckRef.current = [layer, ...deck.filter((l) => l !== layer)];
-        syncZ(deckRef.current);
-        setActiveNav(layer);
-
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          gsap.to(el, {
-            y: 0,
-            rotation: rotDeg,
-            duration: 0.5,
-            ease: 'power2.in',
-            onComplete() {
-              gsap.set(el, { clearProps: 'transform' });
-              isAnimatingRef.current = false;
-            },
-          });
-          if (cover) {
-            gsap.to(cover, {
-              y: 0,
-              rotation: rotDeg,
-              duration: 0.5,
-              ease: 'power2.in',
-              onComplete() { gsap.set(cover, { clearProps: 'transform' }); },
-            });
-          }
-        }));
-      },
+        isAnimatingRef.current = false;
+      }
     });
-    if (cover) gsap.to(cover, { y: -20, duration: 0.15, ease: 'power2.out' });
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    promoteTl.to(el, {
+      x: -220,
+      y: -60,
+      scale: 1.04,
+      rotation: elRot - 5,
+      duration: 0.35,
+      ease: 'power2.out',
+    }, 0);
+    if (cover) {
+      promoteTl.to(cover, {
+        x: -220,
+        y: -60,
+        scale: 1.04,
+        rotation: coverRot - 5,
+        duration: 0.35,
+        ease: 'power2.out',
+      }, 0);
+    }
+
+    // 2. Simultaneously shift other cards down/scale down
+    deck.forEach((l, rank) => {
+      if (l === layer) return;
+      const elOther = q(l);
+      const coverOther = coverOf(l);
+      
+      const newRank = rank < currentRank ? rank + 1 : rank;
+      const targetY = newRank * 10;
+      const targetScale = 1 - newRank * 0.02;
+
+      promoteTl.to(elOther, {
+        y: targetY,
+        scale: targetScale,
+        duration: 0.5,
+        ease: 'power3.out',
+      }, 0);
+      if (coverOther) {
+        promoteTl.to(coverOther, {
+          y: targetY,
+          scale: targetScale,
+          duration: 0.5,
+          ease: 'power3.out',
+        }, 0);
+      }
+    });
+
+    // 3. Midpoint depth swap: put promoted card on top
+    promoteTl.call(() => {
+      deckRef.current = [layer, ...deck.filter((l) => l !== layer)];
+      updateStackPositionsImmediateZ();
+      setActiveNav(layer);
+    }, undefined, 0.35);
+
+    // 4. Slide promoted card back to the center on top of the deck
+    promoteTl.to(el, {
+      x: 0,
+      y: 0,
+      scale: 1.0,
+      rotation: elRot,
+      duration: 0.45,
+      ease: 'back.out(1.5)',
+    }, 0.35);
+    if (cover) {
+      promoteTl.to(cover, {
+        x: 0,
+        y: 0,
+        scale: 1.0,
+        rotation: coverRot,
+        duration: 0.45,
+        ease: 'back.out(1.5)',
+      }, 0.35);
+    }
+  }, [coverOf, updateStackPositionsImmediateZ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Click handlers ───────────────────────────────────────────────────────
   const handleSceneClick = useCallback(
@@ -921,7 +1232,10 @@ export function HomeInteractive() {
       const findHitLayer = () =>
         (['book', 'folder', 'file', 'paper'] as const).find((layer) => {
           const el = scene.querySelector(`[data-name="${layer}"]`) as HTMLElement | null;
-          return el?.contains(target);
+          const cover = coverOf(layer);
+          const hitEl = el && (target === el || el.contains(target));
+          const hitCover = cover && (target === cover || cover.contains(target));
+          return hitEl || hitCover;
         }) ?? null;
 
       // ── Stacked mode ────────────────────────────────────────────────────
@@ -954,8 +1268,8 @@ export function HomeInteractive() {
         const parsed = parseScatterTransform(getScatterTransform(prev) ?? '');
         if (prevEl) prevEl.style.zIndex = '30';
         if (prevCover) prevCover.style.zIndex = '30';
-        gsap.to(prevEl, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'power2.in', duration: 0.4 });
-        if (prevCover) gsap.to(prevCover, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'power2.in', duration: 0.4 });
+        gsap.to(prevEl, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'power3.inOut', duration: 0.6 });
+        if (prevCover) gsap.to(prevCover, { x: parsed.x, y: parsed.y, rotation: parsed.rotation, scale: 1, ease: 'power3.inOut', duration: 0.6 });
         dragOffsets[prev] = { x: parsed.x, y: parsed.y };
       }
 
@@ -968,8 +1282,8 @@ export function HomeInteractive() {
       if (el) el.style.zIndex = '100';
       if (cover) cover.style.zIndex = '100';
       dragOffsets[hitLayer] = { x: 0, y: 0 };
-      gsap.to(el, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'power2.out', duration: 0.5 });
-      if (cover) gsap.to(cover, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'power2.out', duration: 0.5 });
+      gsap.to(el, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'back.out(1.7)', duration: 0.7 });
+      if (cover) gsap.to(cover, { x: 0, y: 0, rotation: 0, scale: 1.04, ease: 'back.out(1.7)', duration: 0.7 });
     },
     [coverOf, promoteLayerToTop], // eslint-disable-line react-hooks/exhaustive-deps
   );
@@ -1021,16 +1335,7 @@ export function HomeInteractive() {
       selectedLayerRef.current = null;
       setSelectedLayer(null);
 
-      (['book', 'folder', 'file', 'paper'] as const).forEach((layer, i) => {
-        const el = q(layer);
-        const cover = coverOf(layer);
-        const rotation = parseTiltDeg(LAYER_TILT[layer] ?? '');
-        const tweenProps = { x: 0, y: 0, rotation, scale: 1, ease: 'power2.out', duration: 0.6, delay: i * 0.04 };
-        if (el) gsap.to(el, tweenProps);
-        if (cover) gsap.to(cover, tweenProps);
-      });
-
-      syncZ(deckRef.current);
+      updateStackPositions(true);
       wheelEnabledRef.current = true;
       modeRef.current = 'stacked';
       setMode('stacked');
@@ -1080,7 +1385,9 @@ export function HomeInteractive() {
                 transformOrigin: 'center center',
               }}
             >
-              {bookHovered ? <BookHoverImg /> : <BookCover />}
+              <div className="pointer-events-auto cursor-pointer">
+                {bookHovered ? <BookHoverImg /> : <BookCover />}
+              </div>
             </div>
           )}
 
@@ -1109,26 +1416,30 @@ export function HomeInteractive() {
           {/* ── File overlay (always mounted — closed or open) ───────────── */}
           <div
             ref={fileCoverRef}
-            className="absolute isolate cursor-pointer overflow-visible"
+            className="absolute isolate pointer-events-none overflow-visible"
             style={{
               transform: LAYER_TILT['file'],
               transformOrigin: 'center center',
             }}
           >
-            {fileOpen ? <FileOpen /> : fileHovered ? <FileHoverImg /> : <FileClosed />}
+            <div className="pointer-events-auto cursor-pointer">
+              {fileOpen ? <FileOpen /> : fileHovered ? <FileHoverImg /> : <FileClosed />}
+            </div>
           </div>
 
           {/* ── Folder overlay (default / hover / open) ───────────────────── */}
           {/* Position and visibility are set dynamically in initial setup useEffect */}
           <div
             ref={folderCoverRef}
-            className="absolute isolate invisible cursor-pointer overflow-visible"
+            className="absolute isolate invisible pointer-events-none overflow-visible"
           >
-            {folderOpen
-              ? <FolderOpenView />
-              : folderHovered
-              ? <FolderHover />
-              : <FolderDefault />}
+            <div className="pointer-events-auto cursor-pointer">
+              {folderOpen
+                ? <FolderOpenView />
+                : folderHovered
+                ? <FolderHover />
+                : <FolderDefault />}
+            </div>
           </div>
 
           {/* ── Reactive nav overlay ──────────────────────────────────────── */}
@@ -1155,7 +1466,6 @@ export function HomeInteractive() {
             ))}
             {/* Mode toggle — desktop (viewport ≥ 1024px) */}
             <button
-              className="mode-toggle-desktop"
               onClick={handleModeToggle}
               className="mode-toggle-desktop font-mono text-xs font-medium text-[#000912] bg-transparent border-none p-0 cursor-pointer select-none"
             >
