@@ -9,9 +9,7 @@ import BookHoverImg from '../imports/BookHover/BookHover';
 import FileClosed from '../imports/Frame36/Frame36';
 import FileOpen from '../imports/FilePurple/FilePurple';
 import FileHoverImg from '../imports/FileHover/FileHover';
-import FolderDefault from '../imports/FolderYellow-7/FolderYellow-6-1565';
-import FolderHover from '../imports/FolderYellow-3/FolderYellow-6-1194';
-import FolderOpenView from '../imports/FolderYellow-5/FolderYellow-6-1333';
+import { FolderCard } from './FolderCard';
 
 type LayerKey = 'book' | 'file' | 'folder' | 'paper' | 'mat-grid';
 
@@ -616,13 +614,13 @@ export function HomeInteractive() {
       }
     };
 
-    coverEl.addEventListener('mouseenter', onEnter);
-    coverEl.addEventListener('mouseleave', onLeave);
-    coverEl.addEventListener('click', onClick);
+    activeEl.addEventListener('mouseenter', onEnter);
+    activeEl.addEventListener('mouseleave', onLeave);
+    activeEl.addEventListener('click', onClick);
     return () => {
-      coverEl.removeEventListener('mouseenter', onEnter);
-      coverEl.removeEventListener('mouseleave', onLeave);
-      coverEl.removeEventListener('click', onClick);
+      activeEl.removeEventListener('mouseenter', onEnter);
+      activeEl.removeEventListener('mouseleave', onLeave);
+      activeEl.removeEventListener('click', onClick);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1704,19 +1702,8 @@ export function HomeInteractive() {
             ref={folderCoverRef}
             className="absolute isolate invisible pointer-events-none overflow-visible"
           >
-            <div className="pointer-events-auto cursor-pointer relative flex items-center justify-center" style={{ display: 'grid' }}>
-              {/* Closed folder state */}
-              <div className="folder-closed-container" style={{ gridArea: '1 / 1 / 2 / 2' }}>
-                {folderHovered ? <FolderHover /> : <FolderDefault />}
-              </div>
-
-              {/* Open folder pages fanning state */}
-              <div 
-                className="folder-open-container"
-                style={{ gridArea: '1 / 1 / 2 / 2', display: 'none' }}
-              >
-                <FolderOpenView />
-              </div>
+            <div className="pointer-events-auto cursor-pointer">
+              <FolderCard />
             </div>
           </div>
 

@@ -4,8 +4,9 @@
     {
       "name": "Portfolio (Next.js)",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3000
+      "runtimeArgs": ["--prefix", "/Users/dvijapatel/Projects/Portfolio", "run", "dev"],
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }
