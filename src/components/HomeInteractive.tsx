@@ -145,9 +145,7 @@ export function HomeInteractive() {
   const bookOpenRef = useRef(false);
   const [fileOpen, setFileOpen] = useState(false);
   const fileOpenRef = useRef(false);
-  const [folderOpen, setFolderOpen] = useState(false);
-  const folderOpenRef = useRef(false);
-  const [folderHovered, setFolderHovered] = useState(false);
+
   const [bookHovered, setBookHovered] = useState(false);
   const [fileHovered, setFileHovered] = useState(false);
   const [selectedLayer, setSelectedLayer] = useState<LayerKey | null>(null);
@@ -421,8 +419,6 @@ export function HomeInteractive() {
               fileOpenRef.current = false;
               setFileOpen(false);
             } else if (prev === 'folder') {
-              folderOpenRef.current = false;
-              setFolderOpen(false);
             }
             const prevEl = sceneRef.current?.querySelector(`[data-name="${prev}"]`) as HTMLElement | null;
             const prevCover = coverOf(prev);
@@ -456,9 +452,6 @@ export function HomeInteractive() {
           } else if (drag.layer === 'file' && fileOpenRef.current) {
             fileOpenRef.current = false;
             setFileOpen(false);
-          } else if (drag.layer === 'folder' && folderOpenRef.current) {
-            folderOpenRef.current = false;
-            setFolderOpen(false);
           }
           if (el) el.style.zIndex = '30';
           if (coverEl) coverEl.style.zIndex = '30';
@@ -581,48 +574,6 @@ export function HomeInteractive() {
     };
   }, [fileOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Folder hover + click ─────────────────────────────────────────────────
-  useEffect(() => {
-    const coverEl = folderCoverRef.current;
-    if (!coverEl) return;
-
-    const activeEl = coverEl.firstElementChild as HTMLElement | null;
-    if (!activeEl) return;
-
-    const onEnter = () => {
-      if (modeRef.current === 'stacked' && 'folder' !== deckRef.current[0]) return;
-      if (!folderOpenRef.current) {
-        setFolderHovered(true);
-        gsap.to(coverEl, { scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
-      }
-    };
-    const onLeave = () => {
-      if (modeRef.current === 'stacked' && 'folder' !== deckRef.current[0]) return;
-      if (!folderOpenRef.current) {
-        setFolderHovered(false);
-        gsap.to(coverEl, { scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
-      }
-    };
-    const onClick = () => {
-      if (modeRef.current === 'stacked' && 'folder' !== deckRef.current[0]) return;
-      const next = !folderOpenRef.current;
-      folderOpenRef.current = next;
-      setFolderOpen(next);
-      if (!next) {
-        setFolderHovered(false);
-        closeLayer('folder');
-      }
-    };
-
-    activeEl.addEventListener('mouseenter', onEnter);
-    activeEl.addEventListener('mouseleave', onLeave);
-    activeEl.addEventListener('click', onClick);
-    return () => {
-      activeEl.removeEventListener('mouseenter', onEnter);
-      activeEl.removeEventListener('mouseleave', onLeave);
-      activeEl.removeEventListener('click', onClick);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Initial setup ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -731,7 +682,6 @@ export function HomeInteractive() {
         isAnimatingRef.current = true;
         setBookHovered(false);
         setFileHovered(false);
-        setFolderHovered(false);
 
         const demoted = deck[0];
         const demotedEl = q(demoted);
@@ -821,7 +771,6 @@ export function HomeInteractive() {
         isAnimatingRef.current = true;
         setBookHovered(false);
         setFileHovered(false);
-        setFolderHovered(false);
 
         const promoted = deck[deck.length - 1];
         const promotedEl = q(promoted);
@@ -991,8 +940,6 @@ export function HomeInteractive() {
           fileOpenRef.current = false;
           setFileOpen(false);
         } else if (l === 'folder') {
-          folderOpenRef.current = false;
-          setFolderOpen(false);
         }
 
         el.style.zIndex = String(SCATTER_Z);
@@ -1051,7 +998,6 @@ export function HomeInteractive() {
           const isHovered = cover.firstElementChild?.matches(':hover') || false;
           if (layer === 'file') setFileHovered(isHovered);
           if (layer === 'book') setBookHovered(isHovered);
-          if (layer === 'folder') setFolderHovered(isHovered);
 
           const finalRot = isHovered ? 0 : coverRot;
           gsap.to(cover, { x: 0, y: 0, rotation: finalRot, scale: 1.04, ease: 'back.out(1.7)', duration: 0.6 });
@@ -1150,42 +1096,6 @@ export function HomeInteractive() {
     }
   }, [fileOpen]);
 
-  // ─── Folder open page fanning animation ───────────────────────────────────
-  useEffect(() => {
-    const coverEl = folderCoverRef.current;
-    if (!coverEl) return;
-    const openEl = coverEl.querySelector('.folder-open-container') as HTMLElement | null;
-    const closedEl = coverEl.querySelector('.folder-closed-container') as HTMLElement | null;
-    if (!openEl || !closedEl) return;
-
-    if (folderOpen) {
-      openEl.style.display = 'block';
-      gsap.fromTo(closedEl,
-        { opacity: 1 },
-        { opacity: 0, duration: 0.45, ease: 'power2.out' }
-      );
-      gsap.fromTo(openEl,
-        { scale: 1.05, y: 55, rotation: 0, opacity: 0 },
-        { scale: 1.05, y: 0, rotation: 0, opacity: 1, duration: 0.75, ease: 'back.out(1.2)' }
-      );
-    } else {
-      gsap.fromTo(closedEl,
-        { opacity: 0 },
-        { opacity: 1, duration: 0.5, ease: 'power2.inOut', delay: 0.1 }
-      );
-      gsap.to(openEl, {
-        scale: 1.05,
-        y: 55,
-        rotation: 0,
-        opacity: 0,
-        duration: 0.5,
-        ease: 'power3.inOut',
-        onComplete() {
-          openEl.style.display = 'none';
-        }
-      });
-    }
-  }, [folderOpen]);
 
   // ─── Scatter ──────────────────────────────────────────────────────────────
   const triggerScatter = useCallback(() => {
@@ -1201,8 +1111,6 @@ export function HomeInteractive() {
     setBookOpen(false);
     fileOpenRef.current = false;
     setFileOpen(false);
-    folderOpenRef.current = false;
-    setFolderOpen(false);
     const btn = document.querySelector('[data-name="Book"]') as HTMLElement;
     if (btn) btn.style.opacity = '1';
 
@@ -1355,7 +1263,6 @@ export function HomeInteractive() {
 
     setBookHovered(false);
     setFileHovered(false);
-    setFolderHovered(false);
 
     const el = scene.querySelector(`[data-name="${layer}"]`) as HTMLElement | null;
     const cover = coverOf(layer);
@@ -1513,8 +1420,6 @@ export function HomeInteractive() {
           fileOpenRef.current = false;
           setFileOpen(false);
         } else if (prev === 'folder') {
-          folderOpenRef.current = false;
-          setFolderOpen(false);
         }
 
         const prevEl = (scene.querySelector(`[data-name="${prev}"]`) as HTMLElement | null);
@@ -1588,8 +1493,6 @@ export function HomeInteractive() {
       bookOpenRef.current = false;
       setFileOpen(false);
       fileOpenRef.current = false;
-      setFolderOpen(false);
-      folderOpenRef.current = false;
       hasScatteredRef.current = false;
       selectedLayerRef.current = null;
       setSelectedLayer(null);
@@ -1606,8 +1509,6 @@ export function HomeInteractive() {
       bookOpenRef.current = false;
       setFileOpen(false);
       fileOpenRef.current = false;
-      setFolderOpen(false);
-      folderOpenRef.current = false;
       hasScatteredRef.current = false;
       triggerScatter();
       wheelEnabledRef.current = false;
