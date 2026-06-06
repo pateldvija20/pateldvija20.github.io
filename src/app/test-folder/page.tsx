@@ -1,4 +1,4 @@
-import { FolderCard } from "../../../Components/FolderCard"
+import { FolderCard } from "@/components/FolderCard"
 
 export default function TestFolderPage() {
   return (

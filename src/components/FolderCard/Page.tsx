@@ -5,78 +5,79 @@ import gsap from "gsap"
 import type { CaseStudy } from "@/lib/caseStudies"
 
 export interface PageProps {
-  study: CaseStudy
-  index: number
-  total: number
-  isOpen: boolean
-  isHovered: boolean
-  onMouseEnter: () => void
-  onMouseLeave: () => void
-  onClick: (ref: HTMLDivElement) => void
+  study:       CaseStudy
+  index:       number
+  total:       number
+  pageTop:     number
+  isOpen:      boolean
+  isHovered:   boolean
+  interactive: boolean
+  onClick:     (ref: HTMLDivElement) => void
 }
 
-// Per-page fan config in open state
-// Back pages fan more to the right, front pages stay more upright
-function getFanStyle(index: number, total: number) {
-  const fromBack = total - 1 - index // 0 = frontmost page
-  const maxRotate = 10
-  const maxTranslateX = 24
-  const maxTranslateY = -60 // enough to fan visibly above folder-front
-
-  return {
-    rotate: fromBack * (maxRotate / Math.max(total - 1, 1)),
-    translateX: fromBack * (maxTranslateX / Math.max(total - 1, 1)),
-    translateY: fromBack * (maxTranslateY / Math.max(total - 1, 1)),
-  }
+// Pages fan downward into the folder body on open.
+// index 0 = backmost (stays at base), index total-1 = frontmost (moves down most).
+// 30px spacing matches PAGE_SPACING in FolderCard.
+function getOpenY(index: number, _total: number): number {
+  return index * 30   // backmost: 0px  →  frontmost: (n-1)*30px
 }
 
 export function Page({
   study,
   index,
   total,
+  pageTop,
   isOpen,
   isHovered,
-  onMouseEnter,
-  onMouseLeave,
+  interactive,
   onClick,
 }: PageProps) {
-  const ref = useRef<HTMLDivElement>(null)
+  const ref      = useRef<HTMLDivElement>(null)
   const labelRef = useRef<HTMLDivElement>(null)
 
-  const fan = getFanStyle(index, total)
-  // z-index: frontmost page (index = total-1) on top
+  const openY  = getOpenY(index, total)
   const zIndex = index + 1
+  // frontmost page (index = total-1) scaleX = 1.03, each page back decrements 0.05
+  const fromFront = total - 1 - index
+  const openScaleX = 1.03 - fromFront * 0.05
 
+  useEffect(() => {
+    if (!ref.current) return
+    gsap.set(ref.current, { transformOrigin: "bottom center" })
+  }, [])
+
+  // ── Open / close ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!ref.current) return
     if (isOpen) {
       gsap.to(ref.current, {
-        rotate: fan.rotate,
-        x: fan.translateX,
-        y: fan.translateY,
-        duration: 0.45,
-        ease: "power2.out",
-        delay: (total - 1 - index) * 0.04,
+        y:        openY,
+        rotateX:  -20,
+        scaleX:   openScaleX,
+        duration: 0.4,
+        ease:     "power2.out",
+        delay:    (total - 1 - index) * 0.04,
       })
     } else {
       gsap.to(ref.current, {
-        rotate: 0,
-        x: 0,
-        y: 0,
+        y:        0,
+        rotateX:  0,
+        scaleX:   1,
         duration: 0.35,
-        ease: "power2.inOut",
-        delay: index * 0.03,
+        ease:     "power2.inOut",
+        delay:    index * 0.03,
       })
     }
   }, [isOpen])
 
+  // ── Hover lift ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!ref.current || !labelRef.current) return
     if (isOpen && isHovered) {
-      gsap.to(ref.current, { y: fan.translateY - 24, duration: 0.25, ease: "power2.out" })
+      gsap.to(ref.current,      { y: openY - 280, duration: 0.25, ease: "power2.out" })
       gsap.to(labelRef.current, { opacity: 1, y: 0, duration: 0.2, ease: "power2.out" })
     } else if (isOpen) {
-      gsap.to(ref.current, { y: fan.translateY, duration: 0.25, ease: "power2.out" })
+      gsap.to(ref.current,      { y: openY,       duration: 0.25, ease: "power2.out" })
       gsap.to(labelRef.current, { opacity: 0, y: 6, duration: 0.15 })
     }
   }, [isHovered, isOpen])
@@ -84,52 +85,61 @@ export function Page({
   return (
     <div
       ref={ref}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
       onClick={() => ref.current && onClick(ref.current)}
       style={{
-        position: "absolute",
-        top: "6%",
-        left: "3%",
-        right: "3%",
-        bottom: "4%",
+        position:     "absolute",
+        top:          pageTop,
+        left:         "3%",
+        right:        "3%",
+        height:       450,
         zIndex,
-        cursor: isOpen ? "pointer" : "default",
-        borderRadius: 12,
-        background: "#FCFEFF",
-        boxShadow: "inset 4px 4px 100px 16px rgba(170,227,255,0.5)",
-        transformOrigin: "bottom center",
-        willChange: "transform",
+        cursor:        interactive ? "pointer" : "default",
+        pointerEvents: interactive ? "auto" : "none",
+        borderRadius: 14,
+        background:   "#FCFEFF",
+        boxShadow:    "0 -4px 16px rgba(0,0,0,0.12)",
+        willChange:   "transform",
       }}
     >
-      {/* Label — visible on hover */}
+      {/* Label — fades in on hover */}
       <div
         ref={labelRef}
         style={{
-          opacity: 0,
-          transform: "translateY(6px)",
-          position: "absolute",
-          top: "12%",
-          left: "8%",
-          right: "8%",
+          opacity:       0,
+          transform:     "translateY(6px)",
+          position:      "absolute",
+          top:           "10%",
+          left:          "8%",
+          right:         "8%",
           pointerEvents: "none",
         }}
       >
         <p style={{
-          fontFamily: "inherit",
-          fontSize: 18,
-          fontWeight: 600,
-          color: "#000912",
-          margin: 0,
-          marginBottom: 6,
+          margin:        0,
+          marginBottom:  4,
+          fontSize:      11,
+          fontWeight:    600,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color:         "#66BDFF",
+        }}>
+          {study.year} · {study.tags}
+        </p>
+        <p style={{
+          margin:       0,
+          marginBottom: 8,
+          fontSize:     20,
+          fontWeight:   700,
+          color:        "#000912",
+          lineHeight:   1.2,
         }}>
           {study.name}
         </p>
         <p style={{
-          fontSize: 13,
-          color: "#333",
-          margin: 0,
-          lineHeight: 1.5,
+          margin:     0,
+          fontSize:   13,
+          color:      "#555",
+          lineHeight: 1.55,
         }}>
           {study.description}
         </p>
