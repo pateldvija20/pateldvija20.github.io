@@ -26,7 +26,7 @@ const COLOR_FRONT_TOP   = "#8DDBFF"
 const COLOR_FRONT_MID   = "#6CD8FF"
 const COLOR_FRONT_BOT   = "#5BBCF7"
 
-export function FolderCard() {
+export function FolderCard({ isActive = false }: { isActive?: boolean }) {
   const [studies, setStudies]           = useState<CaseStudy[]>([])
   const [isOpen, setIsOpen]             = useState(false)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
@@ -65,8 +65,8 @@ export function FolderCard() {
   return (
     <>
       <div
-        onMouseEnter={() => setIsOpen(true)}
-        onMouseLeave={() => { setIsOpen(false); setHoveredIndex(null) }}
+        onMouseEnter={() => { if (isActive) setIsOpen(true) }}
+        onMouseLeave={() => { if (isActive) { setIsOpen(false); setHoveredIndex(null) } }}
         style={{
           position:    "relative",
           width:       W,
