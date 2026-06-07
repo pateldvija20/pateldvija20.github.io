@@ -7,17 +7,20 @@ const NOTE_W = 187
 const NOTE_H = 378
 
 interface StickyNoteProps {
-  studies:     CaseStudy[]
-  flapWidth:   number
-  flapHeight:  number
-  onHoverItem: (index: number | null) => void
+  studies:      CaseStudy[]
+  flapWidth:    number
+  flapHeight:   number
+  onHoverItem:  (index: number | null) => void
+  onClickItem:  (index: number, rect: DOMRect) => void
 }
 
-export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem }: StickyNoteProps) {
+export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem, onClickItem }: StickyNoteProps) {
   const [pos, setPos]             = useState({ x: 20, y: 20 })
+  const [tilt, setTilt]           = useState(4)
   const [hoveredItem, setHoveredItem] = useState<number | null>(null)
 
   const dragging  = useRef(false)
+  const hasDragged = useRef(false)
   const dragStart = useRef({ mouseX: 0, mouseY: 0, posX: 0, posY: 0 })
 
   // Drag only initiates from the background shell, not from list items
@@ -26,12 +29,14 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem }: Stic
     e.preventDefault()
     e.stopPropagation()
     dragging.current = true
+    hasDragged.current = false
     dragStart.current = { mouseX: e.clientX, mouseY: e.clientY, posX: pos.x, posY: pos.y }
   }, [pos])
 
   useEffect(() => {
     function onMouseMove(e: MouseEvent) {
       if (!dragging.current) return
+      hasDragged.current = true
       const dx = e.clientX - dragStart.current.mouseX
       const dy = e.clientY - dragStart.current.mouseY
       setPos({
@@ -39,7 +44,12 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem }: Stic
         y: Math.max(0, Math.min(flapHeight - NOTE_H, dragStart.current.posY + dy)),
       })
     }
-    function onMouseUp() { dragging.current = false }
+    function onMouseUp() {
+      if (dragging.current && hasDragged.current) {
+        setTilt(Math.random() * 8 - 4)
+      }
+      dragging.current = false
+    }
     window.addEventListener("mousemove", onMouseMove)
     window.addEventListener("mouseup",   onMouseUp)
     return () => {
@@ -64,6 +74,8 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem }: Stic
         cursor:        "grab",
         userSelect:    "none",
         zIndex:        20,
+        transform:     `rotate(${tilt}deg)`,
+        transition:    "transform 0.25s ease",
       }}
     >
       {/* ── Structural SVG shell (background + border rect + blue footer, no text) ── */}
@@ -125,12 +137,13 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem }: Stic
             data-list-item="true"
             onMouseEnter={() => handleEnter(i)}
             onMouseLeave={handleLeave}
+            onClick={(e) => onClickItem(i, e.currentTarget.getBoundingClientRect())}
             style={{
               margin:         0,
-              fontFamily:     "'Figma Hand', 'Edu AU VIC WA NT Hand', cursive",
+              fontFamily:     "'Gochi Hand', cursive",
               fontStyle:      "normal",
               fontWeight:     700,
-              fontSize:       12,
+              fontSize:       16,
               lineHeight:     "43px",
               color:          "#000912",
               cursor:         "pointer",
@@ -138,7 +151,7 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem }: Stic
               pointerEvents:  "auto",
             }}
           >
-            {study.name}
+            <span style={{ marginRight: 6, opacity: 0.5 }}>{i + 1}.</span>{study.name}
           </p>
         ))}
       </div>

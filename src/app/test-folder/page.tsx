@@ -1,4 +1,4 @@
-import { FolderCard } from "@/components/FolderCard"
+import { PurpleFile } from "@/components/PurpleFile"
 
 export default function TestFolderPage() {
   return (
@@ -8,11 +8,11 @@ export default function TestFolderPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "#0a0a0a",
+        background: "#ffffff",
         padding: 40,
       }}
     >
-      <FolderCard />
+      <PurpleFile state="closed" />
     </main>
   )
 }

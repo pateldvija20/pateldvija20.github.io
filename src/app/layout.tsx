@@ -26,6 +26,10 @@ export default function RootLayout({
           href="https://fonts.googleapis.com/css2?family=Kingthings+Trypewriter+2&display=swap"
           rel="stylesheet"
         />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Gochi+Hand&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body>{children}</body>
     </html>

@@ -11,8 +11,6 @@ export interface PageProps {
   pageTop:     number
   isOpen:      boolean
   isHovered:   boolean
-  interactive: boolean
-  onClick:     (ref: HTMLDivElement) => void
 }
 
 // Pages fan downward into the folder body on open.
@@ -29,8 +27,6 @@ export function Page({
   pageTop,
   isOpen,
   isHovered,
-  interactive,
-  onClick,
 }: PageProps) {
   const ref      = useRef<HTMLDivElement>(null)
   const labelRef = useRef<HTMLDivElement>(null)
@@ -85,7 +81,6 @@ export function Page({
   return (
     <div
       ref={ref}
-      onClick={() => ref.current && onClick(ref.current)}
       style={{
         position:     "absolute",
         top:          pageTop,
@@ -93,8 +88,8 @@ export function Page({
         right:        "3%",
         height:       450,
         zIndex,
-        cursor:        interactive ? "pointer" : "default",
-        pointerEvents: interactive ? "auto" : "none",
+        cursor:        "default",
+        pointerEvents: "none",
         borderRadius: 14,
         background:   "#FCFEFF",
         boxShadow:    "0 -4px 16px rgba(0,0,0,0.12)",

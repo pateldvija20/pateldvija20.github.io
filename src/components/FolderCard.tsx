@@ -28,14 +28,12 @@ const COLOR_FRONT_BOT   = "#5BBCF7"
 
 export function FolderCard() {
   const [studies, setStudies]           = useState<CaseStudy[]>([])
-  const [isOpen, setIsOpen]                   = useState(false)
-  const [pagesInteractive, setPagesInteractive] = useState(false)
-  const [hoveredIndex, setHoveredIndex]         = useState<number | null>(null)
-  const [clickedStudy, setClickedStudy]         = useState<CaseStudy | null>(null)
-  const [clickedRect, setClickedRect]           = useState<DOMRect | null>(null)
+  const [isOpen, setIsOpen]             = useState(false)
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const [clickedStudy, setClickedStudy] = useState<CaseStudy | null>(null)
+  const [clickedRect, setClickedRect]   = useState<DOMRect | null>(null)
 
   const frontRef    = useRef<HTMLDivElement>(null)
-  const gateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     fetch("/data/case_studies.csv")
@@ -59,26 +57,16 @@ export function FolderCard() {
     })
   }, [isOpen, studies.length])
 
-  function handlePageClick(study: CaseStudy, el: HTMLDivElement) {
-    setClickedStudy(study)
-    setClickedRect(el.getBoundingClientRect())
+  function handleListClick(index: number, rect: DOMRect) {
+    setClickedStudy(studies[index])
+    setClickedRect(rect)
   }
 
   return (
     <>
       <div
-        onMouseEnter={() => {
-          setIsOpen(true)
-          setPagesInteractive(false)
-          if (gateTimerRef.current) clearTimeout(gateTimerRef.current)
-          gateTimerRef.current = setTimeout(() => setPagesInteractive(true), 450)
-        }}
-        onMouseLeave={() => {
-          setIsOpen(false)
-          setPagesInteractive(false)
-          setHoveredIndex(null)
-          if (gateTimerRef.current) clearTimeout(gateTimerRef.current)
-        }}
+        onMouseEnter={() => setIsOpen(true)}
+        onMouseLeave={() => { setIsOpen(false); setHoveredIndex(null) }}
         style={{
           position:    "relative",
           width:       W,
@@ -97,9 +85,16 @@ export function FolderCard() {
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
         >
+          <defs>
+            <linearGradient id="backGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor={COLOR_FRONT_TOP} />
+              <stop offset="55%"  stopColor={COLOR_FRONT_MID} />
+              <stop offset="100%" stopColor={COLOR_FRONT_BOT} />
+            </linearGradient>
+          </defs>
           <path
             d="M275.442 46.3246C278.164 54.4914 285.807 60 294.415 60H867C878.046 60 887 68.9543 887 80V690C887 701.046 878.046 710 867 710H20C8.95429 710 0 701.046 0 690V20C0 8.95432 8.95431 0 20 0H245.585C254.193 0 261.836 5.5086 264.558 13.6754L275.442 46.3246Z"
-            fill={COLOR_BACK}
+            fill="url(#backGrad)"
           />
         </svg>
         </div>
@@ -114,8 +109,6 @@ export function FolderCard() {
             pageTop={PAGE_TOP}
             isOpen={isOpen}
             isHovered={hoveredIndex === i}
-            interactive={pagesInteractive}
-            onClick={(el) => handlePageClick(study, el)}
           />
         ))}
 
@@ -139,6 +132,7 @@ export function FolderCard() {
             flapWidth={W}
             flapHeight={H - FRONT_TOP}
             onHoverItem={setHoveredIndex}
+            onClickItem={handleListClick}
           />
         </div>
       </div>
