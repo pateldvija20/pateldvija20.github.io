@@ -482,14 +482,22 @@ export function HomeInteractive() {
     const scene = sceneRef.current;
     if (!scene) return;
 
+    let deltaAccumulator = 0;
+    const DELTA_THRESHOLD = 60;
+
     const onWheel = (e: WheelEvent) => {
       if (!wheelEnabledRef.current) return;
       e.preventDefault();
       if (isAnimatingRef.current) return;
 
+      deltaAccumulator += e.deltaY;
+      if (Math.abs(deltaAccumulator) < DELTA_THRESHOLD) return;
+      const direction = deltaAccumulator > 0 ? 1 : -1;
+      deltaAccumulator = 0;
+
       const deck = deckRef.current;
 
-      if (e.deltaY > 0) {
+      if (direction > 0) {
         isAnimatingRef.current = true;
         setBookHovered(false);
         setFileHovered(false);
@@ -524,7 +532,7 @@ export function HomeInteractive() {
         cycleTl.to(demotedEl, { y: targetY, scale: targetScale, rotation: elRot, duration: 0.45, ease: 'back.out(1.5)' }, 0.35);
         if (demotedCover) cycleTl.to(demotedCover, { y: targetY, scale: targetScale, rotation: coverRot, duration: 0.45, ease: 'back.out(1.5)' }, 0.35);
 
-      } else if (e.deltaY < 0) {
+      } else if (direction < 0) {
         isAnimatingRef.current = true;
         setBookHovered(false);
         setFileHovered(false);
