@@ -143,10 +143,13 @@ export function FolderCard({ isActive = false }: { isActive?: boolean }) {
 
       {clickedStudy && clickedRect && (
         <PageCard
-          study={clickedStudy}
+          title={clickedStudy.name}
+          subtitle={`${clickedStudy.year} · ${clickedStudy.tags}`}
           originRect={clickedRect}
           onDismiss={() => { setClickedStudy(null); setClickedRect(null) }}
-        />
+        >
+          <p className="m-0 text-[15px] leading-7 text-[#333]">{clickedStudy.description}</p>
+        </PageCard>
       )}
     </>
   )
