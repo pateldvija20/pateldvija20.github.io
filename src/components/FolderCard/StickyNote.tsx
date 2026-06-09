@@ -63,6 +63,7 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem, onClic
 
   return (
     <div
+      data-no-deck-drag
       onMouseDown={onMouseDown}
       style={{
         position:      "absolute",

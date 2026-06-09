@@ -42,6 +42,10 @@ export function FolderCard({ isActive = false }: { isActive?: boolean }) {
       .catch(console.error)
   }, [])
 
+  useEffect(() => {
+    if (!isActive) { setIsOpen(false); setHoveredIndex(null) }
+  }, [isActive])
+
   // Bottom edge is the fixed pivot — it never moves.
   // rotateX(-20deg) sweeps the top of the cover toward the viewer, opening the folder.
   useEffect(() => {
