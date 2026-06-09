@@ -15,9 +15,10 @@ const DAY_LABELS = [
 interface StickyNoteProps {
   /** Current scene scale (viewport px ÷ scene px) so drag deltas stay pixel-accurate */
   scaleRef: React.RefObject<number>;
+  onDragActiveChange?: (active: boolean) => void;
 }
 
-export function StickyNote({ scaleRef }: StickyNoteProps) {
+export function StickyNote({ scaleRef, onDragActiveChange }: StickyNoteProps) {
   // ── Live clock ──────────────────────────────────────────────────────────────
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -56,8 +57,9 @@ export function StickyNote({ scaleRef }: StickyNoteProps) {
         startPosX: pos.x,
         startPosY: pos.y,
       };
+      onDragActiveChange?.(true);
     },
-    [pos]
+    [pos, onDragActiveChange]
   );
 
   const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -79,11 +81,13 @@ export function StickyNote({ scaleRef }: StickyNoteProps) {
   const onPointerUp = useCallback(() => {
     dragging.current = null;
     hasMoved.current = false;
-  }, []);
+    onDragActiveChange?.(false);
+  }, [onDragActiveChange]);
 
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div
+      data-no-deck-drag
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

@@ -24,21 +24,12 @@ const Z_BASE: Record<LayerKey, number> = {
   'mat-grid': 10,
 };
 
-const LAYER_TILT: Record<string, string> = {
-  book: 'rotate(-5.31deg)',
-  folder: 'rotate(4.27deg)',
-  file: 'rotate(-28.02deg)',
-  paper: 'rotate(2.12deg)',
-};
-
 // z-index ranks for the 4-card deck, index 0 = top
 const DECK_Z = [50, 40, 30, 20] as const;
 
-const COVER_INIT_TRANSFORMS: Record<string, string> = {
-  book:   'rotate(-5.31deg)',
-  file:   'rotate(-28.02deg)',
-  folder: 'rotate(0deg)',
-  paper:  'rotate(0deg)',
+const randomTilt = (): number => {
+  const mag = 5 + Math.random() * 7; // 5–12
+  return (Math.random() > 0.5 ? 1 : -1) * parseFloat(mag.toFixed(2));
 };
 
 const parseTiltDeg = (tilt: string): number => {
@@ -90,16 +81,19 @@ export function HomeInteractive() {
   const isAnimatingRef = useRef(false);
   const isDraggingRef = useRef(false);
   const lastDragMovedRef = useRef(false); // survives after activeDragRef is cleared
+  const stickyDraggingRef = useRef(false);
   const wheelEnabledRef = useRef(true);
-  const loaderHiddenRef = useRef(false);
   const activeDragRef = useRef<DragState | null>(null);
   const scaleRef = useRef<number>(1);
+  const layerTiltRef = useRef<Record<string, number>>({
+    book: randomTilt(), folder: randomTilt(), file: randomTilt(), paper: randomTilt(),
+  });
   // Stores the base (non-drag) rotation for each layer so drag offset can be composed on top
   const baseTransformsRef = useRef<Record<string, string>>({
-    book: LAYER_TILT['book'] ?? '',
-    folder: LAYER_TILT['folder'] ?? '',
-    file: LAYER_TILT['file'] ?? '',
-    paper: LAYER_TILT['paper'] ?? '',
+    book: `rotate(${layerTiltRef.current.book}deg)`,
+    folder: `rotate(${layerTiltRef.current.folder}deg)`,
+    file: `rotate(${layerTiltRef.current.file}deg)`,
+    paper: `rotate(${layerTiltRef.current.paper}deg)`,
   });
 
   const [activeNav, setActiveNav] = useState<LayerKey>('book');
@@ -114,6 +108,7 @@ export function HomeInteractive() {
 
   const [bookHovered, setBookHovered] = useState(false);
   const [fileHovered, setFileHovered] = useState(false);
+  const [stickyDragging, setStickyDragging] = useState(false);
   const [selectedLayer, setSelectedLayer] = useState<LayerKey | null>(null);
   const selectedLayerRef = useRef<LayerKey | null>(null);
   const lastMouseRef = useRef({ x: 0, y: 0 });
@@ -122,9 +117,6 @@ export function HomeInteractive() {
   const q = (name: LayerKey): HTMLElement | null =>
     (sceneRef.current?.querySelector(`[data-name="${name}"]`) as HTMLElement | null) ?? null;
 
-  const hideLoader = useCallback(() => {
-    loaderHiddenRef.current = true;
-  }, []);
 
   const coverOf = useCallback((layer: string): HTMLDivElement | null =>
     layer === 'book' ? bookCoverRef.current :
@@ -173,15 +165,14 @@ export function HomeInteractive() {
 
       const targetY = rank * 10;
       const targetScale = 1 - rank * 0.02;
-      const elRot = parseTiltDeg(LAYER_TILT[layer] ?? '');
-      const coverRot = parseTiltDeg(COVER_INIT_TRANSFORMS[layer] ?? '');
+      const elRot = layerTiltRef.current[layer] ?? 0;
 
       if (animate) {
         gsap.to(el, { x: 0, y: targetY, scale: targetScale, rotation: elRot, opacity: 1, duration: 0.7, ease: 'back.out(1.6)' });
-        if (cover) gsap.to(cover, { x: 0, y: targetY, scale: targetScale, rotation: coverRot, opacity: 1, duration: 0.7, ease: 'back.out(1.6)' });
+        if (cover) gsap.to(cover, { x: 0, y: targetY, scale: targetScale, rotation: elRot, opacity: 1, duration: 0.7, ease: 'back.out(1.6)' });
       } else {
         if (el) gsap.set(el, { x: 0, y: targetY, scale: targetScale, rotation: elRot, opacity: 1 });
-        if (cover) gsap.set(cover, { x: 0, y: targetY, scale: targetScale, rotation: coverRot, opacity: 1 });
+        if (cover) gsap.set(cover, { x: 0, y: targetY, scale: targetScale, rotation: elRot, opacity: 1 });
       }
     });
   }, [coverOf]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -190,21 +181,16 @@ export function HomeInteractive() {
   const applyLayerTransform = useCallback((layerKey: string, el: HTMLElement | null, coverEl: HTMLDivElement | null) => {
     const { x, y } = dragOffsets[layerKey] ?? { x: 0, y: 0 };
     const base = baseTransformsRef.current[layerKey] ?? '';
-    const coverBase = layerKey === 'book' ? COVER_INIT_TRANSFORMS['book']
-      : layerKey === 'file' ? COVER_INIT_TRANSFORMS['file']
-      : layerKey === 'folder' ? COVER_INIT_TRANSFORMS['folder']
-      : COVER_INIT_TRANSFORMS[layerKey] ?? '';
     const parsedBase = parseTransform(base);
     const scaleMatch = base.match(/scale\(([\d.]+)\)/);
     const baseScale = scaleMatch ? parseFloat(scaleMatch[1]) : 1;
-    const coverRot = parseTiltDeg(coverBase);
 
     const appliedX = parsedBase.x + x;
     const appliedY = parsedBase.y + y;
     const appliedRot = parsedBase.rotation;
 
     if (el) gsap.set(el, { x: appliedX, y: appliedY, rotation: appliedRot, scale: baseScale });
-    if (coverEl) gsap.set(coverEl, { x: appliedX, y: appliedY, rotation: appliedRot + coverRot, scale: baseScale });
+    if (coverEl) gsap.set(coverEl, { x: appliedX, y: appliedY, rotation: appliedRot, scale: baseScale });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Scale tracking ───────────────────────────────────────────────────────
@@ -312,11 +298,13 @@ export function HomeInteractive() {
         const rank = deckRef.current.indexOf(drag.layer as LayerKey);
         if (el) el.style.zIndex = String(DECK_Z[rank] ?? 30);
         if (coverEl) coverEl.style.zIndex = String((DECK_Z[rank] ?? 30) + 1);
-        const customPos = `translate(${finalX}px, ${finalY}px) rotate(${parsedBase.rotation}deg) scale(1)`;
+        const newTilt = randomTilt();
+        layerTiltRef.current[drag.layer] = newTilt;
+        const customPos = `translate(${finalX}px, ${finalY}px) rotate(${newTilt}deg) scale(1)`;
         baseTransformsRef.current[drag.layer] = customPos;
         dragOffsets[drag.layer] = { x: 0, y: 0 };
-        gsap.to(el, { x: finalX, y: finalY, rotation: parsedBase.rotation, scale: 1, ease: 'back.out(1.2)', duration: 0.4 });
-        if (coverEl) gsap.to(coverEl, { x: finalX, y: finalY, rotation: parsedBase.rotation + parseTiltDeg(COVER_INIT_TRANSFORMS[drag.layer] ?? ''), scale: 1, ease: 'back.out(1.2)', duration: 0.4 });
+        gsap.to(el, { x: finalX, y: finalY, rotation: newTilt, scale: 1, ease: 'back.out(1.2)', duration: 0.4 });
+        if (coverEl) gsap.to(coverEl, { x: finalX, y: finalY, rotation: newTilt, scale: 1, ease: 'back.out(1.2)', duration: 0.4 });
       } else {
         dragOffsets[drag.layer] = { x: drag.startOffsetX, y: drag.startOffsetY };
       }
@@ -344,7 +332,7 @@ export function HomeInteractive() {
     setBookOpen(next);
     if (next) setBookHovered(false);
     if (btn) btn.style.opacity = next ? '0' : '1';
-    if (!next && coverEl) gsap.to(coverEl, { rotation: -5.31, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
+    if (!next && coverEl) gsap.to(coverEl, { rotation: layerTiltRef.current.book, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleFile = useCallback(() => {
@@ -363,6 +351,7 @@ export function HomeInteractive() {
     if (!activeEl) return;
 
     const onEnter = () => {
+      if (stickyDraggingRef.current) return;
       if (deckRef.current[0] !== 'book') return;
       if (!bookOpenRef.current) {
         setBookHovered(true);
@@ -373,7 +362,7 @@ export function HomeInteractive() {
       if (deckRef.current[0] !== 'book') return;
       if (!bookOpenRef.current) {
         setBookHovered(false);
-        gsap.to(coverEl, { rotation: -5.31, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
+        gsap.to(coverEl, { rotation: layerTiltRef.current.book, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
       }
     };
 
@@ -393,6 +382,7 @@ export function HomeInteractive() {
     if (!activeEl) return;
 
     const onEnter = () => {
+      if (stickyDraggingRef.current) return;
       if (deckRef.current[0] !== 'file') return;
       if (!fileOpenRef.current) {
         setFileHovered(true);
@@ -403,7 +393,7 @@ export function HomeInteractive() {
       if (deckRef.current[0] !== 'file') return;
       if (!fileOpenRef.current) {
         setFileHovered(false);
-        gsap.to(coverEl, { rotation: -28.02, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
+        gsap.to(coverEl, { rotation: layerTiltRef.current.file, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
       }
     };
 
@@ -414,6 +404,57 @@ export function HomeInteractive() {
       activeEl.removeEventListener('mouseleave', onLeave);
     };
   }, [fileOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Folder hover ────────────────────────────────────────────────────────
+  useEffect(() => {
+    const coverEl = folderCoverRef.current;
+    if (!coverEl) return;
+    const activeEl = coverEl.firstElementChild as HTMLElement | null;
+    if (!activeEl) return;
+
+    const onEnter = () => {
+      if (stickyDraggingRef.current) return;
+      if (deckRef.current[0] !== 'folder') return;
+      gsap.to(coverEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
+    };
+    const onLeave = () => {
+      if (deckRef.current[0] !== 'folder') return;
+      gsap.to(coverEl, { rotation: layerTiltRef.current.folder, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
+    };
+
+    activeEl.addEventListener('mouseenter', onEnter);
+    activeEl.addEventListener('mouseleave', onLeave);
+    return () => {
+      activeEl.removeEventListener('mouseenter', onEnter);
+      activeEl.removeEventListener('mouseleave', onLeave);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ─── Paper hover ─────────────────────────────────────────────────────────
+  useEffect(() => {
+    const scene = sceneRef.current;
+    if (!scene) return;
+    const paperEl = scene.querySelector('[data-name="paper"]') as HTMLElement | null;
+    const activeEl = paperEl?.querySelector('[data-name="paper-white"]') as HTMLElement | null;
+    if (!paperEl || !activeEl) return;
+
+    const onEnter = () => {
+      if (stickyDraggingRef.current) return;
+      if (deckRef.current[0] !== 'paper') return;
+      gsap.to(paperEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
+    };
+    const onLeave = () => {
+      if (deckRef.current[0] !== 'paper') return;
+      gsap.to(paperEl, { rotation: layerTiltRef.current.paper, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
+    };
+
+    activeEl.addEventListener('mouseenter', onEnter);
+    activeEl.addEventListener('mouseleave', onLeave);
+    return () => {
+      activeEl.removeEventListener('mouseenter', onEnter);
+      activeEl.removeEventListener('mouseleave', onLeave);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Initial setup ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -482,14 +523,22 @@ export function HomeInteractive() {
     const scene = sceneRef.current;
     if (!scene) return;
 
+    let deltaAccumulator = 0;
+    const DELTA_THRESHOLD = 60;
+
     const onWheel = (e: WheelEvent) => {
       if (!wheelEnabledRef.current) return;
       e.preventDefault();
       if (isAnimatingRef.current) return;
 
+      deltaAccumulator += e.deltaY;
+      if (Math.abs(deltaAccumulator) < DELTA_THRESHOLD) return;
+      const direction = deltaAccumulator > 0 ? 1 : -1;
+      deltaAccumulator = 0;
+
       const deck = deckRef.current;
 
-      if (e.deltaY > 0) {
+      if (direction > 0) {
         isAnimatingRef.current = true;
         setBookHovered(false);
         setFileHovered(false);
@@ -499,13 +548,12 @@ export function HomeInteractive() {
         const demotedCover = coverOf(demoted);
         const targetY = 3 * 10;
         const targetScale = 1 - 3 * 0.02;
-        const elRot = parseTiltDeg(LAYER_TILT[demoted] ?? '');
-        const coverRot = parseTiltDeg(COVER_INIT_TRANSFORMS[demoted] ?? '');
+        const elRot = layerTiltRef.current[demoted] ?? 0;
 
         const cycleTl = gsap.timeline({ onComplete() { isAnimatingRef.current = false; } });
 
         cycleTl.to(demotedEl, { y: -180, scale: 1.04, rotation: elRot - 5, duration: 0.35, ease: 'power2.out' }, 0);
-        if (demotedCover) cycleTl.to(demotedCover, { y: -180, scale: 1.04, rotation: coverRot - 5, duration: 0.35, ease: 'power2.out' }, 0);
+        if (demotedCover) cycleTl.to(demotedCover, { y: -180, scale: 1.04, rotation: elRot - 5, duration: 0.35, ease: 'power2.out' }, 0);
 
         deck.slice(1).forEach((layer, index) => {
           const el = q(layer);
@@ -522,9 +570,9 @@ export function HomeInteractive() {
         }, undefined, 0.35);
 
         cycleTl.to(demotedEl, { y: targetY, scale: targetScale, rotation: elRot, duration: 0.45, ease: 'back.out(1.5)' }, 0.35);
-        if (demotedCover) cycleTl.to(demotedCover, { y: targetY, scale: targetScale, rotation: coverRot, duration: 0.45, ease: 'back.out(1.5)' }, 0.35);
+        if (demotedCover) cycleTl.to(demotedCover, { y: targetY, scale: targetScale, rotation: elRot, duration: 0.45, ease: 'back.out(1.5)' }, 0.35);
 
-      } else if (e.deltaY < 0) {
+      } else if (direction < 0) {
         isAnimatingRef.current = true;
         setBookHovered(false);
         setFileHovered(false);
@@ -532,13 +580,12 @@ export function HomeInteractive() {
         const promoted = deck[deck.length - 1];
         const promotedEl = q(promoted);
         const promotedCover = coverOf(promoted);
-        const elRot = parseTiltDeg(LAYER_TILT[promoted] ?? '');
-        const coverRot = parseTiltDeg(COVER_INIT_TRANSFORMS[promoted] ?? '');
+        const elRot = layerTiltRef.current[promoted] ?? 0;
 
         const cycleTl = gsap.timeline({ onComplete() { isAnimatingRef.current = false; } });
 
         cycleTl.to(promotedEl, { y: 180, scale: 0.94, rotation: elRot + 5, duration: 0.35, ease: 'power2.out' }, 0);
-        if (promotedCover) cycleTl.to(promotedCover, { y: 180, scale: 0.94, rotation: coverRot + 5, duration: 0.35, ease: 'power2.out' }, 0);
+        if (promotedCover) cycleTl.to(promotedCover, { y: 180, scale: 0.94, rotation: elRot + 5, duration: 0.35, ease: 'power2.out' }, 0);
 
         deck.slice(0, -1).forEach((layer, index) => {
           const el = q(layer);
@@ -555,7 +602,7 @@ export function HomeInteractive() {
         }, undefined, 0.35);
 
         cycleTl.to(promotedEl, { y: 0, scale: 1.0, rotation: elRot, duration: 0.45, ease: 'back.out(1.5)' }, 0.35);
-        if (promotedCover) cycleTl.to(promotedCover, { y: 0, scale: 1.0, rotation: coverRot, duration: 0.45, ease: 'back.out(1.5)' }, 0.35);
+        if (promotedCover) cycleTl.to(promotedCover, { y: 0, scale: 1.0, rotation: elRot, duration: 0.45, ease: 'back.out(1.5)' }, 0.35);
       }
     };
 
@@ -589,14 +636,13 @@ export function HomeInteractive() {
     const rank = deckRef.current.indexOf(layer);
     const targetY = rank >= 0 ? rank * 10 : 0;
     const targetScale = rank >= 0 ? 1 - rank * 0.02 : 1;
-    const elRot = parseTiltDeg(LAYER_TILT[layer] ?? '');
-    const coverRot = parseTiltDeg(COVER_INIT_TRANSFORMS[layer] ?? '');
+    const elRot = layerTiltRef.current[layer] ?? 0;
 
-    baseTransformsRef.current[layer] = LAYER_TILT[layer] ?? '';
+    baseTransformsRef.current[layer] = `rotate(${elRot}deg)`;
     dragOffsets[layer] = { x: 0, y: 0 };
 
     gsap.to(el, { x: 0, y: targetY, rotation: elRot, scale: targetScale, ease: 'back.out(1.7)', duration: 0.6 });
-    if (cover) gsap.to(cover, { x: 0, y: targetY, rotation: coverRot, scale: targetScale, ease: 'back.out(1.7)', duration: 0.6 });
+    if (cover) gsap.to(cover, { x: 0, y: targetY, rotation: elRot, scale: targetScale, ease: 'back.out(1.7)', duration: 0.6 });
   }, [coverOf]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -683,6 +729,7 @@ export function HomeInteractive() {
     const onMouseDown = (e: MouseEvent) => {
       if (e.button !== 0) return;
       const target = e.target as HTMLElement;
+      if (target.closest('[data-no-deck-drag]')) return;
       const draggable = (['book', 'folder', 'file', 'paper'] as const).find((layer) => {
         const el = scene.querySelector(`[data-name="${layer}"]`) as HTMLElement | null;
         const cover = coverOf(layer);
@@ -743,13 +790,12 @@ export function HomeInteractive() {
     const cover = coverOf(layer);
     const deck = deckRef.current;
     const currentRank = deck.indexOf(layer);
-    const elRot = parseTiltDeg(LAYER_TILT[layer] ?? '');
-    const coverRot = parseTiltDeg(COVER_INIT_TRANSFORMS[layer] ?? '');
+    const elRot = layerTiltRef.current[layer] ?? 0;
 
     const promoteTl = gsap.timeline({ onComplete() { isAnimatingRef.current = false; } });
 
     promoteTl.to(el, { x: -220, y: -60, scale: 1.04, rotation: elRot - 5, duration: 0.35, ease: 'power2.out' }, 0);
-    if (cover) promoteTl.to(cover, { x: -220, y: -60, scale: 1.04, rotation: coverRot - 5, duration: 0.35, ease: 'power2.out' }, 0);
+    if (cover) promoteTl.to(cover, { x: -220, y: -60, scale: 1.04, rotation: elRot - 5, duration: 0.35, ease: 'power2.out' }, 0);
 
     deck.forEach((l, rank) => {
       if (l === layer) return;
@@ -768,7 +814,7 @@ export function HomeInteractive() {
     }, undefined, 0.35);
 
     promoteTl.to(el, { x: 0, y: 0, scale: 1.0, rotation: elRot, duration: 0.45, ease: 'back.out(1.5)' }, 0.35);
-    if (cover) promoteTl.to(cover, { x: 0, y: 0, scale: 1.0, rotation: coverRot, duration: 0.45, ease: 'back.out(1.5)' }, 0.35);
+    if (cover) promoteTl.to(cover, { x: 0, y: 0, scale: 1.0, rotation: elRot, duration: 0.45, ease: 'back.out(1.5)' }, 0.35);
   }, [coverOf, updateStackPositionsImmediateZ]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Click handlers ───────────────────────────────────────────────────────
@@ -862,14 +908,14 @@ export function HomeInteractive() {
           </div>
 
           {/* ── Sticky note (date/time, draggable) ───────────────────────── */}
-          <StickyNote scaleRef={scaleRef} />
+          <StickyNote scaleRef={scaleRef} onDragActiveChange={(active) => { stickyDraggingRef.current = active; setStickyDragging(active); }} />
 
           {/* ── Book cover overlay ────────────────────────────────────────── */}
           <div
             ref={bookCoverRef}
             className="absolute isolate pointer-events-none overflow-visible"
             style={{
-              transform: LAYER_TILT['book'],
+              transform: 'rotate(0deg)',
               transformOrigin: 'center center',
               display: 'flex',
               visibility: bookOpen ? 'hidden' : 'visible',
@@ -898,7 +944,7 @@ export function HomeInteractive() {
           <div
             ref={fileCoverRef}
             className="absolute isolate pointer-events-none overflow-visible"
-            style={{ transform: LAYER_TILT['file'], transformOrigin: 'center center' }}
+            style={{ transformOrigin: 'center center' }}
           >
             <PurpleFile
               state={fileOpen ? 'open' : fileHovered ? 'hover' : 'closed'}
@@ -912,7 +958,7 @@ export function HomeInteractive() {
             className="absolute isolate invisible pointer-events-none overflow-visible"
           >
             <div className="pointer-events-auto cursor-pointer">
-              <FolderCard isActive={topLayer === 'folder'} />
+              <FolderCard isActive={topLayer === 'folder' && !stickyDragging} />
             </div>
           </div>
 
