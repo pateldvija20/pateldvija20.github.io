@@ -3,9 +3,7 @@
 import { useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
 import gsap from "gsap"
-import type { CaseStudy } from "@/lib/caseStudies"
 
-// Proportional margins: 160/1440 ≈ 11.1% horizontal, 60/1024 ≈ 5.86% vertical
 const MARGIN_X_RATIO = 160 / 1440
 const MARGIN_Y_RATIO = 60  / 1024
 
@@ -18,12 +16,14 @@ function getTargetRect() {
 }
 
 interface PageCardProps {
-  study: CaseStudy
+  title: string
+  subtitle?: string
+  children?: React.ReactNode
   originRect: DOMRect
   onDismiss: () => void
 }
 
-export function PageCard({ study, originRect, onDismiss }: PageCardProps) {
+export function PageCard({ title, subtitle, children, originRect, onDismiss }: PageCardProps) {
   const overlayRef = useRef<HTMLDivElement>(null)
   const cardRef    = useRef<HTMLDivElement>(null)
 
@@ -83,11 +83,13 @@ export function PageCard({ study, originRect, onDismiss }: PageCardProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-7 pt-6 pb-4 border-b border-black/5 shrink-0">
           <div>
-            <p className="m-0 text-[11px] tracking-widest uppercase text-[#888]">
-              {study.year} · {study.tags}
-            </p>
+            {subtitle && (
+              <p className="m-0 text-[11px] tracking-widest uppercase text-[#888]">
+                {subtitle}
+              </p>
+            )}
             <h2 className="mt-1.5 mb-0 text-[22px] font-bold text-[#000912]">
-              {study.name}
+              {title}
             </h2>
           </div>
           <button
@@ -99,11 +101,9 @@ export function PageCard({ study, originRect, onDismiss }: PageCardProps) {
           </button>
         </div>
 
-        {/* Body — scrollable, fills remaining height */}
+        {/* Body */}
         <div className="flex-1 overflow-y-auto px-7 py-6">
-          <p className="m-0 text-[15px] leading-7 text-[#333]">
-            {study.description}
-          </p>
+          {children}
         </div>
       </div>
     </div>,

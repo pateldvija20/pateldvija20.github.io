@@ -8,6 +8,7 @@ import BookCover from '../imports/Frame31-1/Frame31-6-430';
 import BookHoverImg from '../imports/BookHover/BookHover';
 import { PurpleFile } from './PurpleFile';
 import { FolderCard } from './FolderCard';
+import { PageCard } from './FolderCard/PageCard';
 import { MatGrid } from '../../Components/MatGrid/MatGrid';
 import { StickyNote } from '../../Components/StickyNote/StickyNote';
 
@@ -107,10 +108,9 @@ export function HomeInteractive() {
   const [topLayer,    setTopLayer]    = useState<LayerKey>('book');
   const [bookOpen,    setBookOpen]    = useState(false);
   const bookOpenRef   = useRef(false);
-  const [fileOpen,    setFileOpen]    = useState(false);
-  const fileOpenRef   = useRef(false);
-  const filePageRef    = useRef<HTMLDivElement>(null);
-  const fileBackdropRef = useRef<HTMLDivElement>(null);
+  const [fileOpen,       setFileOpen]       = useState(false);
+  const fileOpenRef      = useRef(false);
+  const [fileOriginRect, setFileOriginRect] = useState<DOMRect | null>(null);
   const [bookHovered, setBookHovered] = useState(false);
   const [fileHovered, setFileHovered] = useState(false);
   const [stickyDragging, setStickyDragging] = useState(false);
@@ -348,8 +348,12 @@ export function HomeInteractive() {
     const next = !fileOpenRef.current;
     fileOpenRef.current = next;
     setFileOpen(next);
-    if (next) setFileHovered(false);
-    if (!next) closeLayer('file');
+    if (next) {
+      setFileHovered(false);
+      setFileOriginRect(fileCoverRef.current?.getBoundingClientRect() ?? null);
+    } else {
+      closeLayer('file');
+    }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Book hover ───────────────────────────────────────────────────────────
@@ -751,51 +755,11 @@ export function HomeInteractive() {
     }
   }, [bookOpen]);
 
-  // ─── File page expand / collapse ─────────────────────────────────────────
-  const getFileRectInScene = useCallback((): { left: number; top: number; width: number; height: number } => {
-    const cover = fileCoverRef.current;
-    if (!cover) return { left: 560, top: 25, width: 913, height: 987 };
-    const gx = (gsap.getProperty(cover, 'x') as number) || 0;
-    const gy = (gsap.getProperty(cover, 'y') as number) || 0;
-    const sc = (gsap.getProperty(cover, 'scale') as number) || 1;
-    const fw = 612 * sc;
-    const fh = 792 * sc;
-    return { left: 720 + gx - fw / 2, top: 512 + gy - fh / 2, width: fw, height: fh };
-  }, []);
-
   const closeFilePage = useCallback(() => {
-    const page     = filePageRef.current;
-    const backdrop = fileBackdropRef.current;
-    if (!page) return;
-    const { left, top, width, height } = getFileRectInScene();
-    gsap.to(page, {
-      left, top, width, height, opacity: 0, borderRadius: 32,
-      duration: 0.5, ease: 'power3.inOut',
-      onComplete() {
-        page.style.display = 'none';
-        if (backdrop) backdrop.style.display = 'none';
-        fileOpenRef.current = false;
-        setFileOpen(false);
-        closeLayer('file');
-      },
-    });
-    if (backdrop) gsap.to(backdrop, { opacity: 0, duration: 0.3 });
-  }, [getFileRectInScene]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const page     = filePageRef.current;
-    const backdrop = fileBackdropRef.current;
-    if (!page || !fileOpen) return;
-    const { left, top, width, height } = getFileRectInScene();
-    page.style.display       = 'flex';
-    page.style.pointerEvents = 'auto';
-    if (backdrop) backdrop.style.display = 'block';
-    gsap.fromTo(page,
-      { left, top, width, height, opacity: 0, borderRadius: 32 },
-      { left: '11.11%', top: '11.72%', width: '77.78%', height: '88.28%', opacity: 1, borderRadius: 24, duration: 0.6, ease: 'power3.inOut' },
-    );
-    if (backdrop) gsap.fromTo(backdrop, { opacity: 0 }, { opacity: 1, duration: 0.4 });
-  }, [fileOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+    fileOpenRef.current = false;
+    setFileOpen(false);
+    closeLayer('file');
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Drag start (mouse + touch) ───────────────────────────────────────────
   useEffect(() => {
@@ -1036,6 +1000,7 @@ export function HomeInteractive() {
       };
 
   return (
+    <>
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
       <div
         ref={sceneRef}
@@ -1143,38 +1108,17 @@ export function HomeInteractive() {
           ))}
         </div>
 
-        {/* ── File page backdrop ─────────────────────────────────────────── */}
-        <div
-          ref={fileBackdropRef}
-          onClick={closeFilePage}
-          style={{ display: 'none', position: 'absolute', inset: 0, zIndex: 498, opacity: 0, cursor: 'default' }}
-        />
-
-        {/* ── File page overlay ──────────────────────────────────────────── */}
-        <div
-          ref={filePageRef}
-          style={{
-            display: 'none', position: 'absolute', background: '#ffffff',
-            borderRadius: 24, zIndex: 499, opacity: 0, pointerEvents: 'none',
-            overflow: 'hidden', boxShadow: '0 32px 80px rgba(0,0,0,0.18)', flexDirection: 'column',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 28px 16px', borderBottom: '1px solid rgba(0,0,0,0.05)', flexShrink: 0 }}>
-            <div>
-              <p style={{ margin: 0, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#888' }}>Notes</p>
-              <h2 style={{ margin: '6px 0 0', fontSize: 22, fontWeight: 700, color: '#000912' }}>My Notes</h2>
-            </div>
-            <button
-              onClick={(e) => { e.stopPropagation(); closeFilePage(); }}
-              style={{ width: 36, height: 36, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.07)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, color: '#555', flexShrink: 0 }}
-            >
-              ✕
-            </button>
-          </div>
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }} />
-        </div>
-
       </div>
     </div>
+
+    {fileOpen && fileOriginRect && (
+      <PageCard
+        title="My Notes"
+        subtitle="Notes"
+        originRect={fileOriginRect}
+        onDismiss={closeFilePage}
+      />
+    )}
+    </>
   );
 }
