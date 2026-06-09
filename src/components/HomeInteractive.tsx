@@ -34,10 +34,8 @@ const SCATTER_TRANSFORMS: Record<string, { x: number; y: number; rotation: numbe
   paper:  { x:  290, y:  150, rotation:  -8 },
 };
 
-const randomTilt = (): number => {
-  const mag = 5 + Math.random() * 7;
-  return (Math.random() > 0.5 ? 1 : -1) * parseFloat(mag.toFixed(2));
-};
+const randomTilt = (): number =>
+  parseFloat(((Math.random() * 24) - 12).toFixed(2));
 
 const parseTiltDeg = (tilt: string): number => {
   const m = tilt.match(/rotate\((-?[\d.]+)deg\)/);
@@ -1134,6 +1132,7 @@ export function HomeInteractive() {
               key={layer}
               onClick={(e) => handleNavClick(layer, e)}
               className="flex gap-2 items-start cursor-pointer select-none"
+              style={{ display: 'inline-flex' }}
             >
               {activeNav === layer ? (
                 <><span>{label}</span><span>-</span></>
