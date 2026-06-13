@@ -205,8 +205,8 @@ export function PurpleFile({ state = "closed", className = "" }: PurpleFileProps
           width:          FRONT_W,
           height:         FRONT_H,
           borderRadius:   "32px 32px 12px 12px",
-          backdropFilter: "blur(12px) saturate(200%)",
-          background:     "rgba(170, 126, 242, 0.22)",
+          backdropFilter: "blur(12px) saturate(130%)",
+          background:     "rgba(170, 126, 242, 0.15)",
           zIndex:         10,
         }}
       >
