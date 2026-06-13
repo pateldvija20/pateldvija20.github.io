@@ -149,11 +149,12 @@ export function PurpleFile({ state = "closed", className = "" }: PurpleFileProps
           transformOrigin: "0% 0%",
           transform:       "rotate(0deg)",
           backdropFilter:  "blur(8px) saturate(185%)",
-          filter:          filterUrl,
           background:      "rgba(170, 126, 242, 0.18)",
           zIndex:          0,
         }}
-      />
+      >
+        <div style={{ position: "absolute", inset: 0, borderRadius: 12, filter: filterUrl }} />
+      </div>
 
       {/* ── PAPER 3 — back-most (z=1) ────────────────────────────────────── */}
       <div
@@ -205,11 +206,12 @@ export function PurpleFile({ state = "closed", className = "" }: PurpleFileProps
           height:         FRONT_H,
           borderRadius:   "32px 32px 12px 12px",
           backdropFilter: "blur(12px) saturate(200%)",
-          filter:         filterUrl,
           background:     "rgba(170, 126, 242, 0.22)",
           zIndex:         10,
         }}
-      />
+      >
+        <div style={{ position: "absolute", inset: 0, borderRadius: "32px 32px 12px 12px", filter: filterUrl }} />
+      </div>
     </div>
   )
 }
