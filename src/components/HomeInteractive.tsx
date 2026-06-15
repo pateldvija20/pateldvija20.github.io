@@ -8,6 +8,7 @@ import BookCover from '../imports/Frame31-1/Frame31-6-430';
 import BookHoverImg from '../imports/BookHover/BookHover';
 import { PurpleFile } from './PurpleFile';
 import { FolderCard } from './FolderCard';
+import type { CaseStudy } from '@/lib/notion';
 import { PageCard } from './FolderCard/PageCard';
 import { MatGrid } from '../../Components/MatGrid/MatGrid';
 import { StickyNote } from '../../Components/StickyNote/StickyNote';
@@ -79,7 +80,7 @@ const NAV_ITEMS: Array<{ layer: LayerKey; label: string }> = [
 
 const isTouchDevice = () => typeof window !== 'undefined' && 'ontouchstart' in window;
 
-export function HomeInteractive() {
+export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
   const sceneRef        = useRef<HTMLDivElement>(null);
   const bookCoverRef    = useRef<HTMLDivElement>(null);
   const fileCoverRef    = useRef<HTMLDivElement>(null);
@@ -127,6 +128,12 @@ export function HomeInteractive() {
   const [fileOpen,       setFileOpen]       = useState(false);
   const fileOpenRef      = useRef(false);
   const [fileOriginRect, setFileOriginRect] = useState<DOMRect | null>(null);
+
+  const workStudies  = studies.filter(s => s.type === "Work");
+  const notesStudies = studies.filter(s => s.type === "Notes");
+
+  const [clickedNote, setClickedNote]         = useState<CaseStudy | null>(null);
+  const [clickedNoteRect, setClickedNoteRect] = useState<DOMRect | null>(null);
   const [bookHovered, setBookHovered] = useState(false);
   const [fileHovered, setFileHovered] = useState(false);
   const [stickyDragging, setStickyDragging] = useState(false);
@@ -1101,6 +1108,11 @@ export function HomeInteractive() {
           <PurpleFile
             state={fileOpen ? 'open' : fileHovered ? 'hover' : 'closed'}
             className="pointer-events-auto cursor-pointer"
+            notes={notesStudies}
+            onClickNote={(i, rect) => {
+              setClickedNote(notesStudies[i]);
+              setClickedNoteRect(rect);
+            }}
           />
         </div>
 
@@ -1110,7 +1122,7 @@ export function HomeInteractive() {
           className="absolute isolate invisible pointer-events-none overflow-visible"
         >
           <div className="pointer-events-auto cursor-pointer">
-            <FolderCard isActive={topLayer === 'folder' && !stickyDragging} />
+            <FolderCard isActive={topLayer === 'folder' && !stickyDragging} studies={workStudies} />
           </div>
         </div>
 
@@ -1141,6 +1153,16 @@ export function HomeInteractive() {
         subtitle="Notes"
         originRect={fileOriginRect}
         onDismiss={closeFilePage}
+      />
+    )}
+
+    {clickedNote && clickedNoteRect && (
+      <PageCard
+        title={clickedNote.name}
+        subtitle={clickedNote.year ? `${clickedNote.year} · ${clickedNote.tags}` : clickedNote.tags}
+        pageId={clickedNote.id}
+        originRect={clickedNoteRect}
+        onDismiss={() => { setClickedNote(null); setClickedNoteRect(null); }}
       />
     )}
     </>

@@ -32,7 +32,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
         <link
-          href="https://fonts.googleapis.com/css2?family=Gochi+Hand&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Shantell+Sans:wght@600&display=swap"
           rel="stylesheet"
         />
       </head>

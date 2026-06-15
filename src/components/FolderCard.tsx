@@ -5,7 +5,7 @@ import gsap from "gsap"
 import { Page } from "./FolderCard/Page"
 import { PageCard } from "./FolderCard/PageCard"
 import { StickyNote } from "./FolderCard/StickyNote"
-import { parseCSV, type CaseStudy } from "@/lib/caseStudies"
+import type { CaseStudy } from "@/lib/notion"
 
 // ─── Dimensions ─────────────────────────────────────────────────────────────────
 // Reference (shahabkarimifar): folder 300×250, front 210px tall, perspective 800px
@@ -26,8 +26,7 @@ const COLOR_FRONT_TOP   = "#8DDBFF"
 const COLOR_FRONT_MID   = "#6CD8FF"
 const COLOR_FRONT_BOT   = "#5BBCF7"
 
-export function FolderCard({ isActive = false }: { isActive?: boolean }) {
-  const [studies, setStudies]           = useState<CaseStudy[]>([])
+export function FolderCard({ isActive = false, studies = [] }: { isActive?: boolean; studies?: CaseStudy[] }) {
   const [isOpen, setIsOpen]             = useState(false)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [clickedStudy, setClickedStudy] = useState<CaseStudy | null>(null)
@@ -36,22 +35,17 @@ export function FolderCard({ isActive = false }: { isActive?: boolean }) {
   const frontRef    = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    fetch("/data/case_studies.csv")
-      .then(r => r.text())
-      .then(text => setStudies(parseCSV(text)))
-      .catch(console.error)
-  }, [])
-
-  useEffect(() => {
     if (!isActive) { setIsOpen(false); setHoveredIndex(null) }
   }, [isActive])
+
+  // Front page open position: PAGE_TOP + (n-1)*15. Cover starts 20% down that page (80% coverage).
+  const frontTopHover = PAGE_TOP + (studies.length - 1) * 15 + Math.round(450 * 0.2)
 
   // Bottom edge is the fixed pivot — it never moves.
   // rotateX(-20deg) sweeps the top of the cover toward the viewer, opening the folder.
   useEffect(() => {
     if (!frontRef.current) return
     gsap.set(frontRef.current, { transformOrigin: "bottom center" })
-    const frontTopHover = BODY_TOP + PAGE_GAP + (studies.length - 1) * PAGE_SPACING + PAGE_GAP
     gsap.to(frontRef.current, {
       top:      isOpen ? frontTopHover : FRONT_TOP,
       rotateX:  isOpen ? -20 : 0,
@@ -61,8 +55,14 @@ export function FolderCard({ isActive = false }: { isActive?: boolean }) {
     })
   }, [isOpen, studies.length])
 
-  function handleListClick(index: number, rect: DOMRect) {
-    setClickedStudy(studies[index])
+  // Sticky note lists studies[0] first, but pages render reversed so studies[0] = frontmost page.
+  // Map list index → page index: list item i corresponds to page (total-1-i).
+  function handleHoverItem(listIndex: number | null) {
+    setHoveredIndex(listIndex === null ? null : studies.length - 1 - listIndex)
+  }
+
+  function handleListClick(listIndex: number, rect: DOMRect) {
+    setClickedStudy(studies[listIndex])
     setClickedRect(rect)
   }
 
@@ -104,7 +104,7 @@ export function FolderCard({ isActive = false }: { isActive?: boolean }) {
         </div>
 
         {/* ── PAGES ──────────────────────────────────────────────────────────── */}
-        {studies.map((study, i) => (
+        {[...studies].reverse().map((study, i) => (
           <Page
             key={i}
             study={study}
@@ -134,8 +134,8 @@ export function FolderCard({ isActive = false }: { isActive?: boolean }) {
           <StickyNote
             studies={studies}
             flapWidth={W}
-            flapHeight={H - FRONT_TOP}
-            onHoverItem={setHoveredIndex}
+            flapHeight={H - (isOpen ? frontTopHover : FRONT_TOP)}
+            onHoverItem={handleHoverItem}
             onClickItem={handleListClick}
           />
         </div>
@@ -145,11 +145,10 @@ export function FolderCard({ isActive = false }: { isActive?: boolean }) {
         <PageCard
           title={clickedStudy.name}
           subtitle={`${clickedStudy.year} · ${clickedStudy.tags}`}
+          pageId={clickedStudy.id}
           originRect={clickedRect}
           onDismiss={() => { setClickedStudy(null); setClickedRect(null) }}
-        >
-          <p className="m-0 text-[15px] leading-7 text-[#333]">{clickedStudy.description}</p>
-        </PageCard>
+        />
       )}
     </>
   )

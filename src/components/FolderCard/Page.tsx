@@ -17,7 +17,7 @@ export interface PageProps {
 // index 0 = backmost (stays at base), index total-1 = frontmost (moves down most).
 // 30px spacing matches PAGE_SPACING in FolderCard.
 function getOpenY(index: number, _total: number): number {
-  return index * 30   // backmost: 0px  →  frontmost: (n-1)*30px
+  return index * 15   // backmost: 0px  →  frontmost: (n-1)*15px
 }
 
 export function Page({
@@ -32,10 +32,9 @@ export function Page({
   const labelRef = useRef<HTMLDivElement>(null)
 
   const openY  = getOpenY(index, total)
-  const zIndex = index + 1
-  // frontmost page (index = total-1) scaleX = 1.03, each page back decrements 0.05
+  const zIndex = total - index - 0.5
   const fromFront = total - 1 - index
-  const openScaleX = 1.03 - fromFront * 0.05
+  const openScaleX = 1.0 + (total - 1 - fromFront) * 0.008
 
   useEffect(() => {
     if (!ref.current) return

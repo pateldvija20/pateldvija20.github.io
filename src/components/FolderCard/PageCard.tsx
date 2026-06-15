@@ -1,8 +1,9 @@
 "use client"
 
-import { useRef, useEffect } from "react"
+import { useRef, useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import gsap from "gsap"
+import { NotionBlocks } from "@/components/NotionBlocks"
 
 const MARGIN_X_RATIO = 160 / 1440
 const MARGIN_Y_RATIO = 60  / 1024
@@ -18,12 +19,24 @@ function getTargetRect() {
 interface PageCardProps {
   title: string
   subtitle?: string
+  pageId?: string
   children?: React.ReactNode
   originRect: DOMRect
   onDismiss: () => void
 }
 
-export function PageCard({ title, subtitle, children, originRect, onDismiss }: PageCardProps) {
+export function PageCard({ title, subtitle, pageId, children, originRect, onDismiss }: PageCardProps) {
+  const [blocks, setBlocks]   = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!pageId) return
+    setLoading(true)
+    fetch(`/api/notion-blocks/${pageId}`)
+      .then(r => r.json())
+      .then(data => { setBlocks(Array.isArray(data) ? data : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [pageId])
   const overlayRef = useRef<HTMLDivElement>(null)
   const cardRef    = useRef<HTMLDivElement>(null)
 
@@ -103,7 +116,11 @@ export function PageCard({ title, subtitle, children, originRect, onDismiss }: P
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-7 py-6">
-          {children}
+          {pageId ? (
+            loading
+              ? <p className="text-[14px] text-[#888]">Loading…</p>
+              : <NotionBlocks blocks={blocks} />
+          ) : children}
         </div>
       </div>
     </div>,
