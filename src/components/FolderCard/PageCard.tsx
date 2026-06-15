@@ -64,7 +64,7 @@ export function PageCard({ title, subtitle, pageId, children, originRect, onDism
         width:        target.width,
         height:       target.height,
         borderRadius: 20,
-        duration:     0.5,
+        duration:     0.35,
         ease:         "power3.out",
       }, "<0.05")
   }, [])
@@ -78,10 +78,10 @@ export function PageCard({ title, subtitle, pageId, children, originRect, onDism
       width:        originRect.width,
       height:       originRect.height,
       borderRadius: 12,
-      duration:     0.4,
-      ease:         "power3.in",
+      duration:     0.3,
+      ease:         "power3.out",
     })
-      .to(overlayRef.current, { opacity: 0, duration: 0.2 }, "<0.1")
+      .to(overlayRef.current, { opacity: 0, duration: 0.15 }, "<0.05")
   }
 
   return createPortal(
@@ -108,7 +108,7 @@ export function PageCard({ title, subtitle, pageId, children, originRect, onDism
           </div>
           <button
             onClick={dismiss}
-            className="p-2 rounded-lg text-[#666] text-xl leading-none bg-transparent border-none cursor-pointer hover:bg-black/5 transition-colors"
+            className="p-2 rounded-lg text-[#666] text-xl leading-none bg-transparent border-none cursor-pointer hover:bg-black/5 transition-colors active:scale-[0.92] transition-transform"
             aria-label="Close"
           >
             ✕

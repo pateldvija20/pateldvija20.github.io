@@ -719,8 +719,8 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
           const el = sceneRef.current?.querySelector(`[data-name="${drag.layer}"]`) as HTMLElement | null;
           const cover = coverOf(drag.layer);
           // Snap card back to its pre-drag position
-          gsap.to(el,    { x: drag.startOffsetX, y: drag.startOffsetY, duration: 0.15, ease: 'power2.out' });
-          if (cover) gsap.to(cover, { x: drag.startOffsetX, y: drag.startOffsetY, duration: 0.15, ease: 'power2.out' });
+          gsap.to(el,    { x: drag.startOffsetX, y: drag.startOffsetY, duration: 0.25, ease: 'back.out(1.4)' });
+          if (cover) gsap.to(cover, { x: drag.startOffsetX, y: drag.startOffsetY, duration: 0.25, ease: 'back.out(1.4)' });
           dragOffsets[drag.layer] = { x: drag.startOffsetX, y: drag.startOffsetY };
         }
         isDraggingRef.current   = false;
@@ -772,8 +772,8 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
     if (bookOpen) {
       openEl.style.display = 'block';
       gsap.fromTo(openEl,
-        { scaleX: 0.1, rotationX: -20, opacity: 0, transformPerspective: 1200, transformOrigin: 'center center' },
-        { scaleX: 1,   rotationX: 0,   opacity: 1, duration: 0.8, ease: 'back.out(1.3)' }
+        { scaleX: 0.85, rotationX: -10, opacity: 0, transformPerspective: 1200, transformOrigin: 'center center' },
+        { scaleX: 1,    rotationX: 0,   opacity: 1, duration: 0.5, ease: 'back.out(1.3)' }
       );
     } else {
       gsap.to(openEl, {

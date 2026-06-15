@@ -91,7 +91,7 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem, onClic
         userSelect:    "none",
         zIndex:        20,
         transform:     `rotate(${tilt}deg)`,
-        transition:    "transform 0.25s ease",
+        transition:    "transform 0.2s cubic-bezier(0.23, 1, 0.32, 1)",
       }}
     >
       {/* ── Structural SVG shell (dynamic height) ── */}
