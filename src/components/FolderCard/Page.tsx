@@ -36,10 +36,13 @@ export function Page({
   // frontmost page (index = total-1) scaleX = 1.03, each page back decrements 0.05
   const fromFront = total - 1 - index
   const openScaleX = 1.03 - fromFront * 0.05
+  // Fan angle in closed state: pages spread from center with alternating direction
+  const closedFanZ = (index - (total - 1) / 2) * 2
 
   useEffect(() => {
     if (!ref.current) return
-    gsap.set(ref.current, { transformOrigin: "bottom center" })
+    ref.current.style.transformStyle = 'preserve-3d'
+    gsap.set(ref.current, { transformOrigin: "bottom center", rotateZ: closedFanZ })
   }, [])
 
   // ── Open / close ─────────────────────────────────────────────────────────────
@@ -49,6 +52,7 @@ export function Page({
       gsap.to(ref.current, {
         y:        openY,
         rotateX:  -20,
+        rotateZ:  0,
         scaleX:   openScaleX,
         duration: 0.4,
         ease:     "power2.out",
@@ -58,6 +62,7 @@ export function Page({
       gsap.to(ref.current, {
         y:        0,
         rotateX:  0,
+        rotateZ:  closedFanZ,
         scaleX:   1,
         duration: 0.35,
         ease:     "power2.inOut",

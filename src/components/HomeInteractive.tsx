@@ -176,16 +176,19 @@ export function HomeInteractive() {
         if (child) { child.style.pointerEvents = 'auto'; child.style.cursor = 'pointer'; }
       }
 
-      const targetY     = rank * 10;
-      const targetScale = 1 - rank * 0.02;
+      const targetY     = rank * 12;
+      const targetScale = 1 - rank * 0.03;
       const elRot       = layerTiltRef.current[layer] ?? 0;
+      // Fan background cards slightly from the top card's pivot
+      const fanBias     = rank === 0 ? 0 : (rank % 2 === 0 ? 1 : -1) * rank * 1.5;
+      const targetRot   = elRot + fanBias;
 
       if (animate) {
-        gsap.to(el, { x: 0, y: targetY, scale: targetScale, rotation: elRot, opacity: 1, duration: 0.7, ease: 'back.out(1.6)' });
-        if (cover) gsap.to(cover, { x: 0, y: targetY, scale: targetScale, rotation: elRot, opacity: 1, duration: 0.7, ease: 'back.out(1.6)' });
+        gsap.to(el, { x: 0, y: targetY, scale: targetScale, rotation: targetRot, opacity: 1, duration: 0.7, ease: 'back.out(1.6)' });
+        if (cover) gsap.to(cover, { x: 0, y: targetY, scale: targetScale, rotation: targetRot, opacity: 1, duration: 0.7, ease: 'back.out(1.6)' });
       } else {
-        if (el) gsap.set(el, { x: 0, y: targetY, scale: targetScale, rotation: elRot, opacity: 1 });
-        if (cover) gsap.set(cover, { x: 0, y: targetY, scale: targetScale, rotation: elRot, opacity: 1 });
+        if (el) gsap.set(el, { x: 0, y: targetY, scale: targetScale, rotation: targetRot, opacity: 1 });
+        if (cover) gsap.set(cover, { x: 0, y: targetY, scale: targetScale, rotation: targetRot, opacity: 1 });
       }
     });
   }, [coverOf]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -527,17 +530,21 @@ export function HomeInteractive() {
       const el = q(layer);
       if (!el) return;
       el.style.zIndex = String(Z_BASE[layer]);
+      el.style.transformStyle = 'preserve-3d';
       if (layer === 'book' && bookCoverRef.current) {
         bookCoverRef.current.style.zIndex = String(Z_BASE['book'] + 1);
         bookCoverRef.current.style.pointerEvents = 'none';
+        bookCoverRef.current.style.transformStyle = 'preserve-3d';
       }
       if (layer === 'file' && fileCoverRef.current) {
         fileCoverRef.current.style.zIndex = String(Z_BASE['file'] + 1);
         fileCoverRef.current.style.pointerEvents = 'none';
+        fileCoverRef.current.style.transformStyle = 'preserve-3d';
       }
       if (layer === 'folder' && folderCoverRef.current) {
         folderCoverRef.current.style.zIndex = String(Z_BASE['folder'] + 1);
         folderCoverRef.current.style.pointerEvents = 'none';
+        folderCoverRef.current.style.transformStyle = 'preserve-3d';
       }
       el.style.pointerEvents = 'none';
       if (layer === 'paper') {
@@ -1015,6 +1022,7 @@ export function HomeInteractive() {
             ? 'translate(-50%, -50%) scale(calc(100vh / 1024px))'
             : 'translate(-50%, -50%) scale(min(calc(100vw / 1440px), calc(100vh / 1024px)))',
           transformOrigin: 'center center',
+          perspective: '2400px',
         }}
       >
         <HomeImport />
