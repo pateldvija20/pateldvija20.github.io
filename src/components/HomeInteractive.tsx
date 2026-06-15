@@ -104,6 +104,22 @@ export function HomeInteractive() {
     paper:  `rotate(${layerTiltRef.current.paper}deg)`,
   });
 
+  const [isDark, setIsDark] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('theme') === 'dark';
+  });
+
+  useEffect(() => {
+    const html = document.documentElement;
+    if (isDark) {
+      html.classList.add('dark-mode');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      html.classList.remove('dark-mode');
+      localStorage.setItem('theme', 'light');
+    }
+  }, [isDark]);
+
   const [activeNav,   setActiveNav]   = useState<LayerKey>('book');
   const [topLayer,    setTopLayer]    = useState<LayerKey>('book');
   const [bookOpen,    setBookOpen]    = useState(false);
@@ -986,7 +1002,7 @@ export function HomeInteractive() {
         fontSize: '13px',
         fontWeight: 600,
         lineHeight: 'normal',
-        color: '#000912',
+        color: 'var(--nav-text)',
       }
     : {
         position: 'absolute',
@@ -1003,7 +1019,7 @@ export function HomeInteractive() {
         fontSize: '12px',
         fontWeight: 600,
         lineHeight: 'normal',
-        color: '#000912',
+        color: 'var(--nav-text)',
       };
 
   return (
@@ -1044,7 +1060,7 @@ export function HomeInteractive() {
         </div>
 
         {/* ── Sticky note ────────────────────────────────────────────────── */}
-        <StickyNote scaleRef={scaleRef} onDragActiveChange={(active) => { stickyDraggingRef.current = active; setStickyDragging(active); }} />
+        <StickyNote scaleRef={scaleRef} onDragActiveChange={(active) => { stickyDraggingRef.current = active; setStickyDragging(active); }} isDark={isDark} onToggleDark={() => setIsDark(d => !d)} />
 
         {/* ── Book cover overlay ─────────────────────────────────────────── */}
         <div

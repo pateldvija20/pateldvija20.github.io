@@ -451,7 +451,7 @@ function Book() {
 
 export default function Home() {
   return (
-    <div className="bg-[#f3f2ee] relative size-full" data-name="Home">
+    <div className="relative size-full" style={{ background: 'var(--bg)' }} data-name="Home">
       <UiNavContainer />
       
       <Paper />

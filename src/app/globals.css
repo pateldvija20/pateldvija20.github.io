@@ -6,6 +6,7 @@
 :root {
   --bg: #f3f2ee;
   --text: #000912;
+  --nav-text: #000912;
   --mat-blue: #00332a;
   --font-display: "Bricolage Grotesque", serif;
   --font-body: "Atkinson Hyperlegible Mono", monospace;
@@ -112,6 +113,11 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+html.dark-mode {
+  --bg: #10171E;
+  --nav-text: #FCFEFF;
+}
+
 html,
 body {
   margin: 0;
@@ -120,6 +126,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-body);
+  transition: background 0.4s ease;
 }
 
 h1,

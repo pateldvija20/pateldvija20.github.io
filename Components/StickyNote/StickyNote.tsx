@@ -16,9 +16,11 @@ interface StickyNoteProps {
   /** Current scene scale (viewport px ÷ scene px) so drag deltas stay pixel-accurate */
   scaleRef: React.RefObject<number>;
   onDragActiveChange?: (active: boolean) => void;
+  isDark?: boolean;
+  onToggleDark?: () => void;
 }
 
-export function StickyNote({ scaleRef, onDragActiveChange }: StickyNoteProps) {
+export function StickyNote({ scaleRef, onDragActiveChange, isDark, onToggleDark }: StickyNoteProps) {
   // ── Live clock ──────────────────────────────────────────────────────────────
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -32,8 +34,8 @@ export function StickyNote({ scaleRef, onDragActiveChange }: StickyNoteProps) {
     ? now.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })
     : "── ──────── ────";
   const timeStr = now
-    ? now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })
-    : "──:── ──";
+    ? now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hour12: true })
+    : "──:──:── ──";
 
   // ── Drag state (scene coordinates) ──────────────────────────────────────────
   const [pos, setPos] = useState({ x: 1215.31, y: 25.32 });
@@ -188,21 +190,58 @@ export function StickyNote({ scaleRef, onDragActiveChange }: StickyNoteProps) {
           {timeStr}
         </div>
 
-        {/* "KEY:" label — bottom */}
+        {/* Bottom row: KEY: label + dark mode toggle */}
         <div
           style={{
             width: "154.73px",
-            fontFamily: "'Atkinson Hyperlegible Mono', monospace",
-            fontWeight: 700,
-            fontSize: "6.49225px",
-            lineHeight: "8px",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "#0051E7",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
             alignSelf: "stretch",
           }}
         >
-          KEY:
+          <span
+            style={{
+              fontFamily: "'Atkinson Hyperlegible Mono', monospace",
+              fontWeight: 700,
+              fontSize: "6.49225px",
+              lineHeight: "8px",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "#0051E7",
+            }}
+          >
+            KEY:
+          </span>
+
+          {/* Moon / Sun toggle */}
+          <div
+            data-no-deck-drag
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onToggleDark?.(); }}
+            style={{ cursor: "pointer", lineHeight: 0 }}
+            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {isDark ? (
+              /* Sun — line art */
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0051E7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="4"/>
+                <line x1="12" y1="2" x2="12" y2="5"/>
+                <line x1="12" y1="19" x2="12" y2="22"/>
+                <line x1="2" y1="12" x2="5" y2="12"/>
+                <line x1="19" y1="12" x2="22" y2="12"/>
+                <line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/>
+                <line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/>
+                <line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/>
+                <line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/>
+              </svg>
+            ) : (
+              /* Moon — line art */
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0051E7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            )}
+          </div>
         </div>
       </div>
     </div>
