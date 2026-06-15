@@ -39,7 +39,7 @@ export function FolderCard({ isActive = false, studies = [] }: { isActive?: bool
   }, [isActive])
 
   // Front page open position: PAGE_TOP + (n-1)*15. Cover starts 20% down that page (80% coverage).
-  const frontTopHover = PAGE_TOP + (studies.length - 1) * 15 + Math.round(450 * 0.2)
+  const frontTopHover = PAGE_TOP + (studies.length - 1) * 15 + Math.round(450 * 0.1)
 
   // Bottom edge is the fixed pivot — it never moves.
   // rotateX(-20deg) sweeps the top of the cover toward the viewer, opening the folder.
