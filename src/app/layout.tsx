@@ -37,7 +37,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}<Agentation /></body>
+      <body>{children}{process.env.NODE_ENV === 'development' && <Agentation />}</body>
     </html>
   );
 }
