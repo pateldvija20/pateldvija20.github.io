@@ -29,7 +29,7 @@ export async function getCaseStudies(): Promise<CaseStudy[]> {
         tags,
         type,
         location,
-        slug
+        "slug":        slug.current
       }
     `)
     return results ?? []

@@ -129,8 +129,8 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
   const fileOpenRef      = useRef(false);
   const [fileOriginRect, setFileOriginRect] = useState<DOMRect | null>(null);
 
-  const workStudies  = studies.filter(s => s.type === "Work");
-  const notesStudies = studies.filter(s => s.type === "Notes");
+  const workStudies  = studies.filter(s => s.location === "Work");
+  const notesStudies = studies.filter(s => s.location === "Notes");
 
   const [clickedNote, setClickedNote]         = useState<CaseStudy | null>(null);
   const [clickedNoteRect, setClickedNoteRect] = useState<DOMRect | null>(null);

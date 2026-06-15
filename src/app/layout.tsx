@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { Agentation } from "agentation";
 
 export const metadata: Metadata = {
   title: "Portfolio",
@@ -36,7 +37,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>{children}<Agentation /></body>
     </html>
   );
 }
