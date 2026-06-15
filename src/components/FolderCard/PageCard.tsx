@@ -3,7 +3,8 @@
 import { useRef, useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import gsap from "gsap"
-import { NotionBlocks } from "@/components/NotionBlocks"
+import { SanityBlocks } from "@/components/SanityBlocks"
+import { sanityClient } from "@/lib/sanity"
 
 const MARGIN_X_RATIO = 160 / 1440
 const MARGIN_Y_RATIO = 60  / 1024
@@ -32,14 +33,9 @@ export function PageCard({ title, subtitle, pageId, children, originRect, onDism
   useEffect(() => {
     if (!pageId) return
     setLoading(true)
-    fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
-      headers: {
-        "Authorization": `Bearer ${process.env.NEXT_PUBLIC_NOTION_TOKEN ?? ""}`,
-        "Notion-Version": "2022-06-28",
-      },
-    })
-      .then(r => r.json())
-      .then(data => { setBlocks(Array.isArray(data?.results) ? data.results : []); setLoading(false) })
+    sanityClient
+      .fetch(`*[_id == $id][0]{ body }`, { id: pageId })
+      .then((result: any) => { setBlocks(Array.isArray(result?.body) ? result.body : []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [pageId])
   const overlayRef = useRef<HTMLDivElement>(null)
@@ -124,7 +120,7 @@ export function PageCard({ title, subtitle, pageId, children, originRect, onDism
           {pageId ? (
             loading
               ? <p className="text-[14px] text-[#888]">Loading…</p>
-              : <NotionBlocks blocks={blocks} />
+              : <SanityBlocks blocks={blocks} />
           ) : children}
         </div>
       </div>
