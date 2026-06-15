@@ -4,6 +4,8 @@ import { useEffect, useId, useRef, useState } from "react"
 import gsap from "gsap"
 import { ShaderDisplacementGenerator, fragmentShaders } from "../../Components/LiquidGlass/shader-utils"
 import { displacementMap } from "../../Components/LiquidGlass/utils"
+import { StickyNote } from "./FolderCard/StickyNote"
+import type { CaseStudy } from "@/lib/notion"
 
 // ─── Dimensions — container hugs the back cover exactly ──────────────────────
 const BACK_W     = 612
@@ -41,9 +43,11 @@ export type FileState = "closed" | "hover" | "open"
 interface PurpleFileProps {
   state?: FileState
   className?: string
+  notes?: CaseStudy[]
+  onClickNote?: (index: number, rect: DOMRect) => void
 }
 
-export function PurpleFile({ state = "closed", className = "" }: PurpleFileProps) {
+export function PurpleFile({ state = "closed", className = "", notes = [], onClickNote }: PurpleFileProps) {
   const rawId   = useId()
   const filterId = rawId.replace(/:/g, "f")
   const [shaderUrl, setShaderUrl] = useState("")
@@ -211,6 +215,15 @@ export function PurpleFile({ state = "closed", className = "" }: PurpleFileProps
         }}
       >
         <div style={{ position: "absolute", inset: 0, borderRadius: "32px 32px 12px 12px", filter: filterUrl }} />
+        {notes.length > 0 && onClickNote && (
+          <StickyNote
+            studies={notes}
+            flapWidth={FRONT_W}
+            flapHeight={FRONT_H}
+            onHoverItem={() => {}}
+            onClickItem={onClickNote}
+          />
+        )}
       </div>
     </div>
   )
