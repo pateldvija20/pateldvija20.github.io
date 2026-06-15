@@ -32,9 +32,14 @@ export function PageCard({ title, subtitle, pageId, children, originRect, onDism
   useEffect(() => {
     if (!pageId) return
     setLoading(true)
-    fetch(`/api/notion-blocks/${pageId}`)
+    fetch(`https://api.notion.com/v1/blocks/${pageId}/children?page_size=100`, {
+      headers: {
+        "Authorization": `Bearer ${process.env.NEXT_PUBLIC_NOTION_TOKEN ?? ""}`,
+        "Notion-Version": "2022-06-28",
+      },
+    })
       .then(r => r.json())
-      .then(data => { setBlocks(Array.isArray(data) ? data : []); setLoading(false) })
+      .then(data => { setBlocks(Array.isArray(data?.results) ? data.results : []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [pageId])
   const overlayRef = useRef<HTMLDivElement>(null)
