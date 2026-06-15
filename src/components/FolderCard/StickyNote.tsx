@@ -144,9 +144,8 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem, onClic
             style={{
               margin:         0,
               fontFamily:     "'Shantell Sans', cursive",
-              fontWeight:     600,
-              fontStyle:      "normal",
               fontWeight:     400,
+              fontStyle:      "normal",
               fontSize:       14,
               lineHeight:     "200%",
               color:          "#000000",
