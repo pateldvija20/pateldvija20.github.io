@@ -5,7 +5,7 @@ import gsap from "gsap"
 import { ShaderDisplacementGenerator, fragmentShaders } from "../../Components/LiquidGlass/shader-utils"
 import { displacementMap } from "../../Components/LiquidGlass/utils"
 import { StickyNote } from "./FolderCard/StickyNote"
-import type { CaseStudy } from "@/lib/notion"
+import type { CaseStudy } from "@/lib/sanity"
 
 // ─── Dimensions — container hugs the back cover exactly ──────────────────────
 const BACK_W     = 612

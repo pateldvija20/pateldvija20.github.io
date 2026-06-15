@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from "react"
 import gsap from "gsap"
-import type { CaseStudy } from "@/lib/notion"
+import type { CaseStudy } from "@/lib/sanity"
 
 export interface PageProps {
   study:       CaseStudy

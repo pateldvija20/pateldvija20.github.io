@@ -5,7 +5,7 @@ import gsap from "gsap"
 import { Page } from "./FolderCard/Page"
 import { PageCard } from "./FolderCard/PageCard"
 import { StickyNote } from "./FolderCard/StickyNote"
-import type { CaseStudy } from "@/lib/notion"
+import type { CaseStudy } from "@/lib/sanity"
 
 // ─── Dimensions ─────────────────────────────────────────────────────────────────
 // Reference (shahabkarimifar): folder 300×250, front 210px tall, perspective 800px

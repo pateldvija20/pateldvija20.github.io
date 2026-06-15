@@ -8,7 +8,7 @@ import BookCover from '../imports/Frame31-1/Frame31-6-430';
 import BookHoverImg from '../imports/BookHover/BookHover';
 import { PurpleFile } from './PurpleFile';
 import { FolderCard } from './FolderCard';
-import type { CaseStudy } from '@/lib/notion';
+import type { CaseStudy } from '@/lib/sanity';
 import { PageCard } from './FolderCard/PageCard';
 import { MatGrid } from '../../Components/MatGrid/MatGrid';
 import { StickyNote } from '../../Components/StickyNote/StickyNote';

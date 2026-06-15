@@ -1,5 +1,5 @@
 import { HomeInteractive } from "@/components/HomeInteractive";
-import { getCaseStudies } from "@/lib/notion";
+import { getCaseStudies } from "@/lib/sanity";
 
 export const revalidate = 3600;
 

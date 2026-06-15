@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import type { CaseStudy } from "@/lib/notion"
+import type { CaseStudy } from "@/lib/sanity"
 
 const NOTE_W  = 197
 const ITEM_H  = 28     // 14px font × 2.0 line-height
