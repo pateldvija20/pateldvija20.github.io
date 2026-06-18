@@ -11,6 +11,7 @@ export interface PageProps {
   pageTop:     number
   isOpen:      boolean
   isHovered:   boolean
+  maxLift:     number   // max px the page may travel upward without leaving the scene
 }
 
 // Pages fan downward into the folder body on open.
@@ -27,6 +28,7 @@ export function Page({
   pageTop,
   isOpen,
   isHovered,
+  maxLift,
 }: PageProps) {
   const ref      = useRef<HTMLDivElement>(null)
   const labelRef = useRef<HTMLDivElement>(null)
@@ -69,7 +71,7 @@ export function Page({
   useEffect(() => {
     if (!ref.current || !labelRef.current) return
     if (isOpen && isHovered) {
-      gsap.to(ref.current,      { y: openY - 280, duration: 0.25, ease: "power2.out" })
+      gsap.to(ref.current,      { y: openY - Math.min(280, maxLift), duration: 0.25, ease: "power2.out" })
       gsap.to(labelRef.current, { opacity: 1, y: 0, duration: 0.2, ease: "power2.out" })
     } else if (isOpen) {
       gsap.to(ref.current,      { y: openY,       duration: 0.25, ease: "power2.out" })

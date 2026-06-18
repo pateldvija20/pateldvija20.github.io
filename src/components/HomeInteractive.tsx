@@ -1095,6 +1095,7 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
             state={fileOpen ? 'open' : fileHovered ? 'hover' : 'closed'}
             className="pointer-events-auto cursor-pointer"
             notes={notesStudies}
+            sceneRef={sceneRef}
             onClickNote={(i, rect) => {
               setClickedNote(notesStudies[i]);
               setClickedNoteRect(rect);
@@ -1108,7 +1109,7 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
           className="absolute isolate invisible pointer-events-none overflow-visible"
         >
           <div className="pointer-events-auto cursor-pointer">
-            <FolderCard isActive={topLayer === 'folder' && !stickyDragging} studies={workStudies} />
+            <FolderCard isActive={topLayer === 'folder' && !stickyDragging} studies={workStudies} sceneRef={sceneRef} />
           </div>
         </div>
 

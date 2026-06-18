@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useId, useRef, useState } from "react"
+import { useEffect, useId, useRef, useState, RefObject } from "react"
 import gsap from "gsap"
 import { ShaderDisplacementGenerator, fragmentShaders } from "../../Components/LiquidGlass/shader-utils"
 import { displacementMap } from "../../Components/LiquidGlass/utils"
@@ -40,18 +40,29 @@ const generateShaderMap = (w: number, h: number): string => {
 
 export type FileState = "closed" | "hover" | "open"
 
+const SAFE_MARGIN = 20
+
+function getSceneTopPx(el: HTMLElement, sceneEl: HTMLElement): number {
+  const sceneRect = sceneEl.getBoundingClientRect()
+  const elRect    = el.getBoundingClientRect()
+  const scaleY    = sceneRect.height / 1024
+  return (elRect.top - sceneRect.top) / scaleY
+}
+
 interface PurpleFileProps {
   state?: FileState
   className?: string
   notes?: CaseStudy[]
   onClickNote?: (index: number, rect: DOMRect) => void
+  sceneRef?: RefObject<HTMLDivElement | null>
 }
 
-export function PurpleFile({ state = "closed", className = "", notes = [], onClickNote }: PurpleFileProps) {
+export function PurpleFile({ state = "closed", className = "", notes = [], onClickNote, sceneRef }: PurpleFileProps) {
   const rawId   = useId()
   const filterId = rawId.replace(/:/g, "f")
   const [shaderUrl, setShaderUrl] = useState("")
 
+  const wrapperRef = useRef<HTMLDivElement>(null)
   const frontRef  = useRef<HTMLDivElement>(null)
   const paper1Ref = useRef<HTMLDivElement>(null)
   const paper2Ref = useRef<HTMLDivElement>(null)
@@ -96,9 +107,15 @@ export function PurpleFile({ state = "closed", className = "", notes = [], onCli
 
     // hover: papers pull out upward — covers stay completely static
     if (state === "hover") {
-      if (p1) gsap.to(p1, { y: -140, duration: 0.45, ease: "back.out(1.7)" })
-      if (p2) gsap.to(p2, { y: -95,  duration: 0.45, ease: "back.out(1.7)", delay: 0.04 })
-      if (p3) gsap.to(p3, { y: -55,  duration: 0.45, ease: "back.out(1.7)", delay: 0.08 })
+      // compute max upward travel that keeps papers within the scene
+      let cap = 140
+      if (wrapperRef.current && sceneRef?.current) {
+        const sceneTop = getSceneTopPx(wrapperRef.current, sceneRef.current)
+        cap = Math.max(0, sceneTop + PAPER_TOP - SAFE_MARGIN)
+      }
+      if (p1) gsap.to(p1, { y: -Math.min(140, cap),                       duration: 0.45, ease: "back.out(1.7)" })
+      if (p2) gsap.to(p2, { y: -Math.min(95,  Math.round(cap * 95 / 140)), duration: 0.45, ease: "back.out(1.7)", delay: 0.04 })
+      if (p3) gsap.to(p3, { y: -Math.min(55,  Math.round(cap * 55 / 140)), duration: 0.45, ease: "back.out(1.7)", delay: 0.08 })
     }
   }, [state])
 
@@ -107,6 +124,7 @@ export function PurpleFile({ state = "closed", className = "", notes = [], onCli
 
   return (
     <div
+      ref={wrapperRef}
       className={`relative ${className}`}
       style={{ width: W, height: H, perspective: 2200 }}
     >
