@@ -10,6 +10,7 @@ import type { CaseStudy } from '@/lib/sanity';
 import { PageCard } from './FolderCard/PageCard';
 import { MatGrid } from '../../Components/MatGrid/MatGrid';
 import { StickyNote } from '../../Components/StickyNote/StickyNote';
+import { GlobalCursorProvider } from './GlobalCursor';
 
 type LayerKey = 'book' | 'file' | 'folder' | 'paper' | 'mat-grid';
 
@@ -1032,7 +1033,7 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
       };
 
   return (
-    <>
+    <GlobalCursorProvider isDark={isDark}>
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
       <div
         ref={sceneRef}
@@ -1158,6 +1159,6 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
         onDismiss={() => { setClickedNote(null); setClickedNoteRect(null); }}
       />
     )}
-    </>
+    </GlobalCursorProvider>
   );
 }
