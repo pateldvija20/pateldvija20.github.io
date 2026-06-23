@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import gsap from "gsap";
 import BookCover from "../imports/Frame31-1/Frame31-6-430";
+import { useGlobalCursor, type HotzoneTestResult } from "./GlobalCursor";
 
 interface InteractiveBookProps {
   state?: "closed" | "hover" | "open";
@@ -33,146 +34,64 @@ export function InteractiveBook({
   const isFlippingRef = useRef(false);
 
   const [hoverZone, setHoverZone] = useState<"none" | "next" | "back">("none");
-  const cursorRef = useRef<HTMLDivElement>(null);
+  const { registerHotzone, unregisterHotzone } = useGlobalCursor();
 
-  const mousePosRef = useRef({ x: 0, y: 0 });
-  const targetPctRef = useRef(0);
-  const currentPctRef = useRef(0);
-  const activeChevronRef = useRef<"none" | "next" | "back">("none");
-  const animationFrameIdRef = useRef<number | null>(null);
+  // ── Hotzone test function: given viewport coords, check if inside a book page-turn zone ──
+  const hotzoneTestFn = useCallback(
+    (clientX: number, clientY: number): HotzoneTestResult => {
+      if (state !== "open" || isFlippingRef.current) return { active: false };
+      const container = containerRef.current;
+      if (!container) return { active: false };
 
-  const updateCursorAnimation = () => {
-    const el = cursorRef.current;
-    if (!el) return;
+      const rect = container.getBoundingClientRect();
+      const scaleX = rect.width / 1154;
+      const scaleY = rect.height / 763;
 
-    const targetPct = targetPctRef.current;
-    let currentPct = currentPctRef.current;
+      const x = (clientX - rect.left) / (scaleX || 1);
+      const y = (clientY - rect.top) / (scaleY || 1);
 
-    // Fast reverse animation: when targetPct is 0, ease is faster (0.3).
-    // When targetPct > 0, ease is smooth (0.15).
-    const ease = targetPct === 0 ? 0.3 : 0.15;
-    currentPct += (targetPct - currentPct) * ease;
+      // Only test if inside the book bounds
+      if (x < 0 || x > 1154 || y < 0 || y > 763) return { active: false };
 
-    if (Math.abs(currentPct - targetPct) < 0.001) {
-      currentPct = targetPct;
-    }
-    currentPctRef.current = currentPct;
-
-    // Direct DOM display controls
-    if (currentPct > 0 || targetPct > 0) {
-      el.style.display = "flex";
-      if (containerRef.current) {
-        containerRef.current.classList.add("hide-cursor");
+      if (currentPage === 1) {
+        if (x >= 860.5 && x <= 1144) {
+          const pct = Math.min(Math.max((x - 860.5) / (1144 - 860.5), 0), 1);
+          return { active: true, pct, chevron: "next" };
+        }
+      } else if (currentPage === 2) {
+        if (x >= 10 && x <= 293.5) {
+          const pct = Math.min(Math.max((293.5 - x) / (293.5 - 10), 0), 1);
+          return { active: true, pct, chevron: "back" };
+        }
       }
-    } else {
-      el.style.display = "none";
-      if (containerRef.current) {
-        containerRef.current.classList.remove("hide-cursor");
-      }
-    }
 
-    // Direct DOM styling updates
-    el.style.left = `${mousePosRef.current.x}px`;
-    el.style.top = `${mousePosRef.current.y}px`;
+      return { active: false };
+    },
+    [state, currentPage]
+  );
 
-    const size = 6.75 * (2 * currentPct * currentPct + currentPct + 1);
-    el.style.width = `${size}px`;
-    el.style.height = `${size}px`;
-
-    const nextSvg = el.querySelector("[data-cursor-chevron='next']") as SVGElement | null;
-    const backSvg = el.querySelector("[data-cursor-chevron='back']") as SVGElement | null;
-    const activeChevron = activeChevronRef.current;
-
-    if (nextSvg) {
-      if (activeChevron === "next" && currentPct > 0) {
-        nextSvg.style.display = "block";
-        const opacity = currentPct >= 0.2 ? (currentPct - 0.2) / 0.8 : 0;
-        nextSvg.style.opacity = String(opacity);
-        nextSvg.style.transform = `scale(${currentPct * currentPct})`;
-      } else {
-        nextSvg.style.display = "none";
-      }
-    }
-
-    if (backSvg) {
-      if (activeChevron === "back" && currentPct > 0) {
-        backSvg.style.display = "block";
-        const opacity = currentPct >= 0.2 ? (currentPct - 0.2) / 0.8 : 0;
-        backSvg.style.opacity = String(opacity);
-        backSvg.style.transform = `scale(${currentPct * currentPct})`;
-      } else {
-        backSvg.style.display = "none";
-      }
-    }
-
-    if (currentPct !== targetPct) {
-      animationFrameIdRef.current = requestAnimationFrame(updateCursorAnimation);
-    } else {
-      animationFrameIdRef.current = null;
-    }
-  };
-
+  // Register / unregister the hotzone with the global cursor
   useEffect(() => {
-    return () => {
-      if (animationFrameIdRef.current !== null) {
-        cancelAnimationFrame(animationFrameIdRef.current);
-      }
-    };
-  }, []);
+    registerHotzone("interactive-book", hotzoneTestFn);
+    return () => unregisterHotzone("interactive-book");
+  }, [registerHotzone, unregisterHotzone, hotzoneTestFn]);
 
+  // ── Track hoverZone for click handling (lightweight — only sets state on zone change) ──
   const handleContainerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (state !== "open" || isFlippingRef.current) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    
     const scaleX = rect.width / 1154;
-    const scaleY = rect.height / 763;
-    
     const x = (e.clientX - rect.left) / (scaleX || 1);
-    const y = (e.clientY - rect.top) / (scaleY || 1);
 
     let currentZone: "none" | "next" | "back" = "none";
-    let pct = 0;
+    if (currentPage === 1 && x >= 860.5 && x <= 1144) currentZone = "next";
+    else if (currentPage === 2 && x >= 10 && x <= 293.5) currentZone = "back";
 
-    if (currentPage === 1) {
-      const isNextZone = x >= 860.5 && x <= 1144;
-      if (isNextZone) {
-        currentZone = "next";
-        pct = (x - 860.5) / (1144 - 860.5);
-      }
-    } else if (currentPage === 2) {
-      const isBackZone = x >= 10 && x <= 293.5;
-      if (isBackZone) {
-        currentZone = "back";
-        pct = (293.5 - x) / (293.5 - 10);
-      }
-    }
-
-    pct = Math.min(Math.max(pct, 0), 1);
-
-    if (currentZone !== hoverZone) {
-      setHoverZone(currentZone);
-    }
-
-    // Update coordinates and target percentage in refs
-    mousePosRef.current = { x, y };
-    targetPctRef.current = currentZone !== "none" ? pct : 0;
-    
-    if (currentZone !== "none") {
-      activeChevronRef.current = currentZone;
-    }
-
-    // Start or keep the animation loop running
-    if (animationFrameIdRef.current === null) {
-      animationFrameIdRef.current = requestAnimationFrame(updateCursorAnimation);
-    }
+    if (currentZone !== hoverZone) setHoverZone(currentZone);
   };
 
   const handleContainerMouseLeave = () => {
-    setHoverZone("none");
-    targetPctRef.current = 0;
-    if (animationFrameIdRef.current === null) {
-      animationFrameIdRef.current = requestAnimationFrame(updateCursorAnimation);
-    }
+    if (hoverZone !== "none") setHoverZone("none");
   };
 
   const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -214,16 +133,27 @@ export function InteractiveBook({
         ease: "power2.in",
         onComplete: () => {
           setCurrentPage(newPage);
-          gsap.set(rightPage, { scaleX: 1, opacity: 1, pointerEvents: "auto" });
+          gsap.set(rightPage, { scaleX: 1, opacity: 0, pointerEvents: "auto" });
+          gsap.set(leftPage, { transformOrigin: "right center", scaleX: 0, opacity: 0 });
         },
       });
-      gsap.set(leftPage, { transformOrigin: "right center", scaleX: 0, opacity: 0 });
+      tl.to(leftPage, {
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.in",
+      }, 0);
+
       tl.to(leftPage, {
         scaleX: 1,
         opacity: 1,
         duration: 0.3,
         ease: "power2.out",
       });
+      tl.to(rightPage, {
+        opacity: 1,
+        duration: 0.3,
+        ease: "power2.out",
+      }, "<");
     } else {
       gsap.set(leftPage, { transformOrigin: "right center" });
       tl.to(leftPage, {
@@ -233,16 +163,27 @@ export function InteractiveBook({
         ease: "power2.in",
         onComplete: () => {
           setCurrentPage(newPage);
-          gsap.set(leftPage, { scaleX: 1, opacity: 1, pointerEvents: "auto" });
+          gsap.set(leftPage, { scaleX: 1, opacity: 0, pointerEvents: "auto" });
+          gsap.set(rightPage, { transformOrigin: "left center", scaleX: 0, opacity: 0 });
         },
       });
-      gsap.set(rightPage, { transformOrigin: "left center", scaleX: 0, opacity: 0 });
+      tl.to(rightPage, {
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.in",
+      }, 0);
+
       tl.to(rightPage, {
         scaleX: 1,
         opacity: 1,
         duration: 0.3,
         ease: "power2.out",
       });
+      tl.to(leftPage, {
+        opacity: 1,
+        duration: 0.3,
+        ease: "power2.out",
+      }, "<");
     }
   };
 
@@ -1135,94 +1076,8 @@ export function InteractiveBook({
               </div>
             </div>
 
-            {/* Close Button on Right Side */}
-            {onToggleOpen && (
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onToggleOpen();
-                }}
-                style={{
-                  position: "absolute",
-                  bottom: "24px",
-                  right: "24px",
-                  cursor: "pointer",
-                  zIndex: 40,
-                  fontFamily: "'Atkinson Hyperlegible Mono', monospace",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                  padding: "8px 16px",
-                  borderRadius: "20px",
-                  backgroundColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.06)",
-                  color: isDark ? "#FFFFFF" : "#000000",
-                  border: "1px solid rgba(0,0,0,0.05)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  userSelect: "none",
-                  transition: "all 0.2s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.12)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.06)";
-                }}
-              >
-                Close Book ×
-              </div>
-            )}
           </div>
         )}
-      </div>
-
-      {/* Custom page-turning chevron cursor */}
-      <div
-        ref={cursorRef}
-        style={{
-          position: "absolute",
-          display: "none",
-          left: 0,
-          top: 0,
-          backgroundColor: isDark ? "#FCFEFF" : "#000000",
-          borderRadius: "50%",
-          transform: "translate(-50%, -50%)", 
-          pointerEvents: "none",
-          zIndex: 99999,
-          alignItems: "center",
-          justifyContent: "center",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-        }}
-      >
-        {/* Next Arrow */}
-        <svg
-          data-cursor-chevron="next"
-          width="5.66"
-          height="9.97"
-          viewBox="0 0 5.66 9.97"
-          fill="none"
-          style={{
-            display: "none",
-            transformOrigin: "center center",
-          }}
-        >
-          <path d="M1 1L5 5L1 9" stroke={isDark ? "#000000" : "#FCFEFF"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-
-        {/* Back Arrow */}
-        <svg
-          data-cursor-chevron="back"
-          width="5.66"
-          height="9.97"
-          viewBox="0 0 5.66 9.97"
-          fill="none"
-          style={{
-            display: "none",
-            transformOrigin: "center center",
-          }}
-        >
-          <path d="M4.66 1L0.66 5L4.66 9" stroke={isDark ? "#000000" : "#FCFEFF"} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
       </div>
     </div>
   );
