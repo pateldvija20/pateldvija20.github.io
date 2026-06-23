@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Agentation } from "agentation";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 export const metadata: Metadata = {
   title: "Portfolio",
@@ -37,7 +38,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}<Agentation /></body>
+      <body>{children}<SpeedInsights />{process.env.NODE_ENV === 'development' && <Agentation />}</body>
     </html>
   );
 }

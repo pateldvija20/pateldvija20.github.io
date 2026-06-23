@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, RefObject } from "react"
 import gsap from "gsap"
 import { Page } from "./FolderCard/Page"
 import { PageCard } from "./FolderCard/PageCard"
@@ -26,12 +26,23 @@ const COLOR_FRONT_TOP   = "#8DDBFF"
 const COLOR_FRONT_MID   = "#6CD8FF"
 const COLOR_FRONT_BOT   = "#5BBCF7"
 
-export function FolderCard({ isActive = false, studies = [] }: { isActive?: boolean; studies?: CaseStudy[] }) {
+const SAFE_MARGIN = 20
+
+function getSceneTopPx(el: HTMLElement, sceneEl: HTMLElement): number {
+  const sceneRect = sceneEl.getBoundingClientRect()
+  const elRect    = el.getBoundingClientRect()
+  const scaleY    = sceneRect.height / 1024
+  return (elRect.top - sceneRect.top) / scaleY
+}
+
+export function FolderCard({ isActive = false, studies = [], sceneRef }: { isActive?: boolean; studies?: CaseStudy[]; sceneRef?: RefObject<HTMLDivElement | null> }) {
   const [isOpen, setIsOpen]             = useState(false)
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [clickedStudy, setClickedStudy] = useState<CaseStudy | null>(null)
   const [clickedRect, setClickedRect]   = useState<DOMRect | null>(null)
+  const [maxLift, setMaxLift]           = useState(280)
 
+  const wrapperRef  = useRef<HTMLDivElement>(null)
   const frontRef    = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -69,7 +80,15 @@ export function FolderCard({ isActive = false, studies = [] }: { isActive?: bool
   return (
     <>
       <div
-        onMouseEnter={() => { if (isActive) setIsOpen(true) }}
+        ref={wrapperRef}
+        onMouseEnter={() => {
+          if (!isActive) return
+          if (wrapperRef.current && sceneRef?.current) {
+            const sceneTop = getSceneTopPx(wrapperRef.current, sceneRef.current)
+            setMaxLift(Math.max(0, sceneTop + PAGE_TOP - SAFE_MARGIN))
+          }
+          setIsOpen(true)
+        }}
         onMouseLeave={() => { if (isActive) { setIsOpen(false); setHoveredIndex(null) } }}
         style={{
           position:    "relative",
@@ -113,6 +132,7 @@ export function FolderCard({ isActive = false, studies = [] }: { isActive?: bool
             pageTop={PAGE_TOP}
             isOpen={isOpen}
             isHovered={hoveredIndex === i}
+            maxLift={maxLift}
           />
         ))}
 

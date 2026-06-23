@@ -3,7 +3,6 @@
 import gsap from 'gsap';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import HomeImport from '../imports/Home-1/Home-1-1716';
-import BookOpen from '../imports/Home-1/Frame35';
 import BookCover from '../imports/Frame31-1/Frame31-6-430';
 import BookHoverImg from '../imports/BookHover/BookHover';
 import { PurpleFile } from './PurpleFile';
@@ -1077,7 +1076,7 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
             transform: 'rotate(0deg)',
             transformOrigin: 'center center',
             display: 'flex',
-            visibility: bookOpen ? 'hidden' : 'visible',
+            visibility: 'visible',
           }}
         >
           <div className="pointer-events-auto cursor-pointer">
@@ -1085,19 +1084,6 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
           </div>
         </div>
 
-        {/* ── Book open container ────────────────────────────────────────── */}
-        <div
-          className="book-open-container absolute cursor-pointer overflow-visible"
-          style={{ left: 144, top: 137, width: 1152, height: 747, zIndex: 200, display: bookOpen ? 'block' : 'none' }}
-          onClick={() => {
-            bookOpenRef.current = false;
-            setBookOpen(false);
-            const btn = document.querySelector('[data-name="Book"]') as HTMLElement;
-            if (btn) btn.style.opacity = '1';
-          }}
-        >
-          <BookOpen />
-        </div>
 
         {/* ── File overlay ───────────────────────────────────────────────── */}
         <div
@@ -1109,6 +1095,7 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
             state={fileOpen ? 'open' : fileHovered ? 'hover' : 'closed'}
             className="pointer-events-auto cursor-pointer"
             notes={notesStudies}
+            sceneRef={sceneRef}
             onClickNote={(i, rect) => {
               setClickedNote(notesStudies[i]);
               setClickedNoteRect(rect);
@@ -1122,7 +1109,7 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
           className="absolute isolate invisible pointer-events-none overflow-visible"
         >
           <div className="pointer-events-auto cursor-pointer">
-            <FolderCard isActive={topLayer === 'folder' && !stickyDragging} studies={workStudies} />
+            <FolderCard isActive={topLayer === 'folder' && !stickyDragging} studies={workStudies} sceneRef={sceneRef} />
           </div>
         </div>
 
