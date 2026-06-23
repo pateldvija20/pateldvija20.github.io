@@ -3,8 +3,7 @@
 import gsap from 'gsap';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import HomeImport from '../imports/Home-1/Home-1-1716';
-import BookCover from '../imports/Frame31-1/Frame31-6-430';
-import BookHoverImg from '../imports/BookHover/BookHover';
+import { InteractiveBook } from './InteractiveBook';
 import { PurpleFile } from './PurpleFile';
 import { FolderCard } from './FolderCard';
 import type { CaseStudy } from '@/lib/sanity';
@@ -765,24 +764,28 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
 
   // ─── Book 3D opening animation ────────────────────────────────────────────
   useEffect(() => {
-    const openEl = sceneRef.current?.querySelector('.book-open-container') as HTMLElement | null;
-    if (!openEl) return;
+    const coverEl = bookCoverRef.current;
+    if (!coverEl) return;
 
     if (bookOpen) {
-      openEl.style.display = 'block';
-      gsap.fromTo(openEl,
-        { scaleX: 0.85, rotationX: -10, opacity: 0, transformPerspective: 1200, transformOrigin: 'center center' },
-        { scaleX: 1,    rotationX: 0,   opacity: 1, duration: 0.5, ease: 'back.out(1.3)' }
-      );
-    } else {
-      gsap.to(openEl, {
-        scaleX: 0.1, rotationX: -20, opacity: 0,
-        transformPerspective: 1200, transformOrigin: 'center center',
-        duration: 0.6, ease: 'power3.in',
-        onComplete() { openEl.style.display = 'none'; },
+      gsap.killTweensOf(coverEl);
+      gsap.to(coverEl, {
+        x: 0,
+        y: 0,
+        scale: 1.0,
+        rotation: 0,
+        duration: 0.8,
+        ease: "power2.inOut",
       });
+      coverEl.style.zIndex = "100";
+    } else {
+      if (isInitializedRef.current) {
+        const rank = deckRef.current.indexOf('book');
+        coverEl.style.zIndex = String((DECK_Z[rank] ?? 30) + 1);
+        closeLayer('book');
+      }
     }
-  }, [bookOpen]);
+  }, [bookOpen, closeLayer]);
 
   const closeFilePage = useCallback(() => {
     fileOpenRef.current = false;
@@ -1079,9 +1082,12 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
             visibility: 'visible',
           }}
         >
-          <div className="pointer-events-auto cursor-pointer">
-            {bookHovered ? <BookHoverImg /> : <BookCover />}
-          </div>
+          <InteractiveBook
+            state={bookOpen ? 'open' : bookHovered ? 'hover' : 'closed'}
+            className="pointer-events-auto cursor-pointer"
+            onToggleOpen={toggleBook}
+            isDark={isDark}
+          />
         </div>
 
 
