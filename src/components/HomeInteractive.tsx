@@ -10,6 +10,7 @@ import type { CaseStudy } from '@/lib/sanity';
 import { PageCard } from './FolderCard/PageCard';
 import { MatGrid } from '../../Components/MatGrid/MatGrid';
 import { StickyNote } from '../../Components/StickyNote/StickyNote';
+import { GlobalCursorProvider } from './GlobalCursor';
 
 type LayerKey = 'book' | 'file' | 'folder' | 'paper' | 'mat-grid';
 
@@ -28,14 +29,14 @@ const DECK_Z = [50, 40, 30, 20] as const;
 
 // Scatter positions — offsets from scene centre (720, 512)
 const SCATTER_TRANSFORMS: Record<string, { x: number; y: number; rotation: number }> = {
-  book:   { x: -300, y: -180, rotation: -10 },
-  folder: { x:  280, y: -200, rotation:   7 },
-  file:   { x: -320, y:  160, rotation:  12 },
-  paper:  { x:  290, y:  150, rotation:  -8 },
+  book:   { x: -300, y: -180, rotation:  -2 },
+  folder: { x:  280, y: -200, rotation:   3 },
+  file:   { x: -320, y:  160, rotation:   4 },
+  paper:  { x:  290, y:  150, rotation:  -3 },
 };
 
 const randomTilt = (): number =>
-  parseFloat(((Math.random() * 24) - 12).toFixed(2));
+  parseFloat(((Math.random() * 10) - 5).toFixed(2));
 
 const parseTiltDeg = (tilt: string): number => {
   const m = tilt.match(/rotate\((-?[\d.]+)deg\)/);
@@ -633,8 +634,8 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
         const elRot        = layerTiltRef.current[demoted] ?? 0;
 
         const cycleTl = gsap.timeline({ onComplete() { isAnimatingRef.current = false; } });
-        cycleTl.to(demotedEl, { y: -180, scale: 1.04, rotation: elRot - 5, duration: 0.35, ease: 'power2.out' }, 0);
-        if (demotedCover) cycleTl.to(demotedCover, { y: -180, scale: 1.04, rotation: elRot - 5, duration: 0.35, ease: 'power2.out' }, 0);
+        cycleTl.to(demotedEl, { y: -180, scale: 1.04, rotation: elRot - 3, duration: 0.35, ease: 'power2.out' }, 0);
+        if (demotedCover) cycleTl.to(demotedCover, { y: -180, scale: 1.04, rotation: elRot - 3, duration: 0.35, ease: 'power2.out' }, 0);
 
         deck.slice(1).forEach((layer, index) => {
           const el    = q(layer);
@@ -665,8 +666,8 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
         const elRot         = layerTiltRef.current[promoted] ?? 0;
 
         const cycleTl = gsap.timeline({ onComplete() { isAnimatingRef.current = false; } });
-        cycleTl.to(promotedEl, { y: 180, scale: 0.94, rotation: elRot + 5, duration: 0.35, ease: 'power2.out' }, 0);
-        if (promotedCover) cycleTl.to(promotedCover, { y: 180, scale: 0.94, rotation: elRot + 5, duration: 0.35, ease: 'power2.out' }, 0);
+        cycleTl.to(promotedEl, { y: 180, scale: 0.94, rotation: elRot + 3, duration: 0.35, ease: 'power2.out' }, 0);
+        if (promotedCover) cycleTl.to(promotedCover, { y: 180, scale: 0.94, rotation: elRot + 3, duration: 0.35, ease: 'power2.out' }, 0);
 
         deck.slice(0, -1).forEach((layer, index) => {
           const el    = q(layer);
@@ -910,8 +911,8 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
 
     const promoteTl = gsap.timeline({ onComplete() { isAnimatingRef.current = false; } });
 
-    promoteTl.to(el,    { x: -220, y: -60, scale: 1.04, rotation: elRot - 5, duration: 0.35, ease: 'power2.out' }, 0);
-    if (cover) promoteTl.to(cover, { x: -220, y: -60, scale: 1.04, rotation: elRot - 5, duration: 0.35, ease: 'power2.out' }, 0);
+    promoteTl.to(el,    { x: -220, y: -60, scale: 1.04, rotation: elRot - 3, duration: 0.35, ease: 'power2.out' }, 0);
+    if (cover) promoteTl.to(cover, { x: -220, y: -60, scale: 1.04, rotation: elRot - 3, duration: 0.35, ease: 'power2.out' }, 0);
 
     deck.forEach((l, rank) => {
       if (l === layer) return;
@@ -1032,7 +1033,7 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
       };
 
   return (
-    <>
+    <GlobalCursorProvider isDark={isDark}>
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
       <div
         ref={sceneRef}
@@ -1158,6 +1159,6 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
         onDismiss={() => { setClickedNote(null); setClickedNoteRect(null); }}
       />
     )}
-    </>
+    </GlobalCursorProvider>
   );
 }

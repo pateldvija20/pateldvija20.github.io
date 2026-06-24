@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import gsap from "gsap";
 import BookCover from "../imports/Frame31-1/Frame31-6-430";
+import { useGlobalCursor, type HotzoneTestResult } from "./GlobalCursor";
 
 interface InteractiveBookProps {
   state?: "closed" | "hover" | "open";
@@ -22,9 +23,169 @@ export function InteractiveBook({
   const leftPageRef = useRef<HTMLDivElement>(null);
   const rightPageRef = useRef<HTMLDivElement>(null);
   const pagesStackRef = useRef<HTMLDivElement>(null);
-  const creaseRef = useRef<HTMLDivElement>(null);
   const rightCoverBackingRef = useRef<HTMLDivElement>(null);
   const spineHingeRef = useRef<HTMLDivElement>(null);
+
+  const words = ["meaningful", "bold", "intuitive", "empathetic", "functional"];
+  const [wordIndex, setWordIndex] = useState(0);
+  const rotatingWordRef = useRef<HTMLSpanElement>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const isFlippingRef = useRef(false);
+
+  const [hoverZone, setHoverZone] = useState<"none" | "next" | "back">("none");
+  const { registerHotzone, unregisterHotzone } = useGlobalCursor();
+
+  // ── Hotzone test function: given viewport coords, check if inside a book page-turn zone ──
+  const hotzoneTestFn = useCallback(
+    (clientX: number, clientY: number): HotzoneTestResult => {
+      if (state !== "open" || isFlippingRef.current) return { active: false };
+      const container = containerRef.current;
+      if (!container) return { active: false };
+
+      const rect = container.getBoundingClientRect();
+      const scaleX = rect.width / 1154;
+      const scaleY = rect.height / 763;
+
+      const x = (clientX - rect.left) / (scaleX || 1);
+      const y = (clientY - rect.top) / (scaleY || 1);
+
+      // Only test if inside the book bounds
+      if (x < 0 || x > 1154 || y < 0 || y > 763) return { active: false };
+
+      if (currentPage === 1) {
+        if (x >= 860.5 && x <= 1144) {
+          const pct = Math.min(Math.max((x - 860.5) / (1144 - 860.5), 0), 1);
+          return { active: true, pct, chevron: "next" };
+        }
+      } else if (currentPage === 2) {
+        if (x >= 10 && x <= 293.5) {
+          const pct = Math.min(Math.max((293.5 - x) / (293.5 - 10), 0), 1);
+          return { active: true, pct, chevron: "back" };
+        }
+      }
+
+      return { active: false };
+    },
+    [state, currentPage]
+  );
+
+  // Register / unregister the hotzone with the global cursor
+  useEffect(() => {
+    registerHotzone("interactive-book", hotzoneTestFn);
+    return () => unregisterHotzone("interactive-book");
+  }, [registerHotzone, unregisterHotzone, hotzoneTestFn]);
+
+  // ── Track hoverZone for click handling (lightweight — only sets state on zone change) ──
+  const handleContainerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (state !== "open" || isFlippingRef.current) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const scaleX = rect.width / 1154;
+    const x = (e.clientX - rect.left) / (scaleX || 1);
+
+    let currentZone: "none" | "next" | "back" = "none";
+    if (currentPage === 1 && x >= 860.5 && x <= 1144) currentZone = "next";
+    else if (currentPage === 2 && x >= 10 && x <= 293.5) currentZone = "back";
+
+    if (currentZone !== hoverZone) setHoverZone(currentZone);
+  };
+
+  const handleContainerMouseLeave = () => {
+    if (hoverZone !== "none") setHoverZone("none");
+  };
+
+  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (state !== "open" || isFlippingRef.current) return;
+    if (hoverZone === "next") {
+      flipToPage(2, e);
+      setHoverZone("none");
+    } else if (hoverZone === "back") {
+      flipToPage(1, e);
+      setHoverZone("none");
+    }
+  };
+
+  const flipToPage = (newPage: number, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (isFlippingRef.current || newPage === currentPage) return;
+    isFlippingRef.current = true;
+
+    const leftPage = leftPageRef.current;
+    const rightPage = rightPageRef.current;
+    if (!leftPage || !rightPage) {
+      setCurrentPage(newPage);
+      isFlippingRef.current = false;
+      return;
+    }
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        isFlippingRef.current = false;
+      },
+    });
+
+    if (newPage > currentPage) {
+      gsap.set(rightPage, { transformOrigin: "left center" });
+      tl.to(rightPage, {
+        scaleX: 0,
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.in",
+        onComplete: () => {
+          setCurrentPage(newPage);
+          gsap.set(rightPage, { scaleX: 1, opacity: 0, pointerEvents: "auto" });
+          gsap.set(leftPage, { transformOrigin: "right center", scaleX: 0, opacity: 0 });
+        },
+      });
+      tl.to(leftPage, {
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.in",
+      }, 0);
+
+      tl.to(leftPage, {
+        scaleX: 1,
+        opacity: 1,
+        duration: 0.3,
+        ease: "power2.out",
+      });
+      tl.to(rightPage, {
+        opacity: 1,
+        duration: 0.3,
+        ease: "power2.out",
+      }, "<");
+    } else {
+      gsap.set(leftPage, { transformOrigin: "right center" });
+      tl.to(leftPage, {
+        scaleX: 0,
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.in",
+        onComplete: () => {
+          setCurrentPage(newPage);
+          gsap.set(leftPage, { scaleX: 1, opacity: 0, pointerEvents: "auto" });
+          gsap.set(rightPage, { transformOrigin: "left center", scaleX: 0, opacity: 0 });
+        },
+      });
+      tl.to(rightPage, {
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.in",
+      }, 0);
+
+      tl.to(rightPage, {
+        scaleX: 1,
+        opacity: 1,
+        duration: 0.3,
+        ease: "power2.out",
+      });
+      tl.to(leftPage, {
+        opacity: 1,
+        duration: 0.3,
+        ease: "power2.out",
+      }, "<");
+    }
+  };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -32,14 +193,19 @@ export function InteractiveBook({
     const leftPage = leftPageRef.current;
     const rightPage = rightPageRef.current;
     const pagesStack = pagesStackRef.current;
-    const crease = creaseRef.current;
     const rightBacking = rightCoverBackingRef.current;
     const spineHinge = spineHingeRef.current;
+
+    const leftBgSheets = container?.querySelectorAll(".left-page-bg-sheet");
+    const rightBgSheets = container?.querySelectorAll(".right-page-bg-sheet");
 
     if (!cover) return;
 
     if (state === "closed") {
-      gsap.killTweensOf([container, cover, leftPage, rightPage, pagesStack, crease, rightBacking, spineHinge]);
+      gsap.killTweensOf([container, cover, leftPage, rightPage, pagesStack, rightBacking, spineHinge]);
+      if (leftBgSheets) gsap.killTweensOf(leftBgSheets);
+      if (rightBgSheets) gsap.killTweensOf(rightBgSheets);
+
       // Center the card when closed (shift left by half card width)
       if (container) {
         gsap.to(container, {
@@ -48,23 +214,28 @@ export function InteractiveBook({
           ease: "power2.out",
         });
       }
-      // Return cover to resting angle
+      // Return cover to resting angle (flat rectangle)
       gsap.to(cover, {
-        rotateY: -20,
-        x: -22,
+        rotateY: 0,
+        x: 0,
         duration: 0.6,
         ease: "power2.out",
       });
-      // Hide open pages, crease, backings
+      // Hide open pages, backings
       if (leftPage) gsap.to(leftPage, { opacity: 0, scaleX: 0, pointerEvents: "none", duration: 0.3 });
       if (rightPage) gsap.to(rightPage, { opacity: 0, scaleX: 0, pointerEvents: "none", duration: 0.3 });
-      if (crease) gsap.to(crease, { opacity: 0, duration: 0.3 });
+      if (leftBgSheets) gsap.to(leftBgSheets, { opacity: 0, scaleX: 0, duration: 0.3 });
+      if (rightBgSheets) gsap.to(rightBgSheets, { opacity: 0, scaleX: 0, duration: 0.3 });
       if (rightBacking) gsap.to(rightBacking, { opacity: 0, duration: 0.3 });
       if (spineHinge) gsap.to(spineHinge, { opacity: 0, duration: 0.3 });
-      // Fade stack back in
-      if (pagesStack) gsap.to(pagesStack, { opacity: 1, duration: 0.4 });
+      // Keep thickness deck hidden to avoid faint white borders
+      if (pagesStack) gsap.to(pagesStack, { opacity: 0, duration: 0.4 });
+      setCurrentPage(1);
     } else if (state === "hover") {
-      gsap.killTweensOf([container, cover, leftPage, rightPage, pagesStack, crease, rightBacking, spineHinge]);
+      gsap.killTweensOf([container, cover, leftPage, rightPage, pagesStack, rightBacking, spineHinge]);
+      if (leftBgSheets) gsap.killTweensOf(leftBgSheets);
+      if (rightBgSheets) gsap.killTweensOf(rightBgSheets);
+
       // Keep card centered
       if (container) {
         gsap.to(container, {
@@ -73,21 +244,26 @@ export function InteractiveBook({
           ease: "power2.out",
         });
       }
-      // Swing cover slightly more open
+      // Keep cover flat in hover state to maintain rectangular shape
       gsap.to(cover, {
-        rotateY: -38,
-        x: -28,
+        rotateY: 0,
+        x: 0,
         duration: 0.6,
         ease: "power2.out",
       });
       if (leftPage) gsap.to(leftPage, { opacity: 0, scaleX: 0, pointerEvents: "none", duration: 0.3 });
       if (rightPage) gsap.to(rightPage, { opacity: 0, scaleX: 0, pointerEvents: "none", duration: 0.3 });
-      if (crease) gsap.to(crease, { opacity: 0, duration: 0.3 });
+      if (leftBgSheets) gsap.to(leftBgSheets, { opacity: 0, scaleX: 0, duration: 0.3 });
+      if (rightBgSheets) gsap.to(rightBgSheets, { opacity: 0, scaleX: 0, duration: 0.3 });
       if (rightBacking) gsap.to(rightBacking, { opacity: 0, duration: 0.3 });
       if (spineHinge) gsap.to(spineHinge, { opacity: 0, duration: 0.3 });
-      if (pagesStack) gsap.to(pagesStack, { opacity: 1, duration: 0.4 });
+      if (pagesStack) gsap.to(pagesStack, { opacity: 0, duration: 0.4 });
+      setCurrentPage(1);
     } else if (state === "open") {
-      gsap.killTweensOf([container, cover, leftPage, rightPage, pagesStack, crease, rightBacking, spineHinge]);
+      gsap.killTweensOf([container, cover, leftPage, rightPage, pagesStack, rightBacking, spineHinge]);
+      if (leftBgSheets) gsap.killTweensOf(leftBgSheets);
+      if (rightBgSheets) gsap.killTweensOf(rightBgSheets);
+
       // Align open book layout center to mat center (reset x shift)
       if (container) {
         gsap.to(container, {
@@ -122,6 +298,16 @@ export function InteractiveBook({
           ease: "power2.out",
         });
       }
+      if (leftBgSheets) {
+        gsap.set(leftBgSheets, { transformOrigin: "right center" });
+        gsap.to(leftBgSheets, {
+          opacity: 1,
+          scaleX: 1,
+          duration: 0.45,
+          delay: 0.45,
+          ease: "power2.out",
+        });
+      }
       if (rightPage) {
         gsap.set(rightPage, { transformOrigin: "left center" });
         gsap.to(rightPage, {
@@ -133,8 +319,41 @@ export function InteractiveBook({
           ease: "power2.out",
         });
       }
-      if (crease) gsap.to(crease, { opacity: 1, duration: 0.5, delay: 0.45 });
+      if (rightBgSheets) {
+        gsap.set(rightBgSheets, { transformOrigin: "left center" });
+        gsap.to(rightBgSheets, {
+          opacity: 1,
+          scaleX: 1,
+          duration: 0.45,
+          delay: 0.45,
+          ease: "power2.out",
+        });
+      }
     }
+  }, [state]);
+
+  useEffect(() => {
+    if (state !== "open") return;
+    const interval = setInterval(() => {
+      const el = rotatingWordRef.current;
+      if (!el) return;
+      gsap.to(el, {
+        opacity: 0,
+        y: -15,
+        duration: 0.35,
+        ease: "power1.inOut",
+        onComplete: () => {
+          setWordIndex((prev) => (prev + 1) % words.length);
+          gsap.fromTo(
+            el,
+            { opacity: 0, y: 15 },
+            { opacity: 1, y: 0, duration: 0.35, ease: "power1.out" }
+          );
+        },
+      });
+    }, 2800);
+
+    return () => clearInterval(interval);
   }, [state]);
 
   const cardW = 577;
@@ -152,6 +371,9 @@ export function InteractiveBook({
   return (
     <div
       ref={containerRef}
+      onMouseMove={handleContainerMouseMove}
+      onMouseLeave={handleContainerMouseLeave}
+      onClick={handleContainerClick}
       className={`relative select-none ${className}`}
       style={{
         width: cardW * 2, // 1154px (Full double-page width)
@@ -164,7 +386,7 @@ export function InteractiveBook({
       <div
         ref={pagesStackRef}
         className="absolute inset-0 pointer-events-none"
-        style={{ transformStyle: "preserve-3d" }}
+        style={{ transformStyle: "preserve-3d", opacity: 0 }}
       >
         {/* Red Back Cover Sheet */}
         <div
@@ -174,7 +396,7 @@ export function InteractiveBook({
             top: 4,
             width: 574,
             height: 754,
-            backgroundColor: "rgb(209, 82, 73)",
+            backgroundColor: "#DCCCFF",
             borderRadius: "0px 36px 36px 0px",
             transform: "translateZ(-6px)",
           }}
@@ -207,8 +429,8 @@ export function InteractiveBook({
           top: 0,
           width: cardW,
           height: cardH,
-          backgroundColor: "rgb(209, 82, 73)",
-          borderRadius: "4px 40px 40px 4px",
+          backgroundColor: "#DCCCFF",
+          borderRadius: "16px 40px 40px 16px",
           opacity: 0,
           zIndex: 20,
         }}
@@ -237,8 +459,8 @@ export function InteractiveBook({
           top: 0,
           width: 50,
           height: cardH,
-          backgroundColor: "#440011", // Maroon-brown matching cover spine
-          boxShadow: "inset -1px 0 3px rgba(0,0,0,0.3), inset 1px 0 3px rgba(0,0,0,0.3)",
+          backgroundColor: "#DCCCFF",
+          boxShadow: "inset -1px 0 3px rgba(0,0,0,0.15), inset 1px 0 3px rgba(0,0,0,0.15)",
           opacity: 0,
           zIndex: 22,
         }}
@@ -255,7 +477,7 @@ export function InteractiveBook({
           height: cardH,
           transformOrigin: "left center",
           transformStyle: "preserve-3d",
-          transform: "rotateY(-20deg) translateX(-22px)",
+          transform: "rotateY(0deg) translateX(0px)",
           zIndex: 20,
         }}
       >
@@ -266,6 +488,8 @@ export function InteractiveBook({
             backfaceVisibility: "hidden",
             transform: "rotateY(0deg)",
             transformStyle: "preserve-3d",
+            borderRadius: "16px 40px 40px 16px",
+            overflow: "hidden",
           }}
         >
           {/* Cover SVG Graphic */}
@@ -276,7 +500,7 @@ export function InteractiveBook({
             className="absolute inset-0 pointer-events-none"
             style={{
               boxShadow: "rgba(255, 255, 255, 0.5) -2px 0px 2px 0px inset",
-              borderRadius: "4px 40px 40px 4px",
+              borderRadius: "16px 40px 40px 16px",
             }}
           />
 
@@ -286,7 +510,7 @@ export function InteractiveBook({
             style={{
               boxShadow:
                 "rgba(0, 0, 0, 0.16) 0.301094px 0.602187px 1.21188px -0.5px, rgba(0, 0, 0, 0.196) 1.14427px 2.28853px 4.60558px -1px, rgba(0, 0, 0, 0.35) 5px 10px 20.1246px -1.5px",
-              borderRadius: "4px 40px 40px 4px",
+              borderRadius: "16px 40px 40px 16px",
             }}
           >
             {/* Spine Highlight Padding */}
@@ -316,8 +540,8 @@ export function InteractiveBook({
           style={{
             backfaceVisibility: "hidden",
             transform: "rotateY(180deg)",
-            backgroundColor: "rgb(209, 82, 73)",
-            borderRadius: "40px 4px 4px 40px",
+            backgroundColor: "#DCCCFF",
+            borderRadius: "40px 16px 16px 40px",
           }}
         >
           {/* Lining Paper */}
@@ -336,25 +560,52 @@ export function InteractiveBook({
 
       {/* ── [3] OPENED DOUBLE-PAGE CONTENT (Fades in when open) ── */}
 
-      {/* Left Page (About Text + Graphic) */}
+      {/* Left Page Background Sheets (Page Stack Thickness) */}
+      {[1, 2, 3].map((num) => {
+        const offset = num * 3; // 3px, 6px, 9px offset
+        return (
+          <div
+            key={`left-sheet-${num}`}
+            className="left-page-bg-sheet absolute"
+            style={{
+              left: 10 + offset,
+              top: 10,
+              width: cardW - 10 - offset,
+              height: cardH - 20,
+              backgroundColor: isDark ? "#17181a" : "#f5f3eb",
+              borderRadius: "24px 0px 0px 24px",
+              border: "1px solid rgba(0,0,0,0.08)",
+              boxShadow: isDark
+                ? "0 4px 12px rgba(0,0,0,0.4)"
+                : "-4px 6px 12px rgba(0,0,0,0.1)",
+              opacity: 0,
+              transformOrigin: "right center",
+              transform: "scaleX(0)",
+              pointerEvents: "none",
+              zIndex: 30 - num,
+            }}
+          />
+        );
+      })}
+
+      {/* Left Page (Typography & Dynamic Word or Skills list) */}
       <div
         ref={leftPageRef}
-        className="absolute flex flex-col justify-between"
+        className="absolute flex flex-col"
         style={{
           left: 10,
           top: 10,
-          width: cardW - 20,
+          width: cardW - 10, // 567px (Ends at 577px crease)
           height: cardH - 20,
-          background: isDark
-            ? "linear-gradient(to right, #1f2023 0%, #17181a 86%, #0d0d0e 100%)"
-            : "linear-gradient(to right, #fdfbfa 0%, #f6f3eb 86%, #d3cebf 100%)",
-          color: isDark ? "#e2e8f0" : "#000912",
-          borderRadius: "16px 4px 4px 16px",
+          backgroundColor: isDark ? "#0D0F10" : (currentPage === 2 ? "#DCCCFF" : "#FCFEFF"),
+          color: isDark ? "#FFFFFF" : "#000000",
+          borderRadius: "24px 0px 0px 24px", // Meets flush at right edge
           border: "1px solid rgba(0,0,0,0.08)",
           boxShadow: isDark
             ? "0 8px 24px rgba(0,0,0,0.5)"
             : "-8px 10px 24px rgba(0,0,0,0.16), -2px 2px 6px rgba(0,0,0,0.06)",
-          padding: "48px 40px 40px 54px",
+          padding: currentPage === 2 ? "0px" : "32px",
+          overflow: "hidden",
           opacity: 0,
           transformOrigin: "right center",
           transform: "scaleX(0)",
@@ -362,72 +613,267 @@ export function InteractiveBook({
           zIndex: 30,
         }}
       >
-        <div className="flex flex-col gap-5">
-          <div>
-            <span className="text-[10px] tracking-[0.2em] font-mono uppercase opacity-55">
-              Biography
-            </span>
-            <h2 className="text-[36px] font-bold leading-tight font-serif mt-1">
-              About Me
-            </h2>
-            <div className="w-12 h-[2px] bg-red-500/60 mt-3" />
+        {currentPage === 1 ? (
+          <div className="flex-1 flex flex-col justify-end">
+            <div
+              style={{
+                width: "100%",
+                maxWidth: "483px",
+                fontFamily: "'Bricolage Grotesque', sans-serif",
+                fontStyle: "normal",
+                fontWeight: 500,
+                fontSize: "40px",
+                lineHeight: "160%",
+                color: isDark ? "#FFFFFF" : "#000000",
+              }}
+            >
+              I create{" "}
+              <span
+                ref={rotatingWordRef}
+                style={{
+                  display: "inline-block",
+                  fontWeight: 500,
+                }}
+              >
+                {words[wordIndex]}
+              </span>
+              <br />
+              experience that adapt to
+              <br />
+              shifting systems and
+              <br />
+              feel human.
+            </div>
           </div>
+        ) : (
+          <div style={{ position: "relative", width: "100%", height: "100%" }}>
+            {/* SVG Background */}
+            <svg
+              width="100%"
+              height="100%"
+              viewBox="0 0 547 723"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
+            >
+              <g clipPath="url(#clip0_1336_3069)">
+                <path d="M0 24C0 10.7452 10.7452 0 24 0H547V723H24C10.7452 723 0 712.255 0 699V24Z" fill={isDark ? "#1f2022" : "#DCCCFF"}/>
+                <g filter="url(#filter0_f_1336_3069)">
+                  <path d="M-49.4011 247.081C-168.071 335.858 -299.286 534.918 125.214 620.938C549.713 706.959 421.993 894.494 305.071 977.508" stroke="#BE9CF7" strokeWidth="400"/>
+                </g>
+                <g filter="url(#filter1_f_1336_3069)">
+                  <path d="M695.697 602.932C394.929 933.518 245.527 587.516 208.422 373.191" stroke="#FFF0BA" strokeWidth="200"/>
+                </g>
+                <g filter="url(#filter2_f_1336_3069)">
+                  <path d="M538 797C475.557 302.346 244.393 297.038 136.617 356.215" stroke="#FFBB00" strokeWidth="306"/>
+                </g>
+                <g filter="url(#filter3_f_1336_3069)">
+                  <path d="M814.089 533.007C524.774 633.612 399.444 476.254 372.943 385" stroke="#FFF0BA" strokeWidth="400"/>
+                </g>
+                <g filter="url(#filter4_f_1336_3069)">
+                  <rect width="310" height="58" transform="translate(47 282)" fill="url(#paint0_linear_1336_3069)"/>
+                </g>
+                <g filter="url(#filter5_f_1336_3069)">
+                  <rect width="310" height="58" fill="url(#paint1_linear_1336_3069)"/>
+                </g>
+                <g filter="url(#filter6_f_1336_3069)">
+                  <rect width="310" height="58" transform="matrix(-1 0 0 1 577 164)" fill="url(#paint2_linear_1336_3069)"/>
+                </g>
+                <g filter="url(#filter7_f_1336_3069)">
+                  <rect width="310" height="58" transform="matrix(-1 0 0 1 554 694)" fill="url(#paint3_linear_1336_3069)"/>
+                </g>
+              </g>
+              <defs>
+                <filter id="filter0_f_1336_3069" x="-478" y="0" width="1120.3" height="1191.95" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
+                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
+                </filter>
+                <filter id="filter1_f_1336_3069" x="145.419" y="185" width="868.67" height="566.242" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
+                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
+                </filter>
+                <filter id="filter2_f_1336_3069" x="-84.957" y="103.5" width="775.957" height="846.5" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
+                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
+                </filter>
+                <filter id="filter3_f_1336_3069" x="145.419" y="185" width="868.67" height="566.242" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
+                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
+                </filter>
+                <filter id="filter4_f_1336_3069" x="-3" y="232" width="410" height="158" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
+                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
+                </filter>
+                <filter id="filter5_f_1336_3069" x="-50" y="-50" width="410" height="158" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
+                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
+                </filter>
+                <filter id="filter6_f_1336_3069" x="167" y="64" width="410" height="158" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
+                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
+                </filter>
+                <filter id="filter7_f_1336_3069" x="144" y="644" width="410" height="158" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
+                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
+                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
+                </filter>
+                <linearGradient id="paint0_linear_1336_3069" x1="0" y1="29" x2="310" y2="29" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#FFF0BA"/>
+                  <stop offset="0.634615" stopColor="#FFF0BA" stopOpacity="0.25"/>
+                </linearGradient>
+                <linearGradient id="paint1_linear_1336_3069" x1="0" y1="29" x2="310" y2="29" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#FFCA39"/>
+                  <stop offset="0.634615" stopColor="#FFCA39" stopOpacity="0.25"/>
+                </linearGradient>
+                <linearGradient id="paint2_linear_1336_3069" x1="0" y1="29" x2="310" y2="29" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#DCCCFF"/>
+                  <stop offset="0.634615" stopColor="#DCCCFF" stopOpacity="0.25"/>
+                </linearGradient>
+                <linearGradient id="paint3_linear_1336_3069" x1="0" y1="29" x2="310" y2="29" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#BE9CF7"/>
+                  <stop offset="0.634615" stopColor="#BE9CF7" stopOpacity="0.25"/>
+                </linearGradient>
+                <clipPath id="clip0_1336_3069">
+                  <rect width="547" height="723" rx="24" fill="white"/>
+                </clipPath>
+              </defs>
+            </svg>
 
-          <div className="flex flex-col gap-4 font-sans text-[14px] leading-relaxed opacity-85 max-w-[420px]">
-            <p>
-              Hi, I’m <strong>Aum</strong>, a Design Engineer dedicated to crafting
-              digital environments that nurture human life and connection.
-            </p>
-            <p>
-              I explore the intersection of design, UI engineering, and product psychology
-              to build high-fidelity interactive experiences.
-            </p>
-            <p>
-              Bridging design systems and frontend code, my mission is to make websites
-              feel organic, tactile, and responsive.
-            </p>
+            {/* Layout container */}
+            <div style={{
+              position: "absolute",
+              width: "100%",
+              height: "100%",
+              left: 0,
+              top: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "flex-start",
+              padding: "48px 42px",
+              gap: "28px",
+              zIndex: 10,
+              boxSizing: "border-box",
+            }}>
+              <div style={{
+                width: "100%",
+                fontFamily: "'Bricolage Grotesque', sans-serif",
+                fontWeight: 500,
+                fontSize: "22px",
+                lineHeight: "160%",
+                color: isDark ? "#FFFFFF" : "#000000",
+                opacity: 0.8,
+              }}>
+                Things I am good at
+              </div>
+              
+              {/* Skills items */}
+              {["Experience Design", "UX Research", "Visual Design", "Software", "AI Tools"].map((skill, index) => (
+                <div key={index} style={{
+                  boxSizing: "border-box",
+                  display: "flex",
+                  flexDirection: "row",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  padding: 0,
+                  gap: 10,
+                  width: "100%",
+                  height: 64,
+                  borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid #000000",
+                }}>
+                  <div style={{
+                    display: "flex",
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: 0,
+                    gap: 10,
+                    width: "100%",
+                    height: 64,
+                  }}>
+                    <span style={{
+                      fontFamily: "'Bricolage Grotesque', sans-serif",
+                      fontWeight: 500,
+                      fontSize: "32px",
+                      lineHeight: "160%",
+                      color: isDark ? "#FFFFFF" : "#000000",
+                      display: "flex",
+                      alignItems: "center",
+                    }}>
+                      {skill}
+                    </span>
+                    <span style={{
+                      fontFamily: "'Bricolage Grotesque', sans-serif",
+                      fontWeight: 500,
+                      fontSize: "32px",
+                      lineHeight: "160%",
+                      color: isDark ? "#FFFFFF" : "#000000",
+                      display: "flex",
+                      alignItems: "center",
+                    }}>
+                      +
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+
           </div>
-        </div>
-
-        {/* Vintage sketch illustration loaded from public */}
-        <div
-          className="relative overflow-hidden border border-black/5 rounded-lg max-w-[340px]"
-          style={{
-            aspectRatio: "1.4",
-            backgroundColor: isDark ? "#282a2d" : "#faf6f0",
-            boxShadow: "inset 0 0 10px rgba(0,0,0,0.03)",
-          }}
-        >
-          <img
-            src="/about_me_illustration.png"
-            alt="Design Engineer sketching at desk"
-            className="w-full h-full object-cover filter mix-blend-multiply opacity-90 contrast-[1.05]"
-            style={{
-              filter: isDark ? "invert(0.9) hue-rotate(180deg)" : "none",
-            }}
-          />
-        </div>
+        )}
       </div>
 
-      {/* Right Page (Skills & Close Bookmark Ribbon) */}
+      {/* Right Page Background Sheets (Page Stack Thickness) */}
+      {[1, 2, 3].map((num) => {
+        const offset = num * 3; // 3px, 6px, 9px offset
+        return (
+          <div
+            key={`right-sheet-${num}`}
+            className="right-page-bg-sheet absolute"
+            style={{
+              left: 577,
+              top: 10,
+              width: cardW - 10 - offset,
+              height: cardH - 20,
+              backgroundColor: isDark ? "#17181a" : "#f5f3eb",
+              borderRadius: "0px 24px 24px 0px",
+              border: "1px solid rgba(0,0,0,0.08)",
+              boxShadow: isDark
+                ? "0 4px 12px rgba(0,0,0,0.4)"
+                : "4px 6px 12px rgba(0,0,0,0.1)",
+              opacity: 0,
+              transformOrigin: "left center",
+              transform: "scaleX(0)",
+              pointerEvents: "none",
+              zIndex: 30 - num,
+            }}
+          />
+        );
+      })}
+
+      {/* Right Page (Portrait Image & Next Page Flip Button) */}
       <div
         ref={rightPageRef}
         className="absolute flex flex-col justify-between"
         style={{
-          left: 577 + 10,
+          left: 577, // Starts exactly at 577px crease
           top: 10,
-          width: cardW - 20,
+          width: cardW - 10, // 567px (Ends at 1144px, leaving 10px cover border)
           height: cardH - 20,
-          background: isDark
-            ? "linear-gradient(to left, #1f2023 0%, #17181a 86%, #0d0d0e 100%)"
-            : "linear-gradient(to left, #fdfbfa 0%, #f6f3eb 86%, #d3cebf 100%)",
-          color: isDark ? "#e2e8f0" : "#000912",
-          borderRadius: "4px 16px 16px 4px",
+          background: currentPage === 1 
+            ? "url(/about_portrait.png?v=3) no-repeat center/cover"
+            : (isDark ? "#1f2022" : "#FCFEFF"),
+          filter: isDark ? "brightness(0.85)" : "none",
+          borderRadius: "0px 24px 24px 0px", // Meets flush at left edge
           border: "1px solid rgba(0,0,0,0.08)",
           boxShadow: isDark
             ? "0 8px 24px rgba(0,0,0,0.5)"
             : "8px 10px 24px rgba(0,0,0,0.16), 2px 2px 6px rgba(0,0,0,0.06)",
-          padding: "48px 54px 40px 40px",
           opacity: 0,
           transformOrigin: "left center",
           transform: "scaleX(0)",
@@ -435,145 +881,204 @@ export function InteractiveBook({
           zIndex: 30,
         }}
       >
-        <div className="flex flex-col gap-6">
-          <div>
-            <span className="text-[10px] tracking-[0.2em] font-mono uppercase opacity-55">
-              Tools & Stack
-            </span>
-            <h2 className="text-[36px] font-bold leading-tight font-serif mt-1">
-              Core Expertise
-            </h2>
-            <div className="w-12 h-[2px] bg-red-500/60 mt-3" />
-          </div>
-
-          <div className="flex flex-col gap-5">
-            {/* Frontend */}
-            <div className="flex flex-col gap-2">
-              <h4 className="text-[12px] font-mono uppercase tracking-wider text-red-500/80 font-bold">
-                Frontend Engineering
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {["Next.js", "React", "TypeScript", "TailwindCSS", "HTML5/CSS3"].map(
-                  (skill) => (
-                    <span
-                      key={skill}
-                      className="px-2.5 py-1 text-[12px] font-mono border border-black/10 rounded bg-black/[0.02]"
-                      style={{
-                        borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
-                        backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
-                      }}
-                    >
-                      {skill}
-                    </span>
-                  )
-                )}
-              </div>
-            </div>
-
-            {/* Motion & Interaction */}
-            <div className="flex flex-col gap-2">
-              <h4 className="text-[12px] font-mono uppercase tracking-wider text-red-500/80 font-bold">
-                Motion & Interaction
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {["GSAP", "Three.js", "WebGL", "Framer Motion", "SVG Animation"].map(
-                  (skill) => (
-                    <span
-                      key={skill}
-                      className="px-2.5 py-1 text-[12px] font-mono border border-black/10 rounded bg-black/[0.02]"
-                      style={{
-                        borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
-                        backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
-                      }}
-                    >
-                      {skill}
-                    </span>
-                  )
-                )}
-              </div>
-            </div>
-
-            {/* Design & Research */}
-            <div className="flex flex-col gap-2">
-              <h4 className="text-[12px] font-mono uppercase tracking-wider text-red-500/80 font-bold">
-                Design & Architecture
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {["Figma", "UI/UX Architecture", "Design Systems", "Prototyping"].map(
-                  (skill) => (
-                    <span
-                      key={skill}
-                      className="px-2.5 py-1 text-[12px] font-mono border border-black/10 rounded bg-black/[0.02]"
-                      style={{
-                        borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
-                        backgroundColor: isDark ? "rgba(255,255,255,0.02)" : "rgba(0,0,0,0.02)",
-                      }}
-                    >
-                      {skill}
-                    </span>
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Philosophy Quote + Close Ribbon Button */}
-        <div className="flex items-end justify-between border-t border-black/5 pt-5">
-          <div className="max-w-[280px]">
-            <p className="italic text-[13px] opacity-60 font-serif leading-normal">
-              "Simplicity is about subtracting the obvious and adding the meaningful."
-            </p>
-          </div>
-
-          {/* Vintage style ribbon bookmark for close action */}
-          {onToggleOpen && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleOpen();
+        {currentPage === 2 && (
+          <div style={{ position: "relative", width: "100%", height: "100%" }}>
+            {/* Frame 61 */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                padding: "24px",
+                gap: "28px",
+                width: "100%",
+                height: "100%",
+                boxSizing: "border-box",
               }}
-              className="group relative cursor-pointer outline-none border-none p-0 flex flex-col items-center"
-              style={{ height: 90, width: 36, backgroundColor: "transparent" }}
-              aria-label="Close Book"
             >
-              {/* Ribbon Body */}
+              {/* Things I have done */}
               <div
-                className="w-7 bg-red-600/90 shadow-md group-hover:h-[62px] transition-all duration-300 relative"
-                style={{ height: 55 }}
+                style={{
+                  fontFamily: "'Bricolage Grotesque', sans-serif",
+                  fontWeight: 500,
+                  fontSize: "20px",
+                  lineHeight: "160%",
+                  color: isDark ? "#FFFFFF" : "#000000",
+                }}
               >
-                <span
-                  className="absolute inset-0 flex items-center justify-center text-[10px] text-white font-mono font-bold tracking-widest rotate-90 select-none uppercase opacity-85"
-                  style={{ top: -5 }}
-                >
-                  Close
-                </span>
-                {/* Triangular Ribbon Cut at Bottom */}
-                <div
-                  className="absolute left-0 bottom-[-10px] w-0 h-0 border-l-[14px] border-l-red-600/90 border-r-[14px] border-r-red-600/90 border-b-[10px] border-b-transparent"
-                />
+                Things I have done
               </div>
-            </button>
-          )}
-        </div>
-      </div>
 
-      {/* Crease shadow vertical gutter in the middle */}
-      <div
-        ref={creaseRef}
-        className="absolute pointer-events-none"
-        style={{
-          left: 577 - 20,
-          top: 10,
-          width: 40,
-          height: cardH - 20,
-          background: isDark
-            ? "linear-gradient(to right, rgba(0,0,0,0.7), rgba(0,0,0,0.2) 30%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.2) 70%, rgba(0,0,0,0.7))"
-            : "linear-gradient(to right, rgba(0,0,0,0.24), rgba(0,0,0,0.06) 30%, rgba(0,0,0,0) 50%, rgba(0,0,0,0.06) 70%, rgba(0,0,0,0.24))",
-          opacity: 0,
-          zIndex: 40,
-        }}
-      />
+              {/* Experience Section */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  gap: "20px",
+                  alignSelf: "stretch",
+                }}
+              >
+                {/* Frame 78 (Experience Header) */}
+                <div
+                  style={{
+                    boxSizing: "border-box",
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    paddingBottom: "8px",
+                    width: "100%",
+                    borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid #000000",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: "'Bricolage Grotesque', sans-serif",
+                      fontWeight: 700,
+                      fontSize: "20px",
+                      lineHeight: "160%",
+                      textTransform: "uppercase",
+                      color: isDark ? "#FFFFFF" : "#000000",
+                    }}
+                  >
+                    Experience
+                  </span>
+                </div>
+
+                {/* Frame 86 (Experience List) */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: "14px",
+                    alignSelf: "stretch",
+                  }}
+                >
+                  {/* Item 1: INVT.RSVP */}
+                  <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "24px", alignSelf: "stretch" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
+                      2026
+                    </span>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                      INVT.RSVP — UI/UX Designer
+                    </span>
+                  </div>
+
+                  {/* Item 2: UC DAAP */}
+                  <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "24px", alignSelf: "stretch" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
+                      2025
+                    </span>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                      University of Cincinnati DAAP — Graphic Designer
+                    </span>
+                  </div>
+
+                  {/* Item 3: Livewell Collaborative */}
+                  <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "24px", alignSelf: "stretch" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
+                      2025
+                    </span>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                      The Livewell Collaborative — UX Researcher
+                    </span>
+                  </div>
+
+                  {/* Item 4: UC Graduate College */}
+                  <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "24px", alignSelf: "stretch" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
+                      2025
+                    </span>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                      University of Cincinnati Graduate College — Graphic Designer
+                    </span>
+                  </div>
+
+                  {/* Item 5: Bluelearn */}
+                  <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "24px", alignSelf: "stretch" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
+                      2023
+                    </span>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                      Bluelearn.in — Visual Designer
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Education Section */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "flex-start",
+                  gap: "20px",
+                  alignSelf: "stretch",
+                }}
+              >
+                {/* Frame 79 (Education Header) */}
+                <div
+                  style={{
+                    boxSizing: "border-box",
+                    display: "flex",
+                    flexDirection: "row",
+                    alignItems: "flex-start",
+                    paddingBottom: "8px",
+                    width: "100%",
+                    borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid #000000",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: "'Bricolage Grotesque', sans-serif",
+                      fontWeight: 700,
+                      fontSize: "20px",
+                      lineHeight: "160%",
+                      textTransform: "uppercase",
+                      color: isDark ? "#FFFFFF" : "#000000",
+                    }}
+                  >
+                    Education
+                  </span>
+                </div>
+
+                {/* Frame 87 (Education List) */}
+                <div
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: "14px",
+                    alignSelf: "stretch",
+                  }}
+                >
+                  {/* Item 1: UC Master of Design */}
+                  <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "24px", alignSelf: "stretch" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
+                      2026
+                    </span>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                      University of Cincinnati — Master of Design
+                    </span>
+                  </div>
+
+                  {/* Item 2: Gujarat Technological University */}
+                  <div style={{ display: "flex", flexDirection: "row", alignItems: "flex-start", gap: "24px", alignSelf: "stretch" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
+                      2023
+                    </span>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                      Gujarat Technological University — Bachelor of Computer Engineering
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        )}
+      </div>
     </div>
   );
 }
