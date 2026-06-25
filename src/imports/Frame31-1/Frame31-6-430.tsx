@@ -108,24 +108,6 @@ export default function BookCover() {
           >
             Hello! I&rsquo;m Dvija
           </span>
-          <span
-            style={{
-              width: 161,
-              height: 34,
-              fontFamily: "'Atkinson Hyperlegible Mono', monospace",
-              fontStyle: "normal",
-              fontWeight: 500,
-              fontSize: 14,
-              lineHeight: "120%",
-              letterSpacing: "-0.03em",
-              textTransform: "uppercase",
-              color: "rgb(0, 0, 0)",
-              flex: "0 0 auto",
-              order: 1,
-            }}
-          >
-            Currently Based in San Franscisco
-          </span>
         </div>
 
         {/* Role text — direct child of outer container */}

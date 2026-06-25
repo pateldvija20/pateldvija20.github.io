@@ -2,7 +2,7 @@
 
 import { useRef, useEffect } from "react"
 import gsap from "gsap"
-import type { CaseStudy } from "@/lib/sanity"
+import type { CaseStudy } from "@/lib/projects"
 
 export interface PageProps {
   study:       CaseStudy
@@ -92,22 +92,44 @@ export function Page({
         cursor:        "default",
         pointerEvents: "none",
         borderRadius: 14,
-        background:   "#FCFEFF",
+        background:   study.cardImage ? "#18181A" : "#FCFEFF",
         boxShadow:    "0 -4px 16px rgba(0,0,0,0.12)",
         willChange:   "transform",
+        overflow:     "hidden",
       }}
     >
-      {/* Label — fades in on hover */}
+      {/* Card image — fills the page when provided */}
+      {study.cardImage && (
+        <img
+          src={study.cardImage}
+          alt={study.name}
+          style={{
+            position:   "absolute",
+            inset:      0,
+            width:      "100%",
+            height:     "100%",
+            objectFit:  "cover",
+            objectPosition: "center",
+            borderRadius: 14,
+          }}
+        />
+      )}
+
+      {/* Label — fades in on hover (sits on top of image) */}
       <div
         ref={labelRef}
         style={{
           opacity:       0,
           transform:     "translateY(6px)",
           position:      "absolute",
-          top:           "10%",
+          bottom:        "8%",
           left:          "8%",
           right:         "8%",
           pointerEvents: "none",
+          background:    study.cardImage ? "rgba(0,0,0,0.55)" : "transparent",
+          backdropFilter: study.cardImage ? "blur(6px)" : "none",
+          borderRadius:  study.cardImage ? 10 : 0,
+          padding:       study.cardImage ? "12px 16px" : 0,
         }}
       >
         <p style={{
@@ -117,7 +139,7 @@ export function Page({
           fontWeight:    600,
           letterSpacing: "0.08em",
           textTransform: "uppercase",
-          color:         "#66BDFF",
+          color:         study.cardImage ? "#66BDFF" : "#66BDFF",
         }}>
           {study.year} · {study.tags}
         </p>
@@ -126,7 +148,7 @@ export function Page({
           marginBottom: 8,
           fontSize:     20,
           fontWeight:   700,
-          color:        "#000912",
+          color:        study.cardImage ? "#FFFFFF" : "#000912",
           lineHeight:   1.2,
         }}>
           {study.name}
@@ -134,7 +156,7 @@ export function Page({
         <p style={{
           margin:     0,
           fontSize:   13,
-          color:      "#555",
+          color:      study.cardImage ? "rgba(255,255,255,0.75)" : "#555",
           lineHeight: 1.55,
         }}>
           {study.description}
