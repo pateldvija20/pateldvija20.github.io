@@ -1,9 +1,7 @@
 import { HomeInteractive } from "@/components/HomeInteractive";
-import { getCaseStudies } from "@/lib/sanity";
+import { getCaseStudies } from "@/lib/projects";
 
-export const revalidate = 3600;
-
-export default async function Home() {
-  const studies = await getCaseStudies();
+export default function Home() {
+  const studies = getCaseStudies();
   return <HomeInteractive studies={studies} />;
 }

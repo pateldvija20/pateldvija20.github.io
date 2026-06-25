@@ -6,7 +6,7 @@ import HomeImport from '../imports/Home-1/Home-1-1716';
 import { InteractiveBook } from './InteractiveBook';
 import { PurpleFile } from './PurpleFile';
 import { FolderCard } from './FolderCard';
-import type { CaseStudy } from '@/lib/sanity';
+import type { CaseStudy } from '@/lib/projects';
 import { PageCard } from './FolderCard/PageCard';
 import { MatGrid } from '../../Components/MatGrid/MatGrid';
 import { StickyNote } from '../../Components/StickyNote/StickyNote';
@@ -128,8 +128,8 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
   const fileOpenRef      = useRef(false);
   const [fileOriginRect, setFileOriginRect] = useState<DOMRect | null>(null);
 
-  const workStudies  = studies.filter(s => s.location === "Work");
-  const notesStudies = studies.filter(s => s.location === "Notes");
+  const workStudies  = studies.filter(s => s.section === "work");
+  const notesStudies = studies.filter(s => s.section === "notes");
 
   const [clickedNote, setClickedNote]         = useState<CaseStudy | null>(null);
   const [clickedNoteRect, setClickedNoteRect] = useState<DOMRect | null>(null);
@@ -1154,7 +1154,6 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
       <PageCard
         title={clickedNote.name}
         subtitle={clickedNote.year ? `${clickedNote.year} · ${clickedNote.tags}` : clickedNote.tags}
-        pageId={clickedNote.id}
         originRect={clickedNoteRect}
         onDismiss={() => { setClickedNote(null); setClickedNoteRect(null); }}
       />

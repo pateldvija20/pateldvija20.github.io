@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
-import type { CaseStudy } from "@/lib/sanity"
+import type { CaseStudy } from "@/lib/projects"
 
 const NOTE_W  = 197
 const ITEM_H  = 28     // 14px font × 2.0 line-height
@@ -127,7 +127,7 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem, onClic
       </svg>
 
       {/* ── Dynamic list ── */}
-      <div ref={listRef} style={{
+      <div ref={listRef} onMouseLeave={handleLeave} style={{
         position:      "absolute",
         left:          35.83,
         top:           PAD_TOP,
@@ -139,7 +139,6 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem, onClic
             key={i}
             data-list-item="true"
             onMouseEnter={() => handleEnter(i)}
-            onMouseLeave={handleLeave}
             onClick={(e) => onClickItem(i, e.currentTarget.getBoundingClientRect())}
             style={{
               margin:         0,
