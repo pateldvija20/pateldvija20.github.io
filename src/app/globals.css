@@ -148,7 +148,7 @@ textarea,
 [style*="cursor:pointer"],
 [style*="cursor: text"],
 [style*="cursor:text"] {
-  cursor: url("data:image/svg+xml,%3Csvg width='7' height='7' viewBox='0 0 7 7' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='6.75' height='6.75' rx='3.375' fill='%23000000'/%3E%3C/svg%3E") 3 3, auto !important;
+  cursor: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='12' height='12' rx='6' fill='%23000000'/%3E%3C/svg%3E") 6 6, auto !important;
 }
 
 html.dark-mode,
@@ -170,7 +170,7 @@ html.dark-mode [style*="cursor: pointer"],
 html.dark-mode [style*="cursor:pointer"],
 html.dark-mode [style*="cursor: text"],
 html.dark-mode [style*="cursor:text"] {
-  cursor: url("data:image/svg+xml,%3Csvg width='7' height='7' viewBox='0 0 7 7' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='6.75' height='6.75' rx='3.375' fill='%23FCFEFF'/%3E%3C/svg%3E") 3 3, auto !important;
+  cursor: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='12' height='12' rx='6' fill='%23FCFEFF'/%3E%3C/svg%3E") 6 6, auto !important;
 }
 
 [style*="cursor: grab"],
