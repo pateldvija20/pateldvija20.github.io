@@ -104,11 +104,17 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
     paper:  `rotate(${layerTiltRef.current.paper}deg)`,
   });
 
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return localStorage.getItem('theme') === 'dark';
-  });
+  const [isDark, setIsDark] = useState<boolean>(false);
 
+  // Initialize theme from localStorage on mount
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme === 'dark') {
+      setIsDark(true);
+    }
+  }, []);
+
+  // Update DOM classes and save state whenever theme toggles
   useEffect(() => {
     const html = document.documentElement;
     if (isDark) {

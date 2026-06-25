@@ -18,7 +18,18 @@ interface ProjectStickerProps {
 
 export function ProjectSticker({ study, index, flapWidth, flapHeight, onHover, onClick }: ProjectStickerProps) {
   const [pos, setPos]   = useState({ x: 20 + index * 24, y: 20 + index * 24 })
-  const [tilt]          = useState(() => parseFloat((Math.random() * 20 - 10).toFixed(2)))
+  
+  // Deterministic tilt based on study ID to avoid client/server hydration mismatch
+  const tilt = (() => {
+    let hash = 0;
+    const str = study.id;
+    for (let i = 0; i < str.length; i++) {
+      hash = (hash << 5) - hash + str.charCodeAt(i);
+      hash |= 0;
+    }
+    const val = (Math.abs(hash) % 2000) / 100 - 10;
+    return parseFloat(val.toFixed(2));
+  })();
 
   const dragging    = useRef(false)
   const hasDragged  = useRef(false)
