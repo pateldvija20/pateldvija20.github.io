@@ -31,7 +31,15 @@ export function InteractiveBook({
   const rotatingWordRef = useRef<HTMLSpanElement>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedSkillIndex, setExpandedSkillIndex] = useState<number | null>(null);
+  const [hoveredSymbolIndex, setHoveredSymbolIndex] = useState<number | null>(null);
   const isFlippingRef = useRef(false);
+
+  // Reset expanded skill and hover when page changes
+  useEffect(() => {
+    setExpandedSkillIndex(null);
+    setHoveredSymbolIndex(null);
+  }, [currentPage]);
 
   const [hoverZone, setHoverZone] = useState<"none" | "next" | "back">("none");
   const { registerHotzone, unregisterHotzone } = useGlobalCursor();
@@ -59,6 +67,27 @@ export function InteractiveBook({
           return { active: true, pct, chevron: "next" };
         }
       } else if (currentPage === 2) {
+        // Check if cursor is over any of the plus/minus buttons on page 3
+        const buttons = document.querySelectorAll(".skill-plus-minus-btn");
+        for (let i = 0; i < buttons.length; i++) {
+          const btnRect = buttons[i].getBoundingClientRect();
+          if (
+            clientX >= btnRect.left &&
+            clientX <= btnRect.right &&
+            clientY >= btnRect.top &&
+            clientY <= btnRect.bottom
+          ) {
+            const isExpanded = expandedSkillIndex === i;
+            return {
+              active: true,
+              pct: 1.0,
+              chevron: "none",
+              hoverType: "expand-invert",
+              symbol: isExpanded ? "−" : "+",
+            } as any;
+          }
+        }
+
         if (x >= 10 && x <= 293.5) {
           const pct = Math.min(Math.max((293.5 - x) / (293.5 - 10), 0), 1);
           return { active: true, pct, chevron: "back" };
@@ -67,7 +96,7 @@ export function InteractiveBook({
 
       return { active: false };
     },
-    [state, currentPage]
+    [state, currentPage, expandedSkillIndex]
   );
 
   // Register / unregister the hotzone with the global cursor
@@ -493,7 +522,7 @@ export function InteractiveBook({
           }}
         >
           {/* Cover SVG Graphic */}
-          <BookCover />
+          <BookCover isClosed={state !== "open"} />
 
           {/* Crease Shader Overlay */}
           <div
@@ -572,12 +601,10 @@ export function InteractiveBook({
               top: 10,
               width: cardW - 10 - offset,
               height: cardH - 20,
-              backgroundColor: isDark ? "#17181a" : "#f5f3eb",
+              backgroundColor: "#f5f3eb",
               borderRadius: "24px 0px 0px 24px",
               border: "1px solid rgba(0,0,0,0.08)",
-              boxShadow: isDark
-                ? "0 4px 12px rgba(0,0,0,0.4)"
-                : "-4px 6px 12px rgba(0,0,0,0.1)",
+              boxShadow: "-4px 6px 12px rgba(0,0,0,0.1)",
               opacity: 0,
               transformOrigin: "right center",
               transform: "scaleX(0)",
@@ -597,13 +624,11 @@ export function InteractiveBook({
           top: 10,
           width: cardW - 10, // 567px (Ends at 577px crease)
           height: cardH - 20,
-          backgroundColor: isDark ? "#0D0F10" : (currentPage === 2 ? "#DCCCFF" : "#FCFEFF"),
-          color: isDark ? "#FFFFFF" : "#000000",
+          backgroundColor: currentPage === 2 ? "#DCCCFF" : "#FCFEFF",
+          color: "#000000",
           borderRadius: "24px 0px 0px 24px", // Meets flush at right edge
           border: "1px solid rgba(0,0,0,0.08)",
-          boxShadow: isDark
-            ? "0 8px 24px rgba(0,0,0,0.5)"
-            : "-8px 10px 24px rgba(0,0,0,0.16), -2px 2px 6px rgba(0,0,0,0.06)",
+          boxShadow: "-8px 10px 24px rgba(0,0,0,0.16), -2px 2px 6px rgba(0,0,0,0.06)",
           padding: currentPage === 2 ? "0px" : "32px",
           overflow: "hidden",
           opacity: 0,
@@ -624,7 +649,7 @@ export function InteractiveBook({
                 fontWeight: 500,
                 fontSize: "40px",
                 lineHeight: "160%",
-                color: isDark ? "#FFFFFF" : "#000000",
+                color: "#000000",
               }}
             >
               I create{" "}
@@ -647,104 +672,16 @@ export function InteractiveBook({
           </div>
         ) : (
           <div style={{ position: "relative", width: "100%", height: "100%" }}>
-            {/* SVG Background */}
-            <svg
-              width="100%"
-              height="100%"
-              viewBox="0 0 547 723"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
-            >
-              <g clipPath="url(#clip0_1336_3069)">
-                <path d="M0 24C0 10.7452 10.7452 0 24 0H547V723H24C10.7452 723 0 712.255 0 699V24Z" fill={isDark ? "#1f2022" : "#DCCCFF"}/>
-                <g filter="url(#filter0_f_1336_3069)">
-                  <path d="M-49.4011 247.081C-168.071 335.858 -299.286 534.918 125.214 620.938C549.713 706.959 421.993 894.494 305.071 977.508" stroke="#BE9CF7" strokeWidth="400"/>
-                </g>
-                <g filter="url(#filter1_f_1336_3069)">
-                  <path d="M695.697 602.932C394.929 933.518 245.527 587.516 208.422 373.191" stroke="#FFF0BA" strokeWidth="200"/>
-                </g>
-                <g filter="url(#filter2_f_1336_3069)">
-                  <path d="M538 797C475.557 302.346 244.393 297.038 136.617 356.215" stroke="#FFBB00" strokeWidth="306"/>
-                </g>
-                <g filter="url(#filter3_f_1336_3069)">
-                  <path d="M814.089 533.007C524.774 633.612 399.444 476.254 372.943 385" stroke="#FFF0BA" strokeWidth="400"/>
-                </g>
-                <g filter="url(#filter4_f_1336_3069)">
-                  <rect width="310" height="58" transform="translate(47 282)" fill="url(#paint0_linear_1336_3069)"/>
-                </g>
-                <g filter="url(#filter5_f_1336_3069)">
-                  <rect width="310" height="58" fill="url(#paint1_linear_1336_3069)"/>
-                </g>
-                <g filter="url(#filter6_f_1336_3069)">
-                  <rect width="310" height="58" transform="matrix(-1 0 0 1 577 164)" fill="url(#paint2_linear_1336_3069)"/>
-                </g>
-                <g filter="url(#filter7_f_1336_3069)">
-                  <rect width="310" height="58" transform="matrix(-1 0 0 1 554 694)" fill="url(#paint3_linear_1336_3069)"/>
-                </g>
-              </g>
-              <defs>
-                <filter id="filter0_f_1336_3069" x="-478" y="0" width="1120.3" height="1191.95" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
-                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
-                </filter>
-                <filter id="filter1_f_1336_3069" x="145.419" y="185" width="868.67" height="566.242" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
-                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
-                </filter>
-                <filter id="filter2_f_1336_3069" x="-84.957" y="103.5" width="775.957" height="846.5" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
-                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
-                </filter>
-                <filter id="filter3_f_1336_3069" x="145.419" y="185" width="868.67" height="566.242" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
-                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
-                </filter>
-                <filter id="filter4_f_1336_3069" x="-3" y="232" width="410" height="158" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
-                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
-                </filter>
-                <filter id="filter5_f_1336_3069" x="-50" y="-50" width="410" height="158" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
-                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
-                </filter>
-                <filter id="filter6_f_1336_3069" x="167" y="64" width="410" height="158" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
-                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
-                </filter>
-                <filter id="filter7_f_1336_3069" x="144" y="644" width="410" height="158" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                  <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                  <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape"/>
-                  <feGaussianBlur stdDeviation="50" result="effect1_foregroundBlur_1336_3069"/>
-                </filter>
-                <linearGradient id="paint0_linear_1336_3069" x1="0" y1="29" x2="310" y2="29" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#FFF0BA"/>
-                  <stop offset="0.634615" stopColor="#FFF0BA" stopOpacity="0.25"/>
-                </linearGradient>
-                <linearGradient id="paint1_linear_1336_3069" x1="0" y1="29" x2="310" y2="29" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#FFCA39"/>
-                  <stop offset="0.634615" stopColor="#FFCA39" stopOpacity="0.25"/>
-                </linearGradient>
-                <linearGradient id="paint2_linear_1336_3069" x1="0" y1="29" x2="310" y2="29" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#DCCCFF"/>
-                  <stop offset="0.634615" stopColor="#DCCCFF" stopOpacity="0.25"/>
-                </linearGradient>
-                <linearGradient id="paint3_linear_1336_3069" x1="0" y1="29" x2="310" y2="29" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#BE9CF7"/>
-                  <stop offset="0.634615" stopColor="#BE9CF7" stopOpacity="0.25"/>
-                </linearGradient>
-                <clipPath id="clip0_1336_3069">
-                  <rect width="547" height="723" rx="24" fill="white"/>
-                </clipPath>
-              </defs>
-            </svg>
+            {/* Background Image */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "url(/about_cover.png?v=4) no-repeat center/cover",
+                pointerEvents: "none",
+                borderRadius: "24px 0px 0px 24px",
+              }}
+            />
 
             {/* Layout container */}
             <div style={{
@@ -756,7 +693,7 @@ export function InteractiveBook({
               display: "flex",
               flexDirection: "column",
               alignItems: "flex-start",
-              padding: "48px 42px",
+              padding: "50px",
               gap: "28px",
               zIndex: 10,
               boxSizing: "border-box",
@@ -767,61 +704,147 @@ export function InteractiveBook({
                 fontWeight: 500,
                 fontSize: "22px",
                 lineHeight: "160%",
-                color: isDark ? "#FFFFFF" : "#000000",
+                color: "#000000",
                 opacity: 0.8,
               }}>
                 Things I am good at
               </div>
               
               {/* Skills items */}
-              {["Experience Design", "UX Research", "Visual Design", "Software", "AI Tools"].map((skill, index) => (
-                <div key={index} style={{
-                  boxSizing: "border-box",
-                  display: "flex",
-                  flexDirection: "row",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  padding: 0,
-                  gap: 10,
-                  width: "100%",
-                  height: 64,
-                  borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid #000000",
-                }}>
-                  <div style={{
-                    display: "flex",
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    padding: 0,
-                    gap: 10,
-                    width: "100%",
-                    height: 64,
-                  }}>
-                    <span style={{
-                      fontFamily: "'Bricolage Grotesque', sans-serif",
-                      fontWeight: 500,
-                      fontSize: "32px",
-                      lineHeight: "160%",
-                      color: isDark ? "#FFFFFF" : "#000000",
-                      display: "flex",
-                      alignItems: "center",
-                    }}>
-                      {skill}
-                    </span>
-                    <span style={{
-                      fontFamily: "'Bricolage Grotesque', sans-serif",
-                      fontWeight: 500,
-                      fontSize: "32px",
-                      lineHeight: "160%",
-                      color: isDark ? "#FFFFFF" : "#000000",
-                      display: "flex",
-                      alignItems: "center",
-                    }}>
-                      +
-                    </span>
-                  </div>
-                </div>
-              ))}
+              {(() => {
+                const SKILLS_DATA = [
+                  {
+                    title: "Experience Design",
+                    description: "User experience, User interface design, Wire-framing, Usability testing, Physical & digital prototyping, Inclusive design, Double Diamond process, Design systems, Web & mobile design"
+                  },
+                  {
+                    title: "UX Research",
+                    description: "User research, User interviews, User personas, Interview synthesis, Data visualization, A/B testing, Information architecture, Competitive analysis"
+                  },
+                  {
+                    title: "Visual Design",
+                    description: "Brand identity, Design systems, Typography, Iconography, Custom illustration"
+                  },
+                  {
+                    title: "Software",
+                    description: "Figma, Unity, Miro, Adobe suite(Illustrator, Photoshop, Indesign), Framer, Blender, spline, Notion, Procreate"
+                  },
+                  {
+                    title: "AI Tools",
+                    description: "Claude code, Codex, Mid-journey, fuser studio"
+                  }
+                ];
+
+                return SKILLS_DATA.map((skill, index) => {
+                  const isExpanded = expandedSkillIndex === index;
+                  // Dynamic height based on expanded state specifications:
+                  // Exp Design: 168px, UX Research: 149px, Vis Design: 130px, Software: 149px, AI: 111px
+                  let expandedHeight = 149;
+                  if (index === 0) expandedHeight = 168;
+                  else if (index === 2) expandedHeight = 130;
+                  else if (index === 4) expandedHeight = 111;
+
+                  return (
+                    <div
+                      key={index}
+                      style={{
+                        boxSizing: "border-box",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "flex-start",
+                        alignItems: "stretch",
+                        width: "100%",
+                        height: isExpanded ? expandedHeight : 64,
+                        borderBottom: "1px solid #000000",
+                        overflow: "hidden",
+                        transition: "height 0.3s ease-in-out",
+                      }}
+                    >
+                      {/* Header Row */}
+                      <div style={{
+                        display: "flex",
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        width: "100%",
+                        height: 64,
+                        flexShrink: 0,
+                      }}>
+                        <span style={{
+                          fontFamily: "'Bricolage Grotesque', sans-serif",
+                          fontWeight: 500,
+                          fontSize: "36px", // adjusted to 36px per design specs
+                          lineHeight: "160%",
+                          color: "#000000",
+                          display: "flex",
+                          alignItems: "center",
+                        }}>
+                          {skill.title}
+                        </span>
+                        <span
+                          data-index={index}
+                          onMouseEnter={() => setHoveredSymbolIndex(index)}
+                          onMouseLeave={() => setHoveredSymbolIndex(null)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedSkillIndex(isExpanded ? null : index);
+                          }}
+                          className="skill-plus-minus-btn"
+                          style={{
+                            fontFamily: "'Bricolage Grotesque', sans-serif",
+                            fontWeight: 500,
+                            fontSize: "36px",
+                            lineHeight: "160%",
+                            // Hide the original text by making it transparent when hovered
+                            color: hoveredSymbolIndex === index
+                              ? "transparent"
+                              : "#000000",
+                            display: "flex",
+                            alignItems: "center",
+                            width: 32, // larger click target area
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            userSelect: "none",
+                          }}
+                        >
+                          {isExpanded ? "−" : "+"}
+                        </span>
+                      </div>
+
+                      {/* Description Row */}
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          display: "flex",
+                          flexDirection: "row",
+                          justifyContent: "flex-end",
+                          alignItems: "flex-start",
+                          width: "100%",
+                          boxSizing: "border-box",
+                          opacity: isExpanded ? 1 : 0,
+                          transition: "opacity 0.25s ease-in-out",
+                          pointerEvents: isExpanded ? "auto" : "none",
+                        }}
+                      >
+                        <span style={{
+                          width: 392, // matching design spec width
+                          fontFamily: "'Atkinson Hyperlegible Mono', monospace",
+                          fontStyle: "normal",
+                          fontWeight: 500,
+                          fontSize: "12px",
+                          lineHeight: "160%",
+                          letterSpacing: "-0.04em",
+                          textTransform: "capitalize",
+                          color: "#000000",
+                          textAlign: "right",
+                        }}>
+                          {skill.description}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
 
           </div>
@@ -840,12 +863,10 @@ export function InteractiveBook({
               top: 10,
               width: cardW - 10 - offset,
               height: cardH - 20,
-              backgroundColor: isDark ? "#17181a" : "#f5f3eb",
+              backgroundColor: "#f5f3eb",
               borderRadius: "0px 24px 24px 0px",
               border: "1px solid rgba(0,0,0,0.08)",
-              boxShadow: isDark
-                ? "0 4px 12px rgba(0,0,0,0.4)"
-                : "4px 6px 12px rgba(0,0,0,0.1)",
+              boxShadow: "4px 6px 12px rgba(0,0,0,0.1)",
               opacity: 0,
               transformOrigin: "left center",
               transform: "scaleX(0)",
@@ -867,13 +888,13 @@ export function InteractiveBook({
           height: cardH - 20,
           background: currentPage === 1 
             ? "url(/about_portrait.png?v=3) no-repeat center/cover"
-            : (isDark ? "#1f2022" : "#FCFEFF"),
-          filter: isDark ? "brightness(0.85)" : "none",
+            : "#FCFEFF", // page 4 remains white always
+          color: "#000000",
+          padding: currentPage === 2 ? "25px" : "0px",
+          filter: (isDark && currentPage === 1) ? "brightness(0.85)" : "none", // only dim portrait image
           borderRadius: "0px 24px 24px 0px", // Meets flush at left edge
           border: "1px solid rgba(0,0,0,0.08)",
-          boxShadow: isDark
-            ? "0 8px 24px rgba(0,0,0,0.5)"
-            : "8px 10px 24px rgba(0,0,0,0.16), 2px 2px 6px rgba(0,0,0,0.06)",
+          boxShadow: "8px 10px 24px rgba(0,0,0,0.16), 2px 2px 6px rgba(0,0,0,0.06)",
           opacity: 0,
           transformOrigin: "left center",
           transform: "scaleX(0)",
@@ -903,7 +924,7 @@ export function InteractiveBook({
                   fontWeight: 500,
                   fontSize: "20px",
                   lineHeight: "160%",
-                  color: isDark ? "#FFFFFF" : "#000000",
+                  color: "#000000",
                 }}
               >
                 Things I have done
@@ -928,7 +949,7 @@ export function InteractiveBook({
                     alignItems: "flex-start",
                     paddingBottom: "8px",
                     width: "100%",
-                    borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid #000000",
+                    borderBottom: "1px solid #000000",
                   }}
                 >
                   <span
@@ -938,7 +959,7 @@ export function InteractiveBook({
                       fontSize: "20px",
                       lineHeight: "160%",
                       textTransform: "uppercase",
-                      color: isDark ? "#FFFFFF" : "#000000",
+                      color: "#000000",
                     }}
                   >
                     Experience
@@ -960,7 +981,7 @@ export function InteractiveBook({
                     <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
                       2026
                     </span>
-                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: "#000000" }}>
                       INVT.RSVP — UI/UX Designer
                     </span>
                   </div>
@@ -970,7 +991,7 @@ export function InteractiveBook({
                     <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
                       2025
                     </span>
-                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: "#000000" }}>
                       University of Cincinnati DAAP — Graphic Designer
                     </span>
                   </div>
@@ -980,7 +1001,7 @@ export function InteractiveBook({
                     <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
                       2025
                     </span>
-                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: "#000000" }}>
                       The Livewell Collaborative — UX Researcher
                     </span>
                   </div>
@@ -990,7 +1011,7 @@ export function InteractiveBook({
                     <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
                       2025
                     </span>
-                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: "#000000" }}>
                       University of Cincinnati Graduate College — Graphic Designer
                     </span>
                   </div>
@@ -1000,7 +1021,7 @@ export function InteractiveBook({
                     <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
                       2023
                     </span>
-                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: "#000000" }}>
                       Bluelearn.in — Visual Designer
                     </span>
                   </div>
@@ -1026,7 +1047,7 @@ export function InteractiveBook({
                     alignItems: "flex-start",
                     paddingBottom: "8px",
                     width: "100%",
-                    borderBottom: isDark ? "1px solid rgba(255, 255, 255, 0.2)" : "1px solid #000000",
+                    borderBottom: "1px solid #000000",
                   }}
                 >
                   <span
@@ -1036,7 +1057,7 @@ export function InteractiveBook({
                       fontSize: "20px",
                       lineHeight: "160%",
                       textTransform: "uppercase",
-                      color: isDark ? "#FFFFFF" : "#000000",
+                      color: "#000000",
                     }}
                   >
                     Education
@@ -1058,7 +1079,7 @@ export function InteractiveBook({
                     <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
                       2026
                     </span>
-                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: "#000000" }}>
                       University of Cincinnati — Master of Design
                     </span>
                   </div>
@@ -1068,7 +1089,7 @@ export function InteractiveBook({
                     <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "10px", lineHeight: "160%", color: "#96A1A0", width: "30px", flexShrink: 0 }}>
                       2023
                     </span>
-                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: isDark ? "#FFFFFF" : "#000000" }}>
+                    <span style={{ fontFamily: "'Bricolage Grotesque', sans-serif", fontWeight: 500, fontSize: "15px", lineHeight: "140%", color: "#000000" }}>
                       Gujarat Technological University — Bachelor of Computer Engineering
                     </span>
                   </div>
