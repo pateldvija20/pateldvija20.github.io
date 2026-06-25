@@ -60,6 +60,8 @@ export function GlobalCursorProvider({
   const targetPctRef = useRef(0);
   const currentPctRef = useRef(0);
   const activeChevronRef = useRef<"none" | "next" | "back">("none");
+  const activeHoverTypeRef = useRef<"none" | "expand-invert">("none");
+  const activeSymbolRef = useRef("");
   const animFrameRef = useRef<number | null>(null);
   const isActiveRef = useRef(false); // whether ANY hotzone is currently matched
 
@@ -112,13 +114,38 @@ export function GlobalCursorProvider({
     el.style.left = `${mousePosRef.current.x}px`;
     el.style.top = `${mousePosRef.current.y}px`;
 
-    // Size interpolation: 6.75px (dot) → 27px (full)
-    const size = 6.75 * (2 * current * current + current + 1);
+    const hoverType = activeHoverTypeRef.current;
+
+    // Size interpolation: 12px (dot) → 54px (full)
+    const baseSize = 12;
+    const maxSize = 54;
+    let size = baseSize * (2 * current * current + 1.5 * current + 1);
+    if (hoverType === "expand-invert") {
+      size = baseSize + (maxSize - baseSize) * current;
+    }
     el.style.width = `${size}px`;
     el.style.height = `${size}px`;
 
-    // Dynamic colors
+    // Dynamic colors (black and white only, mix-blend-mode: normal)
     el.style.backgroundColor = dark ? "#FCFEFF" : "#000000";
+    el.style.mixBlendMode = "normal";
+    if (hoverType === "expand-invert") {
+      el.style.boxShadow = "none";
+    } else {
+      el.style.boxShadow = "0 2px 8px rgba(0,0,0,0.15)";
+    }
+
+    // Symbol Text updates
+    const symbolSpan = el.querySelector("[data-cursor-symbol='true']") as HTMLSpanElement | null;
+    if (symbolSpan) {
+      if (hoverType === "expand-invert" && current > 0.5) {
+        symbolSpan.style.display = "block";
+        symbolSpan.textContent = activeSymbolRef.current;
+        symbolSpan.style.color = dark ? "#000000" : "#FCFEFF";
+      } else {
+        symbolSpan.style.display = "none";
+      }
+    }
 
     // Chevron SVG updates
     const nextSvg = el.querySelector("[data-cursor-chevron='next']") as SVGElement | null;
@@ -185,6 +212,8 @@ export function GlobalCursorProvider({
         if (result.active) {
           targetPctRef.current = result.pct;
           activeChevronRef.current = result.chevron;
+          activeHoverTypeRef.current = (result as any).hoverType || "none";
+          activeSymbolRef.current = (result as any).symbol || "";
           matched = true;
           break; // first match wins
         }
@@ -244,8 +273,8 @@ export function GlobalCursorProvider({
         {/* Next Arrow */}
         <svg
           data-cursor-chevron="next"
-          width="5.66"
-          height="9.97"
+          width="11.32"
+          height="19.94"
           viewBox="0 0 5.66 9.97"
           fill="none"
           style={{ display: "none", transformOrigin: "center center" }}
@@ -262,8 +291,8 @@ export function GlobalCursorProvider({
         {/* Back Arrow */}
         <svg
           data-cursor-chevron="back"
-          width="5.66"
-          height="9.97"
+          width="11.32"
+          height="19.94"
           viewBox="0 0 5.66 9.97"
           fill="none"
           style={{ display: "none", transformOrigin: "center center" }}
@@ -276,6 +305,19 @@ export function GlobalCursorProvider({
             strokeLinejoin="round"
           />
         </svg>
+
+        {/* Symbol Text */}
+        <span
+          data-cursor-symbol="true"
+          style={{
+            display: "none",
+            fontFamily: "'Bricolage Grotesque', sans-serif",
+            fontWeight: 500,
+            fontSize: "36px",
+            lineHeight: "1.2",
+            userSelect: "none",
+          }}
+        />
       </div>
     </GlobalCursorContext.Provider>
   );
