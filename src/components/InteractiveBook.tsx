@@ -5,6 +5,8 @@ import gsap from "gsap";
 import BookCover from "../imports/Frame31-1/Frame31-6-430";
 import { useGlobalCursor, type HotzoneTestResult } from "./GlobalCursor";
 
+const CORNER_SIZE = 120; // px in book-space
+
 interface InteractiveBookProps {
   state?: "closed" | "hover" | "open";
   className?: string;
@@ -32,6 +34,41 @@ export function InteractiveBook({
 
   const [currentPage, setCurrentPage] = useState(1);
   const [expandedSkillIndex, setExpandedSkillIndex] = useState<number | null>(null);
+
+  // Draggable polaroid state
+  const [polaroidPos, setPolaroidPos] = useState({ x: 100, y: 160 });
+  const polaroidDragRef = useRef<{ dragging: boolean; startX: number; startY: number; originX: number; originY: number }>({
+    dragging: false, startX: 0, startY: 0, originX: 100, originY: 160,
+  });
+  const onPolaroidMouseDown = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    polaroidDragRef.current = { dragging: true, startX: e.clientX, startY: e.clientY, originX: polaroidPos.x, originY: polaroidPos.y };
+    const POLAROID_W = 313.56;
+    const POLAROID_H = 376.76;
+    const PAGE_W = 567;
+    const PAGE_H = 743;
+    const onMove = (ev: MouseEvent) => {
+      if (!polaroidDragRef.current.dragging) return;
+      ev.stopPropagation();
+      const rawX = polaroidDragRef.current.originX + (ev.clientX - polaroidDragRef.current.startX);
+      const rawY = polaroidDragRef.current.originY + (ev.clientY - polaroidDragRef.current.startY);
+      setPolaroidPos({
+        x: Math.max(0, Math.min(rawX, PAGE_W - POLAROID_W)),
+        y: Math.max(0, Math.min(rawY, PAGE_H - POLAROID_H)),
+      });
+    };
+    const onUp = (ev: MouseEvent) => {
+      ev.stopPropagation();
+      polaroidDragRef.current.dragging = false;
+      window.removeEventListener("mousemove", onMove, true);
+      window.removeEventListener("mouseup", onUp, true);
+      // Suppress the click that fires immediately after mouseup
+      window.addEventListener("click", (ce) => ce.stopPropagation(), { capture: true, once: true });
+    };
+    window.addEventListener("mousemove", onMove, true);
+    window.addEventListener("mouseup", onUp, true);
+  };
   const [hoveredSymbolIndex, setHoveredSymbolIndex] = useState<number | null>(null);
   const isFlippingRef = useRef(false);
 
@@ -41,98 +78,51 @@ export function InteractiveBook({
     setHoveredSymbolIndex(null);
   }, [currentPage]);
 
-  const [hoverZone, setHoverZone] = useState<"none" | "next" | "back">("none");
   const { registerHotzone, unregisterHotzone } = useGlobalCursor();
 
-  // ── Hotzone test function: given viewport coords, check if inside a book page-turn zone ──
+  // Keep skill +/- hotzone for cursor feedback only
   const hotzoneTestFn = useCallback(
     (clientX: number, clientY: number): HotzoneTestResult => {
-      if (state !== "open" || isFlippingRef.current) return { active: false };
-      const container = containerRef.current;
-      if (!container) return { active: false };
-
-      const rect = container.getBoundingClientRect();
-      const scaleX = rect.width / 1154;
-      const scaleY = rect.height / 763;
-
-      const x = (clientX - rect.left) / (scaleX || 1);
-      const y = (clientY - rect.top) / (scaleY || 1);
-
-      // Only test if inside the book bounds
-      if (x < 0 || x > 1154 || y < 0 || y > 763) return { active: false };
-
-      if (currentPage === 1) {
-        if (x >= 860.5 && x <= 1144) {
-          const pct = Math.min(Math.max((x - 860.5) / (1144 - 860.5), 0), 1);
-          return { active: true, pct, chevron: "next" };
-        }
-      } else if (currentPage === 2) {
-        // Check if cursor is over any of the plus/minus buttons on page 3
-        const buttons = document.querySelectorAll(".skill-plus-minus-btn");
-        for (let i = 0; i < buttons.length; i++) {
-          const btnRect = buttons[i].getBoundingClientRect();
-          if (
-            clientX >= btnRect.left &&
-            clientX <= btnRect.right &&
-            clientY >= btnRect.top &&
-            clientY <= btnRect.bottom
-          ) {
-            const isExpanded = expandedSkillIndex === i;
-            return {
-              active: true,
-              pct: 1.0,
-              chevron: "none",
-              hoverType: "expand-invert",
-              symbol: isExpanded ? "−" : "+",
-            } as any;
-          }
-        }
-
-        if (x >= 10 && x <= 293.5) {
-          const pct = Math.min(Math.max((293.5 - x) / (293.5 - 10), 0), 1);
-          return { active: true, pct, chevron: "back" };
+      if (state !== "open" || currentPage !== 2) return { active: false };
+      const buttons = document.querySelectorAll(".skill-plus-minus-btn");
+      for (let i = 0; i < buttons.length; i++) {
+        const btnRect = buttons[i].getBoundingClientRect();
+        if (
+          clientX >= btnRect.left &&
+          clientX <= btnRect.right &&
+          clientY >= btnRect.top &&
+          clientY <= btnRect.bottom
+        ) {
+          const isExpanded = expandedSkillIndex === i;
+          return {
+            active: true,
+            pct: 1.0,
+            chevron: "none",
+            hoverType: "expand-invert",
+            symbol: isExpanded ? "−" : "+",
+          } as any;
         }
       }
-
       return { active: false };
     },
     [state, currentPage, expandedSkillIndex]
   );
 
-  // Register / unregister the hotzone with the global cursor
   useEffect(() => {
     registerHotzone("interactive-book", hotzoneTestFn);
     return () => unregisterHotzone("interactive-book");
   }, [registerHotzone, unregisterHotzone, hotzoneTestFn]);
 
-  // ── Track hoverZone for click handling (lightweight — only sets state on zone change) ──
-  const handleContainerMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (state !== "open" || isFlippingRef.current) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const scaleX = rect.width / 1154;
-    const x = (e.clientX - rect.left) / (scaleX || 1);
+  const [isBookFullyOpen, setIsBookFullyOpen] = useState(false);
 
-    let currentZone: "none" | "next" | "back" = "none";
-    if (currentPage === 1 && x >= 860.5 && x <= 1144) currentZone = "next";
-    else if (currentPage === 2 && x >= 10 && x <= 293.5) currentZone = "back";
-
-    if (currentZone !== hoverZone) setHoverZone(currentZone);
-  };
-
-  const handleContainerMouseLeave = () => {
-    if (hoverZone !== "none") setHoverZone("none");
-  };
-
-  const handleContainerClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (state !== "open" || isFlippingRef.current) return;
-    if (hoverZone === "next") {
-      flipToPage(2, e);
-      setHoverZone("none");
-    } else if (hoverZone === "back") {
-      flipToPage(1, e);
-      setHoverZone("none");
+  useEffect(() => {
+    if (state === "open") {
+      const t = setTimeout(() => setIsBookFullyOpen(true), 900);
+      return () => clearTimeout(t);
+    } else {
+      setIsBookFullyOpen(false);
     }
-  };
+  }, [state]);
 
   const flipToPage = (newPage: number, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -148,71 +138,35 @@ export function InteractiveBook({
     }
 
     const tl = gsap.timeline({
-      onComplete: () => {
-        isFlippingRef.current = false;
-      },
+      onComplete: () => { isFlippingRef.current = false; },
     });
 
     if (newPage > currentPage) {
       gsap.set(rightPage, { transformOrigin: "left center" });
       tl.to(rightPage, {
-        scaleX: 0,
-        opacity: 0,
-        duration: 0.3,
-        ease: "power2.in",
+        scaleX: 0, opacity: 0, duration: 0.3, ease: "power2.in",
         onComplete: () => {
           setCurrentPage(newPage);
-          gsap.set(rightPage, { scaleX: 1, opacity: 0, pointerEvents: "auto" });
+          gsap.set(rightPage, { scaleX: 1, opacity: 0 });
           gsap.set(leftPage, { transformOrigin: "right center", scaleX: 0, opacity: 0 });
         },
       });
-      tl.to(leftPage, {
-        opacity: 0,
-        duration: 0.3,
-        ease: "power2.in",
-      }, 0);
-
-      tl.to(leftPage, {
-        scaleX: 1,
-        opacity: 1,
-        duration: 0.3,
-        ease: "power2.out",
-      });
-      tl.to(rightPage, {
-        opacity: 1,
-        duration: 0.3,
-        ease: "power2.out",
-      }, "<");
+      tl.to(leftPage, { opacity: 0, duration: 0.3, ease: "power2.in" }, 0);
+      tl.to(leftPage, { scaleX: 1, opacity: 1, duration: 0.3, ease: "power2.out" });
+      tl.to(rightPage, { opacity: 1, duration: 0.3, ease: "power2.out" }, "<");
     } else {
       gsap.set(leftPage, { transformOrigin: "right center" });
       tl.to(leftPage, {
-        scaleX: 0,
-        opacity: 0,
-        duration: 0.3,
-        ease: "power2.in",
+        scaleX: 0, opacity: 0, duration: 0.3, ease: "power2.in",
         onComplete: () => {
           setCurrentPage(newPage);
-          gsap.set(leftPage, { scaleX: 1, opacity: 0, pointerEvents: "auto" });
+          gsap.set(leftPage, { scaleX: 1, opacity: 0 });
           gsap.set(rightPage, { transformOrigin: "left center", scaleX: 0, opacity: 0 });
         },
       });
-      tl.to(rightPage, {
-        opacity: 0,
-        duration: 0.3,
-        ease: "power2.in",
-      }, 0);
-
-      tl.to(rightPage, {
-        scaleX: 1,
-        opacity: 1,
-        duration: 0.3,
-        ease: "power2.out",
-      });
-      tl.to(leftPage, {
-        opacity: 1,
-        duration: 0.3,
-        ease: "power2.out",
-      }, "<");
+      tl.to(rightPage, { opacity: 0, duration: 0.3, ease: "power2.in" }, 0);
+      tl.to(rightPage, { scaleX: 1, opacity: 1, duration: 0.3, ease: "power2.out" });
+      tl.to(leftPage, { opacity: 1, duration: 0.3, ease: "power2.out" }, "<");
     }
   };
 
@@ -251,8 +205,8 @@ export function InteractiveBook({
         ease: "power2.out",
       });
       // Hide open pages, backings
-      if (leftPage) gsap.to(leftPage, { opacity: 0, scaleX: 0, pointerEvents: "none", duration: 0.3 });
-      if (rightPage) gsap.to(rightPage, { opacity: 0, scaleX: 0, pointerEvents: "none", duration: 0.3 });
+      if (leftPage) gsap.to(leftPage, { opacity: 0, scaleX: 0, duration: 0.3 });
+      if (rightPage) gsap.to(rightPage, { opacity: 0, scaleX: 0, duration: 0.3 });
       if (leftBgSheets) gsap.to(leftBgSheets, { opacity: 0, scaleX: 0, duration: 0.3 });
       if (rightBgSheets) gsap.to(rightBgSheets, { opacity: 0, scaleX: 0, duration: 0.3 });
       if (rightBacking) gsap.to(rightBacking, { opacity: 0, duration: 0.3 });
@@ -280,8 +234,8 @@ export function InteractiveBook({
         duration: 0.6,
         ease: "power2.out",
       });
-      if (leftPage) gsap.to(leftPage, { opacity: 0, scaleX: 0, pointerEvents: "none", duration: 0.3 });
-      if (rightPage) gsap.to(rightPage, { opacity: 0, scaleX: 0, pointerEvents: "none", duration: 0.3 });
+      if (leftPage) gsap.to(leftPage, { opacity: 0, scaleX: 0, duration: 0.3 });
+      if (rightPage) gsap.to(rightPage, { opacity: 0, scaleX: 0, duration: 0.3 });
       if (leftBgSheets) gsap.to(leftBgSheets, { opacity: 0, scaleX: 0, duration: 0.3 });
       if (rightBgSheets) gsap.to(rightBgSheets, { opacity: 0, scaleX: 0, duration: 0.3 });
       if (rightBacking) gsap.to(rightBacking, { opacity: 0, duration: 0.3 });
@@ -321,7 +275,6 @@ export function InteractiveBook({
         gsap.to(leftPage, {
           opacity: 1,
           scaleX: 1,
-          pointerEvents: "auto",
           duration: 0.45,
           delay: 0.45,
           ease: "power2.out",
@@ -342,7 +295,6 @@ export function InteractiveBook({
         gsap.to(rightPage, {
           opacity: 1,
           scaleX: 1,
-          pointerEvents: "auto",
           duration: 0.45,
           delay: 0.45,
           ease: "power2.out",
@@ -400,9 +352,6 @@ export function InteractiveBook({
   return (
     <div
       ref={containerRef}
-      onMouseMove={handleContainerMouseMove}
-      onMouseLeave={handleContainerMouseLeave}
-      onClick={handleContainerClick}
       className={`relative select-none ${className}`}
       style={{
         width: cardW * 2, // 1154px (Full double-page width)
@@ -624,21 +573,38 @@ export function InteractiveBook({
           top: 10,
           width: cardW - 10, // 567px (Ends at 577px crease)
           height: cardH - 20,
-          backgroundColor: currentPage === 2 ? "#DCCCFF" : "#FCFEFF",
+          backgroundColor: "#FCFEFF",
           color: "#000000",
           borderRadius: "24px 0px 0px 24px", // Meets flush at right edge
           border: "1px solid rgba(0,0,0,0.08)",
           boxShadow: "-8px 10px 24px rgba(0,0,0,0.16), -2px 2px 6px rgba(0,0,0,0.06)",
-          padding: currentPage === 2 ? "0px" : "32px",
+          padding: "40px",
           overflow: "hidden",
           opacity: 0,
           transformOrigin: "right center",
           transform: "scaleX(0)",
-          pointerEvents: "none",
+          pointerEvents: isBookFullyOpen ? "auto" : "none",
           zIndex: 30,
         }}
       >
-        {currentPage === 1 ? (
+        {/* Back corner — inside left page to avoid preserve-3d z-index issues */}
+        {isBookFullyOpen && currentPage > 1 && (
+          <div
+            data-no-deck-drag
+            onClick={(e) => { e.stopPropagation(); flipToPage(currentPage - 1); }}
+            style={{
+              position: "absolute",
+              left: 0,
+              bottom: 0,
+              width: CORNER_SIZE,
+              height: CORNER_SIZE,
+              cursor: "default",
+              zIndex: 99,
+              clipPath: "polygon(0% 100%, 100% 100%, 0% 0%)",
+            }}
+          />
+        )}
+        {currentPage >= 3 ? null : currentPage === 1 ? (
           <div className="flex-1 flex flex-col justify-end">
             <div
               style={{
@@ -652,16 +618,7 @@ export function InteractiveBook({
                 color: "#000000",
               }}
             >
-              I create{" "}
-              <span
-                ref={rotatingWordRef}
-                style={{
-                  display: "inline-block",
-                  fontWeight: 500,
-                }}
-              >
-                {words[wordIndex]}
-              </span>
+              I create
               <br />
               experience that adapt to
               <br />
@@ -672,16 +629,6 @@ export function InteractiveBook({
           </div>
         ) : (
           <div style={{ position: "relative", width: "100%", height: "100%" }}>
-            {/* Background Image */}
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background: "url(/about_cover.png?v=4) no-repeat center/cover",
-                pointerEvents: "none",
-                borderRadius: "24px 0px 0px 24px",
-              }}
-            />
 
             {/* Layout container */}
             <div style={{
@@ -693,7 +640,7 @@ export function InteractiveBook({
               display: "flex",
               flexDirection: "column",
               alignItems: "flex-start",
-              padding: "50px",
+              padding: "0px",
               gap: "28px",
               zIndex: 10,
               boxSizing: "border-box",
@@ -827,7 +774,7 @@ export function InteractiveBook({
                         }}
                       >
                         <span style={{
-                          width: 392, // matching design spec width
+                          width: "80%",
                           fontFamily: "'Atkinson Hyperlegible Mono', monospace",
                           fontStyle: "normal",
                           fontWeight: 500,
@@ -836,7 +783,7 @@ export function InteractiveBook({
                           letterSpacing: "-0.04em",
                           textTransform: "capitalize",
                           color: "#000000",
-                          textAlign: "right",
+                          textAlign: "left",
                         }}>
                           {skill.description}
                         </span>
@@ -886,22 +833,79 @@ export function InteractiveBook({
           top: 10,
           width: cardW - 10, // 567px (Ends at 1144px, leaving 10px cover border)
           height: cardH - 20,
-          background: currentPage === 1 
-            ? "url(/about_portrait.png?v=3) no-repeat center/cover"
-            : "#FCFEFF", // page 4 remains white always
+          background: currentPage === 1
+            ? "url(/about_right_bg.png) no-repeat center/cover"
+            : "#FCFEFF",
+
           color: "#000000",
-          padding: currentPage === 2 ? "25px" : "0px",
-          filter: (isDark && currentPage === 1) ? "brightness(0.85)" : "none", // only dim portrait image
+          padding: currentPage === 1 ? "0px" : "40px",
+          filter: "none",
           borderRadius: "0px 24px 24px 0px", // Meets flush at left edge
           border: "1px solid rgba(0,0,0,0.08)",
           boxShadow: "8px 10px 24px rgba(0,0,0,0.16), 2px 2px 6px rgba(0,0,0,0.06)",
           opacity: 0,
           transformOrigin: "left center",
           transform: "scaleX(0)",
-          pointerEvents: "none",
+          pointerEvents: isBookFullyOpen ? "auto" : "none",
           zIndex: 30,
         }}
       >
+        {/* Next corner — inside right page to avoid preserve-3d z-index issues */}
+        {isBookFullyOpen && currentPage < 4 && (
+          <div
+            data-no-deck-drag
+            onClick={(e) => { e.stopPropagation(); flipToPage(currentPage + 1); }}
+            style={{
+              position: "absolute",
+              right: 0,
+              bottom: 0,
+              width: CORNER_SIZE,
+              height: CORNER_SIZE,
+              cursor: "default",
+              zIndex: 99,
+              clipPath: "polygon(100% 100%, 0% 100%, 100% 0%)",
+            }}
+          />
+        )}
+
+        {/* Draggable Polaroid — page 1 only */}
+        {currentPage === 1 && (
+          <div
+            data-no-deck-drag
+            onMouseDown={onPolaroidMouseDown}
+            style={{
+              position: "absolute",
+              left: polaroidPos.x,
+              top: polaroidPos.y,
+              width: 313.56,
+              height: 376.76,
+              background: "#FFFFFF",
+              borderRadius: 2.4307,
+              transform: "rotate(-1.16deg)",
+              cursor: "grab",
+              userSelect: "none",
+              zIndex: 50,
+              boxShadow: "0 4px 24px rgba(0,0,0,0.13)",
+            }}
+          >
+            <img
+              src="/about_portrait.png?v=4"
+              alt="Portrait"
+              draggable={false}
+              style={{
+                position: "absolute",
+                width: 269.81,
+                height: 269.81,
+                left: 22.31,
+                top: 22.31,
+                objectFit: "cover",
+                borderRadius: 1,
+                display: "block",
+              }}
+            />
+          </div>
+        )}
+
         {currentPage === 2 && (
           <div style={{ position: "relative", width: "100%", height: "100%" }}>
             {/* Frame 61 */}
@@ -910,7 +914,7 @@ export function InteractiveBook({
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "flex-start",
-                padding: "24px",
+                padding: "0px",
                 gap: "28px",
                 width: "100%",
                 height: "100%",
@@ -955,7 +959,7 @@ export function InteractiveBook({
                   <span
                     style={{
                       fontFamily: "'Bricolage Grotesque', sans-serif",
-                      fontWeight: 700,
+                      fontWeight: 600,
                       fontSize: "20px",
                       lineHeight: "160%",
                       textTransform: "uppercase",
@@ -1053,7 +1057,7 @@ export function InteractiveBook({
                   <span
                     style={{
                       fontFamily: "'Bricolage Grotesque', sans-serif",
-                      fontWeight: 700,
+                      fontWeight: 600,
                       fontSize: "20px",
                       lineHeight: "160%",
                       textTransform: "uppercase",
@@ -1099,7 +1103,10 @@ export function InteractiveBook({
 
           </div>
         )}
+        {/* Blank pages 3 and 4 — right side */}
+        {(currentPage === 3 || currentPage === 4) && null}
       </div>
+
     </div>
   );
 }

@@ -1012,7 +1012,7 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
         flexDirection: 'row',
         alignItems: 'center',
         gap: '32px',
-        zIndex: 600,
+        zIndex: bookOpen ? 25 : 600,
         whiteSpace: 'nowrap',
         fontFamily: "'Bricolage Grotesque', sans-serif",
         fontSize: '13px',
@@ -1029,7 +1029,7 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
         flexDirection: 'column',
         alignItems: 'flex-end',
         gap: '8px',
-        zIndex: 600,
+        zIndex: bookOpen ? 25 : 600,
         whiteSpace: 'nowrap',
         fontFamily: "'Bricolage Grotesque', sans-serif",
         fontSize: '12px',
@@ -1076,7 +1076,7 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
         </div>
 
         {/* ── Sticky note ────────────────────────────────────────────────── */}
-        <StickyNote scaleRef={scaleRef} onDragActiveChange={(active) => { stickyDraggingRef.current = active; setStickyDragging(active); }} isDark={isDark} onToggleDark={() => setIsDark(d => !d)} />
+        <StickyNote scaleRef={scaleRef} onDragActiveChange={(active) => { stickyDraggingRef.current = active; setStickyDragging(active); }} isDark={isDark} onToggleDark={() => setIsDark(d => !d)} isBookOpen={bookOpen} />
 
         {/* ── Book cover overlay ─────────────────────────────────────────── */}
         <div

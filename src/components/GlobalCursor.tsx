@@ -312,7 +312,7 @@ export function GlobalCursorProvider({
           style={{
             display: "none",
             fontFamily: "'Bricolage Grotesque', sans-serif",
-            fontWeight: 500,
+            fontWeight: 400,
             fontSize: "36px",
             lineHeight: "1.2",
             userSelect: "none",
