@@ -8,18 +8,19 @@ const ROLES = [
   "Design Engineer",
   "Visual Designer",
   "UX Researcher",
-  "UI Designer",
+  "UI/UX Designer",
 ];
 
-const COLS = 93;
+const COLS = 120;
 
 export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
   const [roleIndex, setRoleIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
+  const [isRoleTitleHovered, setIsRoleTitleHovered] = useState(false);
 
   // Scramble text state
-  const [displayText, setDisplayText] = useState("Product Designer");
-  const displayTextRef = useRef("Product Designer");
+  const [displayText, setDisplayText] = useState(ROLES[0]);
+  const displayTextRef = useRef(ROLES[0]);
   const scrambleRequestRef = useRef<number | null>(null);
 
   // Generate random blob sectors and wobble phases on hover
@@ -41,6 +42,8 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
 
   // ASCII state
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const revealCanvasRef = useRef<HTMLCanvasElement>(null);
+  const flickerCanvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const mouseRef = useRef({ x: -9999, y: -9999, targetX: -9999, targetY: -9999, active: false });
   
@@ -72,8 +75,8 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
     for (let i = 0; i < length; i++) {
       const from = current[i] || "";
       const to = target[i] || "";
-      const start = Math.floor(Math.random() * 12);
-      const end = start + Math.floor(Math.random() * 15) + 8;
+      const start = Math.floor(Math.random() * 5);
+      const end = start + Math.floor(Math.random() * 6) + 6;
       queue.push({ from, to, start, end });
     }
 
@@ -114,29 +117,26 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
     update();
   };
 
-  // Role text rotation animation (only on hover, resets to default on leave)
+  // Role text rotation animation (only on role title hover)
   useEffect(() => {
-    if (!isHovered) {
-      setRoleIndex(0);
-      scrambleTo(ROLES[0]);
-      return;
-    }
+    if (!isRoleTitleHovered) return;
 
-    const interval = setInterval(() => {
+    const advance = () => {
       setRoleIndex((prev) => {
         const next = (prev + 1) % ROLES.length;
         scrambleTo(ROLES[next]);
         return next;
       });
-    }, 2800);
+    };
+
+    // Fire immediately on hover, then every 2800ms
+    advance();
+    const interval = setInterval(advance, 2800);
 
     return () => {
       clearInterval(interval);
-      if (scrambleRequestRef.current) {
-        cancelAnimationFrame(scrambleRequestRef.current);
-      }
     };
-  }, [isHovered]);
+  }, [isRoleTitleHovered]);
 
   // Shared function to sample image/video and build character grids
   const sampleSource = (source: HTMLImageElement | HTMLVideoElement) => {
@@ -195,20 +195,31 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
     }
 
     const RAMPS = {
-      classic: ' .:-=+*#%@',
-      blocks: ' ./*-+1743256980'
+      classic: ' ░▒▓█',
+    };
+
+    // Contrast stretch: find min/max brightness in frame, then remap + apply gamma
+    let minB = 1, maxB = 0;
+    for (const row of grid) for (const b of row) { if (b < minB) minB = b; if (b > maxB) maxB = b; }
+    const rangeB = Math.max(0.01, maxB - minB);
+
+    const enhance = (b: number) => {
+      const norm = (b - minB) / rangeB; // stretch to 0–1
+      return Math.pow(norm, 0.6); // gamma < 1 boosts midtones / shadows
     };
 
     const rest: string[][] = grid.map(row =>
       row.map(b => {
-        const idx = Math.min(RAMPS.blocks.length - 1, Math.max(0, Math.floor((1 - b) * (RAMPS.blocks.length - 1))));
-        return RAMPS.blocks[idx];
+        const eb = enhance(b);
+        const idx = Math.min(RAMPS.classic.length - 1, Math.max(0, Math.floor((1 - eb) * (RAMPS.classic.length - 1))));
+        return RAMPS.classic[idx];
       })
     );
 
     const reveal: string[][] = grid.map(row =>
       row.map(b => {
-        const idx = Math.min(RAMPS.classic.length - 1, Math.max(0, Math.floor((1 - b) * (RAMPS.classic.length - 1))));
+        const eb = enhance(b);
+        const idx = Math.min(RAMPS.classic.length - 1, Math.max(0, Math.floor((1 - eb) * (RAMPS.classic.length - 1))));
         return RAMPS.classic[idx];
       })
     );
@@ -250,11 +261,11 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
 
       videoEl.onloadeddata = () => {
         if (!videoEl) return;
-        videoEl.playbackRate = 0.75; // decrease video playback speed by 25%
+        videoEl.playbackRate = 2.0;
         sampleSource(videoEl);
         videoTimer = setInterval(() => {
           if (videoEl) sampleSource(videoEl);
-        }, 106); // decrease sampling rate by 25% (80ms -> 106ms)
+        }, 60);
         videoEl.play().catch(() => {});
       };
 
@@ -277,18 +288,21 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
       }
     };
 
-    // Check if the video exists via API Route
-    fetch("/api/ascii-video", { method: "HEAD" })
-      .then((res) => {
-        if (res.ok) {
-          setupVideo();
-        } else {
-          setupImage();
-        }
-      })
-      .catch(() => {
-        setupImage();
-      });
+    // Lazy load: start with static image immediately, swap to video after page is idle
+    setupImage();
+
+    const startVideo = () => {
+      fetch("/api/ascii-video", { method: "HEAD" })
+        .then((res) => { if (res.ok) setupVideo(); })
+        .catch(() => {});
+    };
+
+    if ("requestIdleCallback" in window) {
+      (window as Window & { requestIdleCallback: (cb: () => void, opts?: object) => void })
+        .requestIdleCallback(startVideo, { timeout: 3000 });
+    } else {
+      setTimeout(startVideo, 2000);
+    }
 
     return () => {
       cleanupVideo();
@@ -301,6 +315,16 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
+
+    const flickerCanvas = flickerCanvasRef.current;
+    if (!flickerCanvas) return;
+    const flickerCtx = flickerCanvas.getContext("2d");
+    if (!flickerCtx) return;
+
+    const revealCanvas = revealCanvasRef.current;
+    if (!revealCanvas) return;
+    const revealCtx = revealCanvas.getContext("2d");
+    if (!revealCtx) return;
 
     const baseCanvas = document.createElement("canvas");
     const baseCtx = baseCanvas.getContext("2d");
@@ -315,6 +339,18 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
     ctx.scale(dpr, dpr);
+
+    flickerCanvas.width = width * dpr;
+    flickerCanvas.height = height * dpr;
+    flickerCanvas.style.width = `${width}px`;
+    flickerCanvas.style.height = `${height}px`;
+    flickerCtx.scale(dpr, dpr);
+
+    revealCanvas.width = width * dpr;
+    revealCanvas.height = height * dpr;
+    revealCanvas.style.width = `${width}px`;
+    revealCanvas.style.height = `${height}px`;
+    revealCtx.scale(dpr, dpr);
 
     baseCanvas.width = width * dpr;
     baseCanvas.height = height * dpr;
@@ -351,7 +387,7 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
         baseCtx.font = `${fontSize}px ${fontStack}`;
         baseCtx.textAlign = 'center';
         baseCtx.textBaseline = 'middle';
-        baseCtx.globalAlpha = 0.24;
+        baseCtx.globalAlpha = 0.33;
         baseCtx.fillStyle = "#000000";
 
         for (let r = 0; r < grids.rows; r++) {
@@ -377,9 +413,10 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
       ctx.drawImage(baseCanvas, 0, 0, width, height);
       ctx.globalAlpha = 1;
 
-      // Ambient flicker loop (slowed down by 25%)
+      // Ambient flicker loop — drawn on separate canvas (no blend mode)
+      flickerCtx.clearRect(0, 0, width, height);
       if (grids.rest.length) {
-        if (flickerCells.length < 14 && Math.random() < 0.09) {
+        if (flickerCells.length < 50 && Math.random() < 0.09) {
           for (let attempt = 0; attempt < 6; attempt++) {
             const r = Math.floor(Math.random() * grids.rows);
             const c = Math.floor(Math.random() * grids.cols);
@@ -390,9 +427,9 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
           }
         }
 
-        ctx.font = `${fontSize}px ${fontStack}`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        flickerCtx.font = `${fontSize}px ${fontStack}`;
+        flickerCtx.textAlign = 'center';
+        flickerCtx.textBaseline = 'middle';
 
         flickerCells = flickerCells.filter(f => {
           f.age++;
@@ -403,13 +440,13 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
           if (ch && ch !== ' ') {
             const cx = (f.c + 0.5) * cellW;
             const cy = (f.r + 0.5) * cellH;
-            ctx.save();
-            ctx.translate(cx, cy);
-            ctx.scale(1 + 0.12 * t, 1 + 0.12 * t);
-            ctx.globalAlpha = Math.min(1, 0.28 + t * 0.72);
-            ctx.fillStyle = "#000000";
-            ctx.fillText(ch, 0, 0);
-            ctx.restore();
+            flickerCtx.save();
+            flickerCtx.translate(cx, cy);
+            flickerCtx.scale(1 + 0.12 * t, 1 + 0.12 * t);
+            flickerCtx.globalAlpha = Math.min(1, 0.28 + t * 0.72);
+            flickerCtx.fillStyle = "#FFFFFF";
+            flickerCtx.fillText(ch, 0, 0);
+            flickerCtx.restore();
           }
           return true;
         });
@@ -449,9 +486,10 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
           return baseRadius * rScale;
         };
 
-        ctx.font = `${fontSize}px ${fontStack}`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        revealCtx.clearRect(0, 0, width, height);
+        revealCtx.font = `${fontSize}px ${fontStack}`;
+        revealCtx.textAlign = 'center';
+        revealCtx.textBaseline = 'middle';
 
         for (let r = Math.max(0, centerRow - rowRadius); r <= Math.min(grids.rows - 1, centerRow + rowRadius); r++) {
           for (let c = Math.max(0, centerCol - colRadius); c <= Math.min(grids.cols - 1, centerCol + colRadius); c++) {
@@ -468,17 +506,22 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
             const t = (1 - dist / currentRadius) * revealStrength;
             if (t <= 0.02) continue;
 
-            ctx.save();
-            ctx.translate(cx, cy);
-            const scale = 1 + 0.18 * t;
-            ctx.scale(scale, scale);
-            // Increased contrast: peak opacity increased to 0.72 instead of 0.6
-            ctx.globalAlpha = Math.min(0.72, 0.24 + t * 0.48);
-            ctx.fillStyle = "#000000";
-            ctx.fillText(ch, 0, 0);
-            ctx.restore();
+            const scaledFont = `${fontSize * (1 + 0.25 * t)}px ${fontStack}`;
+            revealCtx.save();
+            revealCtx.font = scaledFont;
+            revealCtx.globalAlpha = Math.min(1, t);
+            revealCtx.fillStyle = "#000000";
+            revealCtx.fillText(ch, cx, cy);
+            // double-paint at center for heavier density
+            if (t > 0.5) {
+              revealCtx.globalAlpha = Math.min(1, (t - 0.5) * 2);
+              revealCtx.fillText(ch, cx, cy);
+            }
+            revealCtx.restore();
           }
         }
+      } else {
+        revealCtx.clearRect(0, 0, width, height);
       }
 
       animId = requestAnimationFrame(loop);
@@ -496,6 +539,7 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
     if (!isClosed) {
       mouseRef.current.active = false;
       setIsHovered(false);
+      setIsRoleTitleHovered(false);
     }
   }, [isClosed]);
 
@@ -558,10 +602,42 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
         }}
       />
 
-      {/* Transparent ASCII Reveal canvas layer (flowing to edge of book) */}
+      {/* ASCII canvas with overlay blend mode */}
       {isASCIIReady && (
         <canvas
           ref={canvasRef}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: "577px",
+            height: "763px",
+            pointerEvents: "none",
+            mixBlendMode: "overlay",
+          }}
+        />
+      )}
+
+      {/* Reveal canvas — hard-light blend mode for cursor spotlight */}
+      {isASCIIReady && (
+        <canvas
+          ref={revealCanvasRef}
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            width: "577px",
+            height: "763px",
+            pointerEvents: "none",
+            mixBlendMode: "overlay",
+          }}
+        />
+      )}
+
+      {/* Flicker canvas — no blend mode so cells render as plain black */}
+      {isASCIIReady && (
+        <canvas
+          ref={flickerCanvasRef}
           style={{
             position: "absolute",
             left: 0,
@@ -573,7 +649,7 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
         />
       )}
 
-      {/* White bottom panel — Frame 68 */}
+      {/* White bottom panel — Frame 73 */}
       <div
         style={{
           position: "absolute",
@@ -586,7 +662,8 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
           flexDirection: "column",
           justifyContent: "space-between",
           alignItems: "center",
-          padding: "15px 16px",
+          padding: "15px 16px 15px 40px",
+          boxSizing: "border-box",
         }}
       >
         {/* Frame 70 */}
@@ -597,7 +674,7 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
             alignItems: "center",
             padding: "0px",
             gap: "60px",
-            width: 545,
+            width: 521,
             height: 64,
             flex: "none",
             order: 0,
@@ -605,12 +682,12 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
             flexGrow: 0,
           }}
         >
-          {/* Hello! I’m Dvija */}
+          {/* Hello! I’m Dvija ✨ */}
           <span
             style={{
-              width: 274,
+              width: 325,
               height: 64,
-              fontFamily: "'Bricolage Grotesque', sans-serif",
+              fontFamily: "’Bricolage Grotesque’, sans-serif",
               fontStyle: "normal",
               fontWeight: 500,
               fontSize: "40px",
@@ -619,29 +696,45 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
               flex: "none",
               order: 0,
               flexGrow: 0,
-              paddingLeft: "10px",
-              boxSizing: "border-box",
             }}
           >
-            Hello! I&rsquo;m Dvija
+            Hello! I&rsquo;m Dvija ✨
           </span>
+        </div>
 
+        {/* Frame 88 */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            justifyContent: "flex-end",
+            alignItems: "center",
+            padding: "0px",
+            gap: "10px",
+            width: 521,
+            height: 42,
+            flex: "none",
+            order: 1,
+            alignSelf: "stretch",
+            flexGrow: 0,
+          }}
+        >
           {/* 3+ Year of Design Experience... */}
           <span
             style={{
               width: 211,
               height: 42,
-              fontFamily: "'Atkinson Hyperlegible Mono', monospace",
+              fontFamily: "’Atkinson Hyperlegible Mono’, monospace",
               fontStyle: "normal",
               fontWeight: 500,
               fontSize: "12px",
               lineHeight: "120%",
-              letterSpacing: "-0.03em",
+              letterSpacing: "0em",
               textTransform: "uppercase",
               color: "#000000",
               flex: "none",
-              order: 1,
-              flexGrow: 1,
+              order: 0,
+              flexGrow: 0,
             }}
           >
             3+ Year of Design Experience specializing in UX and visual design
@@ -657,16 +750,18 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
             justifyContent: "flex-end",
             padding: "0px",
             gap: "10.13px",
-            width: 545,
+            width: 521,
             height: 104,
             flex: "none",
-            order: 1,
+            order: 2,
             alignSelf: "stretch",
             flexGrow: 0,
           }}
         >
           {/* Product Designer / Role Animation */}
           <span
+            onMouseEnter={() => setIsRoleTitleHovered(true)}
+            onMouseLeave={() => setIsRoleTitleHovered(false)}
             style={{
               width: 537,
               height: 104,
@@ -682,6 +777,7 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
               overflow: "hidden",
               display: "block",
               textAlign: "right",
+              cursor: "default",
             }}
           >
             <span

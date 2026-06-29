@@ -18,9 +18,10 @@ interface StickyNoteProps {
   onDragActiveChange?: (active: boolean) => void;
   isDark?: boolean;
   onToggleDark?: () => void;
+  isBookOpen?: boolean;
 }
 
-export function StickyNote({ scaleRef, onDragActiveChange, isDark, onToggleDark }: StickyNoteProps) {
+export function StickyNote({ scaleRef, onDragActiveChange, isDark, onToggleDark, isBookOpen }: StickyNoteProps) {
   // ── Live clock ──────────────────────────────────────────────────────────────
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -106,7 +107,8 @@ export function StickyNote({ scaleRef, onDragActiveChange, isDark, onToggleDark 
         transition: "transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1)",
         cursor: "grab",
         userSelect: "none",
-        zIndex: 600,
+        zIndex: isBookOpen ? 25 : 600,
+        transition: "transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), z-index 0s",
         boxShadow: "2px 3px 12px 0px rgba(0,0,0,0.18)",
       }}
     >
