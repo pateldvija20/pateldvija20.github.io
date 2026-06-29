@@ -4,8 +4,8 @@ import { useState, useEffect, useRef, RefObject } from "react"
 import gsap from "gsap"
 import { Page } from "./FolderCard/Page"
 import { PageCard } from "./FolderCard/PageCard"
-import { StickyNote } from "./FolderCard/StickyNote"
-import type { CaseStudy } from "@/lib/sanity"
+import { ProjectSticker } from "./FolderCard/ProjectSticker"
+import type { CaseStudy } from "@/lib/projects"
 
 // ─── Dimensions ─────────────────────────────────────────────────────────────────
 // Reference (shahabkarimifar): folder 300×250, front 210px tall, perspective 800px
@@ -36,7 +36,10 @@ function getSceneTopPx(el: HTMLElement, sceneEl: HTMLElement): number {
 }
 
 export function FolderCard({ isActive = false, studies = [], sceneRef }: { isActive?: boolean; studies?: CaseStudy[]; sceneRef?: RefObject<HTMLDivElement | null> }) {
-  const [isOpen, setIsOpen]             = useState(false)
+  // isOpen is derived from isActive — folder opens when it becomes the top layer,
+  // not on mouse hover, so 3D-transformed children can't trigger spurious onMouseLeave.
+  const isOpen = isActive
+
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [clickedStudy, setClickedStudy] = useState<CaseStudy | null>(null)
   const [clickedRect, setClickedRect]   = useState<DOMRect | null>(null)
@@ -46,7 +49,7 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
   const frontRef    = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!isActive) { setIsOpen(false); setHoveredIndex(null) }
+    if (!isActive) { setHoveredIndex(null) }
   }, [isActive])
 
   // Front page open position: PAGE_TOP + (n-1)*15. Cover starts 20% down that page (80% coverage).
@@ -66,14 +69,13 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
     })
   }, [isOpen, studies.length])
 
-  // Sticky note lists studies[0] first, but pages render reversed so studies[0] = frontmost page.
-  // Map list index → page index: list item i corresponds to page (total-1-i).
-  function handleHoverItem(listIndex: number | null) {
-    setHoveredIndex(listIndex === null ? null : studies.length - 1 - listIndex)
+  // Pages render reversed: studies[i] → page index (total-1-i)
+  function handleStickerHover(studyIndex: number, hovered: boolean) {
+    setHoveredIndex(hovered ? studies.length - 1 - studyIndex : null)
   }
 
-  function handleListClick(listIndex: number, rect: DOMRect) {
-    setClickedStudy(studies[listIndex])
+  function handleStickerClick(studyIndex: number, rect: DOMRect) {
+    setClickedStudy(studies[studyIndex])
     setClickedRect(rect)
   }
 
@@ -87,9 +89,8 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
             const sceneTop = getSceneTopPx(wrapperRef.current, sceneRef.current)
             setMaxLift(Math.max(0, sceneTop + PAGE_TOP - SAFE_MARGIN))
           }
-          setIsOpen(true)
         }}
-        onMouseLeave={() => { if (isActive) { setIsOpen(false); setHoveredIndex(null) } }}
+        onMouseLeave={() => { if (isActive) setHoveredIndex(null) }}
         style={{
           position:    "relative",
           width:       W,
@@ -151,13 +152,17 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
             zIndex:        10,
           }}
         >
-          <StickyNote
-            studies={studies}
-            flapWidth={W}
-            flapHeight={H - (isOpen ? frontTopHover : FRONT_TOP)}
-            onHoverItem={handleHoverItem}
-            onClickItem={handleListClick}
-          />
+          {studies.map((study, i) => (
+            <ProjectSticker
+              key={study.id}
+              study={study}
+              index={i}
+              flapWidth={W}
+              flapHeight={H - (isOpen ? frontTopHover : FRONT_TOP)}
+              onHover={(hovered) => handleStickerHover(i, hovered)}
+              onClick={(rect) => handleStickerClick(i, rect)}
+            />
+          ))}
         </div>
       </div>
 
@@ -165,7 +170,6 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
         <PageCard
           title={clickedStudy.name}
           subtitle={`${clickedStudy.year} · ${clickedStudy.tags}`}
-          pageId={clickedStudy.id}
           originRect={clickedRect}
           onDismiss={() => { setClickedStudy(null); setClickedRect(null) }}
         />
