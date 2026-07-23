@@ -1,7 +1,9 @@
 import { HomeInteractive } from "@/components/HomeInteractive";
 import { getCaseStudies } from "@/lib/projects";
+import { getResume } from "@/lib/resume";
 
-export default function Home() {
+export default async function Home() {
   const studies = getCaseStudies();
-  return <HomeInteractive studies={studies} />;
+  const resume = await getResume();
+  return <HomeInteractive studies={studies} resume={resume} />;
 }

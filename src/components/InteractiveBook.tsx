@@ -115,16 +115,15 @@ interface InteractiveBookProps {
   state?: "closed" | "hover" | "open";
   className?: string;
   onToggleOpen?: () => void;
-  isDark?: boolean;
 }
 
 export function InteractiveBook({
   state = "closed",
   className = "",
   onToggleOpen,
-  isDark = false,
 }: InteractiveBookProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const polaroidRef = useRef<HTMLDivElement>(null);
   const coverWrapperRef = useRef<HTMLDivElement>(null);
   const leftPageRef = useRef<HTMLDivElement>(null);
   const rightPageRef = useRef<HTMLDivElement>(null);
@@ -184,38 +183,93 @@ export function InteractiveBook({
 
   const { registerHotzone, unregisterHotzone } = useGlobalCursor();
 
-  // Keep skill +/- hotzone for cursor feedback only
+  // Skill +/- toggle: cursor grows into an inverted circle showing the symbol
+  // it's about to become. Page-turn corners: cursor grows into a directional
+  // arrow the closer the mouse gets to the actual page edge/corner.
   const hotzoneTestFn = useCallback(
     (clientX: number, clientY: number): HotzoneTestResult => {
-      if (state !== "open" || currentPage !== 2) return { active: false };
-      const buttons = document.querySelectorAll(".skill-plus-minus-btn");
-      for (let i = 0; i < buttons.length; i++) {
-        const btnRect = buttons[i].getBoundingClientRect();
-        if (
-          clientX >= btnRect.left &&
-          clientX <= btnRect.right &&
-          clientY >= btnRect.top &&
-          clientY <= btnRect.bottom
-        ) {
-          const isExpanded = expandedSkillIndex === i;
-          return {
-            active: true,
-            pct: 1.0,
-            chevron: "none",
-            hoverType: "expand-invert",
-            symbol: isExpanded ? "−" : "+",
-          } as any;
+      if (state !== "open") return { active: false };
+
+      if (currentPage === 2) {
+        const buttons = document.querySelectorAll(".skill-plus-minus-btn");
+        for (let i = 0; i < buttons.length; i++) {
+          const btnRect = buttons[i].getBoundingClientRect();
+          if (
+            clientX >= btnRect.left &&
+            clientX <= btnRect.right &&
+            clientY >= btnRect.top &&
+            clientY <= btnRect.bottom
+          ) {
+            const isExpanded = expandedSkillIndex === i;
+            return {
+              active: true,
+              pct: 1.0,
+              chevron: "none",
+              hoverType: "expand-invert",
+              symbol: isExpanded ? "−" : "+",
+            };
+          }
         }
       }
+
+      const corners = document.querySelectorAll("[data-book-corner]");
+      for (let i = 0; i < corners.length; i++) {
+        const el = corners[i];
+        const corner = el.getAttribute("data-book-corner") as Corner | null;
+        if (!corner || !cornerEnabled(corner)) continue;
+        const rect = el.getBoundingClientRect();
+        if (
+          clientX < rect.left ||
+          clientX > rect.right ||
+          clientY < rect.top ||
+          clientY > rect.bottom
+        ) continue;
+
+        const onRight = corner === "tr" || corner === "br";
+        const onBottom = corner === "bl" || corner === "br";
+        const tipX = onRight ? rect.right : rect.left;
+        const tipY = onBottom ? rect.bottom : rect.top;
+        const dist = Math.hypot(clientX - tipX, clientY - tipY);
+        const pct = Math.max(0, Math.min(1, 1 - dist / CORNER_SIZE));
+
+        return {
+          active: true,
+          pct,
+          chevron: onRight ? "next" : "back",
+        };
+      }
+
       return { active: false };
     },
-    [state, currentPage, expandedSkillIndex]
+    [state, currentPage, expandedSkillIndex] // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   useEffect(() => {
-    registerHotzone("interactive-book", hotzoneTestFn);
+    registerHotzone("interactive-book", hotzoneTestFn, 40);
     return () => unregisterHotzone("interactive-book");
   }, [registerHotzone, unregisterHotzone, hotzoneTestFn]);
+
+  // Polaroid photo: draggable desk object → grip cursor
+  const polaroidHotzoneTestFn = useCallback(
+    (clientX: number, clientY: number): HotzoneTestResult => {
+      if (state !== "open" || currentPage !== 1) return { active: false };
+      const rect = polaroidRef.current?.getBoundingClientRect();
+      if (!rect) return { active: false };
+      if (
+        clientX < rect.left ||
+        clientX > rect.right ||
+        clientY < rect.top ||
+        clientY > rect.bottom
+      ) return { active: false };
+      return { active: true, pct: 1.0, chevron: "none", hoverType: "expand-invert", icon: "drag" };
+    },
+    [state, currentPage]
+  );
+
+  useEffect(() => {
+    registerHotzone("interactive-book-polaroid", polaroidHotzoneTestFn, 30);
+    return () => unregisterHotzone("interactive-book-polaroid");
+  }, [registerHotzone, unregisterHotzone, polaroidHotzoneTestFn]);
 
   const [isBookFullyOpen, setIsBookFullyOpen] = useState(false);
 
@@ -694,6 +748,7 @@ export function InteractiveBook({
       {/* Polaroid — page 1 only */}
       {pageNum === 1 && (
         <div
+          ref={interactive ? polaroidRef : undefined}
           data-no-deck-drag={interactive ? true : undefined}
           onMouseDown={interactive ? onPolaroidMouseDown : undefined}
           style={{
@@ -845,7 +900,7 @@ export function InteractiveBook({
               top: offset.t,
               width: offset.w,
               height: cardH - 14,
-              backgroundColor: isDark ? "#282a2d" : "rgb(220, 220, 220)",
+              backgroundColor: "rgb(220, 220, 220)",
               borderRadius: "0px 36px 36px 0px",
               transform: `translateZ(${-1 - i}px)`,
             }}
@@ -877,7 +932,7 @@ export function InteractiveBook({
             top: 16,
             width: cardW - 32,
             height: cardH - 32,
-            backgroundColor: isDark ? "#1f2022" : "#fbf9f3",
+            backgroundColor: "#fbf9f3",
             borderRadius: "4px 24px 24px 4px",
             border: "1px solid rgba(0,0,0,0.06)",
           }}
@@ -984,7 +1039,7 @@ export function InteractiveBook({
             style={{
               width: cardW - 32,
               height: cardH - 32,
-              backgroundColor: isDark ? "#1f2022" : "#fbf9f3",
+              backgroundColor: "#fbf9f3",
               borderRadius: "24px 4px 4px 24px",
               border: "1px solid rgba(0,0,0,0.06)",
             }}
@@ -1048,13 +1103,29 @@ export function InteractiveBook({
           <>
             <div
               data-no-deck-drag
+              data-book-corner="tl"
               onMouseEnter={() => peekCorner("tl")}
               onMouseLeave={() => unpeekCorner("tl")}
               onClick={(e) => turnCorner("tl", e)}
               style={{ position: "absolute", left: 0, top: 0, width: CORNER_SIZE, height: CORNER_SIZE, cursor: "default", zIndex: 99, clipPath: "polygon(0% 0%, 100% 0%, 0% 100%)" }}
             />
+            {/* Permanent dog-ear shadow — keeps the fold affordance visible on blank/white pages */}
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                left: 0,
+                bottom: 0,
+                width: CORNER_SIZE,
+                height: CORNER_SIZE,
+                pointerEvents: "none",
+                zIndex: 15,
+                background: "radial-gradient(circle at 0% 100%, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.07) 35%, rgba(0,0,0,0) 65%)",
+              }}
+            />
             <div
               data-no-deck-drag
+              data-book-corner="bl"
               onMouseEnter={() => peekCorner("bl")}
               onMouseLeave={() => unpeekCorner("bl")}
               onClick={(e) => turnCorner("bl", e)}
@@ -1120,8 +1191,23 @@ export function InteractiveBook({
         {/* Next corners (top-right + bottom-right): hover peeks, click turns forward */}
         {isBookFullyOpen && currentPage < 4 && (
           <>
+            {/* Permanent dog-ear shadow — keeps the fold affordance visible on blank/white pages */}
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                right: 0,
+                top: 0,
+                width: CORNER_SIZE,
+                height: CORNER_SIZE,
+                pointerEvents: "none",
+                zIndex: 15,
+                background: "radial-gradient(circle at 100% 0%, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.07) 35%, rgba(0,0,0,0) 65%)",
+              }}
+            />
             <div
               data-no-deck-drag
+              data-book-corner="tr"
               onMouseEnter={() => peekCorner("tr")}
               onMouseLeave={() => unpeekCorner("tr")}
               onClick={(e) => turnCorner("tr", e)}
@@ -1129,6 +1215,7 @@ export function InteractiveBook({
             />
             <div
               data-no-deck-drag
+              data-book-corner="br"
               onMouseEnter={() => peekCorner("br")}
               onMouseLeave={() => unpeekCorner("br")}
               onClick={(e) => turnCorner("br", e)}

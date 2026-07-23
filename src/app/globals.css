@@ -113,11 +113,6 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-html.dark-mode {
-  --bg: #10171E;
-  --nav-text: #FCFEFF;
-}
-
 html,
 body {
   margin: 0;
@@ -151,28 +146,6 @@ textarea,
   cursor: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='12' height='12' rx='6' fill='%23000000'/%3E%3C/svg%3E") 6 6, auto !important;
 }
 
-html.dark-mode,
-html.dark-mode body,
-html.dark-mode *,
-html.dark-mode *::before,
-html.dark-mode *::after,
-html.dark-mode a,
-html.dark-mode button,
-html.dark-mode [role="button"],
-html.dark-mode input,
-html.dark-mode textarea,
-html.dark-mode .cursor-default,
-html.dark-mode .cursor-pointer,
-html.dark-mode .cursor-text,
-html.dark-mode [style*="cursor: default"],
-html.dark-mode [style*="cursor:default"],
-html.dark-mode [style*="cursor: pointer"],
-html.dark-mode [style*="cursor:pointer"],
-html.dark-mode [style*="cursor: text"],
-html.dark-mode [style*="cursor:text"] {
-  cursor: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='12' height='12' rx='6' fill='%23FCFEFF'/%3E%3C/svg%3E") 6 6, auto !important;
-}
-
 [style*="cursor: grab"],
 [style*="cursor:grab"],
 .cursor-grab {
@@ -203,4 +176,37 @@ h6 {
 .hide-cursor,
 .hide-cursor * {
   cursor: none !important;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .resume-print-area,
+  .resume-print-area * {
+    visibility: visible;
+  }
+  .resume-print-page {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+  .resume-print-area {
+    position: static !important;
+    left: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+  }
+  .resume-print-area button {
+    display: none;
+  }
+  @page {
+    margin: 18mm 16mm;
+  }
 }

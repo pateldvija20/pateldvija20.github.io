@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useGlobalCursor, type HotzoneTestResult } from "@/components/GlobalCursor";
 
 // Day labels: Sun=0 … Sat=6
 const DAY_LABELS = [
@@ -16,12 +17,10 @@ interface StickyNoteProps {
   /** Current scene scale (viewport px ÷ scene px) so drag deltas stay pixel-accurate */
   scaleRef: React.RefObject<number>;
   onDragActiveChange?: (active: boolean) => void;
-  isDark?: boolean;
-  onToggleDark?: () => void;
   isBookOpen?: boolean;
 }
 
-export function StickyNote({ scaleRef, onDragActiveChange, isDark, onToggleDark, isBookOpen }: StickyNoteProps) {
+export function StickyNote({ scaleRef, onDragActiveChange, isBookOpen }: StickyNoteProps) {
   // ── Live clock ──────────────────────────────────────────────────────────────
   const [now, setNow] = useState<Date | null>(null);
   useEffect(() => {
@@ -87,9 +86,29 @@ export function StickyNote({ scaleRef, onDragActiveChange, isDark, onToggleDark,
     onDragActiveChange?.(false);
   }, [onDragActiveChange]);
 
+  // ── Cursor: drag grip over the whole note ───────────────────────────────────
+  const rootRef = useRef<HTMLDivElement>(null);
+  const { registerHotzone, unregisterHotzone } = useGlobalCursor();
+  useEffect(() => {
+    const testFn = (clientX: number, clientY: number): HotzoneTestResult => {
+      const rootRect = rootRef.current?.getBoundingClientRect();
+      if (
+        rootRect &&
+        clientX >= rootRect.left && clientX <= rootRect.right &&
+        clientY >= rootRect.top && clientY <= rootRect.bottom
+      ) {
+        return { active: true, pct: 1.0, chevron: "none", hoverType: "expand-invert", icon: "drag" };
+      }
+      return { active: false };
+    };
+    registerHotzone("corkboard-sticky-note", testFn, 30);
+    return () => unregisterHotzone("corkboard-sticky-note");
+  }, [registerHotzone, unregisterHotzone]);
+
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div
+      ref={rootRef}
       data-no-deck-drag
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -104,7 +123,6 @@ export function StickyNote({ scaleRef, onDragActiveChange, isDark, onToggleDark,
         borderRadius: "3.24613px",
         transform: `rotate(${tilt}deg)`,
         transformOrigin: "center center",
-        cursor: "grab",
         userSelect: "none",
         zIndex: isBookOpen ? 25 : 600,
         transition: "transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), z-index 0s",
@@ -191,7 +209,7 @@ export function StickyNote({ scaleRef, onDragActiveChange, isDark, onToggleDark,
           {timeStr}
         </div>
 
-        {/* Bottom row: KEY: label + dark mode toggle */}
+        {/* Bottom row: KEY: label */}
         <div
           style={{
             width: "154.73px",
@@ -214,35 +232,6 @@ export function StickyNote({ scaleRef, onDragActiveChange, isDark, onToggleDark,
           >
             KEY:
           </span>
-
-          {/* Moon / Sun toggle */}
-          <div
-            data-no-deck-drag
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); onToggleDark?.(); }}
-            style={{ cursor: "pointer", lineHeight: 0 }}
-            title={isDark ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            {isDark ? (
-              /* Sun — line art */
-              <svg width="18.75" height="18.75" viewBox="0 0 24 24" fill="none" stroke="#0051E7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="4"/>
-                <line x1="12" y1="2" x2="12" y2="5"/>
-                <line x1="12" y1="19" x2="12" y2="22"/>
-                <line x1="2" y1="12" x2="5" y2="12"/>
-                <line x1="19" y1="12" x2="22" y2="12"/>
-                <line x1="4.22" y1="4.22" x2="6.34" y2="6.34"/>
-                <line x1="17.66" y1="17.66" x2="19.78" y2="19.78"/>
-                <line x1="4.22" y1="19.78" x2="6.34" y2="17.66"/>
-                <line x1="17.66" y1="6.34" x2="19.78" y2="4.22"/>
-              </svg>
-            ) : (
-              /* Moon — line art */
-              <svg width="18.75" height="18.75" viewBox="0 0 24 24" fill="none" stroke="#0051E7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-              </svg>
-            )}
-          </div>
         </div>
       </div>
     </div>
