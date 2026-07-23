@@ -3,6 +3,7 @@
 import { useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
 import gsap from "gsap"
+import { useGlobalCursor, type HotzoneTestResult } from "../GlobalCursor"
 
 const MARGIN_X_RATIO = 160 / 1440
 const MARGIN_Y_RATIO = 60  / 1024
@@ -24,8 +25,37 @@ interface PageCardProps {
 }
 
 export function PageCard({ title, subtitle, children, originRect, onDismiss }: PageCardProps) {
-  const overlayRef = useRef<HTMLDivElement>(null)
-  const cardRef    = useRef<HTMLDivElement>(null)
+  const overlayRef  = useRef<HTMLDivElement>(null)
+  const cardRef     = useRef<HTMLDivElement>(null)
+  const closeBtnRef = useRef<HTMLButtonElement>(null)
+
+  // Cursor: hovering the backdrop or the × button hints "click to dismiss".
+  const { registerHotzone, unregisterHotzone } = useGlobalCursor()
+  useEffect(() => {
+    const testFn = (clientX: number, clientY: number): HotzoneTestResult => {
+      const closeBtnRect = closeBtnRef.current?.getBoundingClientRect()
+      if (
+        closeBtnRect &&
+        clientX >= closeBtnRect.left && clientX <= closeBtnRect.right &&
+        clientY >= closeBtnRect.top && clientY <= closeBtnRect.bottom
+      ) {
+        return { active: true, pct: 1.0, chevron: "none", hoverType: "expand-invert", icon: "close" }
+      }
+      const cardRect = cardRef.current?.getBoundingClientRect()
+      if (
+        cardRect &&
+        (clientX < cardRect.left || clientX > cardRect.right || clientY < cardRect.top || clientY > cardRect.bottom)
+      ) {
+        return { active: true, pct: 1.0, chevron: "none", hoverType: "expand-invert", icon: "close" }
+      }
+      // Inside the card's own content — claim the point (so lower-priority,
+      // visually-covered hotzones behind the modal can't leak through) but
+      // show no morph, letting the native per-element cursor show instead.
+      return { active: true, pct: 0, chevron: "none" }
+    }
+    registerHotzone("page-card-dismiss", testFn, 100)
+    return () => unregisterHotzone("page-card-dismiss")
+  }, [registerHotzone, unregisterHotzone])
 
   useEffect(() => {
     if (!cardRef.current || !overlayRef.current) return
@@ -93,6 +123,7 @@ export function PageCard({ title, subtitle, children, originRect, onDismiss }: P
             </h2>
           </div>
           <button
+            ref={closeBtnRef}
             onClick={dismiss}
             className="p-2 rounded-lg text-[#666] text-xl leading-none bg-transparent border-none cursor-pointer hover:bg-black/5 transition-colors active:scale-[0.92] transition-transform"
             aria-label="Close"

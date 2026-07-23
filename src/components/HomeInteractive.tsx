@@ -1,18 +1,90 @@
 "use client";
 
 import gsap from 'gsap';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import HomeImport from '../imports/Home-1/Home-1-1716';
 import { InteractiveBook } from './InteractiveBook';
 import { PurpleFile } from './PurpleFile';
 import { FolderCard } from './FolderCard';
 import type { CaseStudy } from '@/lib/projects';
+import type { ResumeData } from '@/lib/resume';
 import { PageCard } from './FolderCard/PageCard';
+import { ResumeCard } from './ResumeCard';
 import { MatGrid } from '../../Components/MatGrid/MatGrid';
 import { StickyNote } from '../../Components/StickyNote/StickyNote';
-import { GlobalCursorProvider } from './GlobalCursor';
+import { GlobalCursorProvider, useGlobalCursor, type HotzoneTestResult } from './GlobalCursor';
 
 type LayerKey = 'book' | 'file' | 'folder' | 'paper' | 'mat-grid';
+
+// Rendered *inside* GlobalCursorProvider so it can reach the real context
+// (HomeInteractive renders the provider itself, so it can't call the hook
+// directly). Shows a drag-grip cursor over the current top-of-deck card —
+// the lowest-priority hotzone, so anything nested inside a card (corners,
+// stickers, notes, the theme toggle…) still wins.
+function DeckDragHotzone({
+  deckRef,
+  bookCoverRef,
+  fileCoverRef,
+  folderCoverRef,
+  paperCoverRef,
+  bookOpen,
+  fileOpen,
+}: {
+  deckRef: RefObject<LayerKey[]>;
+  bookCoverRef: RefObject<HTMLDivElement | null>;
+  fileCoverRef: RefObject<HTMLDivElement | null>;
+  folderCoverRef: RefObject<HTMLDivElement | null>;
+  paperCoverRef: RefObject<HTMLDivElement | null>;
+  bookOpen: boolean;
+  fileOpen: boolean;
+}) {
+  const { registerHotzone, unregisterHotzone } = useGlobalCursor();
+  useEffect(() => {
+    const testFn = (clientX: number, clientY: number): HotzoneTestResult => {
+      const top = deckRef.current[0];
+      if ((top === 'book' && bookOpen) || (top === 'file' && fileOpen)) return { active: false };
+
+      const coverEl =
+        top === 'book' ? bookCoverRef.current :
+        top === 'file' ? fileCoverRef.current :
+        top === 'folder' ? folderCoverRef.current :
+        top === 'paper' ? paperCoverRef.current : null;
+      if (!coverEl) return { active: false };
+
+      const rect = coverEl.getBoundingClientRect();
+      if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+        return { active: false };
+      }
+      return { active: true, pct: 1.0, chevron: "none", hoverType: "expand-invert", icon: "drag" };
+    };
+    registerHotzone("deck-top-card", testFn, 10);
+    return () => unregisterHotzone("deck-top-card");
+  }, [registerHotzone, unregisterHotzone, deckRef, bookCoverRef, fileCoverRef, folderCoverRef, paperCoverRef, bookOpen, fileOpen]);
+
+  return null;
+}
+
+// Same rendered-inside-the-provider pattern as DeckDragHotzone. Scoped to the
+// "Resume" nav link only — the physical paper object on the desk keeps the
+// generic "drag" hint from DeckDragHotzone, matching how book/file/folder
+// already show "drag" as their desk-object cue despite being clickable too.
+function ResumeNavHotzone({ navRef }: { navRef: RefObject<HTMLDivElement | null> }) {
+  const { registerHotzone, unregisterHotzone } = useGlobalCursor();
+  useEffect(() => {
+    const testFn = (clientX: number, clientY: number): HotzoneTestResult => {
+      const rect = navRef.current?.getBoundingClientRect();
+      if (!rect) return { active: false };
+      if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+        return { active: false };
+      }
+      return { active: true, pct: 1.0, chevron: "none", hoverType: "expand-invert", icon: "download" };
+    };
+    registerHotzone("resume-nav-link", testFn, 20);
+    return () => unregisterHotzone("resume-nav-link");
+  }, [registerHotzone, unregisterHotzone, navRef]);
+
+  return null;
+}
 
 const FLIP_ORDER: LayerKey[] = ['book', 'folder', 'file', 'paper'];
 const ALL_LAYERS: LayerKey[] = ['book', 'file', 'folder', 'paper', 'mat-grid'];
@@ -79,7 +151,7 @@ const NAV_ITEMS: Array<{ layer: LayerKey; label: string }> = [
 
 const isTouchDevice = () => typeof window !== 'undefined' && 'ontouchstart' in window;
 
-export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
+export function HomeInteractive({ studies = [], resume = null }: { studies?: CaseStudy[]; resume?: ResumeData | null }) {
   const sceneRef        = useRef<HTMLDivElement>(null);
   const bookCoverRef    = useRef<HTMLDivElement>(null);
   const fileCoverRef    = useRef<HTMLDivElement>(null);
@@ -104,28 +176,6 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
     paper:  `rotate(${layerTiltRef.current.paper}deg)`,
   });
 
-  const [isDark, setIsDark] = useState<boolean>(false);
-
-  // Initialize theme from localStorage on mount
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      setIsDark(true);
-    }
-  }, []);
-
-  // Update DOM classes and save state whenever theme toggles
-  useEffect(() => {
-    const html = document.documentElement;
-    if (isDark) {
-      html.classList.add('dark-mode');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      html.classList.remove('dark-mode');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [isDark]);
-
   const [activeNav,   setActiveNav]   = useState<LayerKey>('book');
   const [topLayer,    setTopLayer]    = useState<LayerKey>('book');
   const [bookOpen,    setBookOpen]    = useState(false);
@@ -133,6 +183,8 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
   const [fileOpen,       setFileOpen]       = useState(false);
   const fileOpenRef      = useRef(false);
   const [fileOriginRect, setFileOriginRect] = useState<DOMRect | null>(null);
+  const resumeNavRef = useRef<HTMLDivElement>(null);
+  const paperCoverRef = useRef<HTMLDivElement>(null);
 
   const workStudies  = studies.filter(s => s.section === "work");
   const notesStudies = studies.filter(s => s.section === "notes");
@@ -162,7 +214,8 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
   const coverOf = useCallback((layer: string): HTMLDivElement | null =>
     layer === 'book'   ? bookCoverRef.current :
     layer === 'file'   ? fileCoverRef.current :
-    layer === 'folder' ? folderCoverRef.current : null
+    layer === 'folder' ? folderCoverRef.current :
+    layer === 'paper'  ? paperCoverRef.current : null
   , []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateStackPositionsImmediateZ = useCallback(() => {
@@ -176,10 +229,6 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
         cover.style.zIndex = String(z + 1);
         cover.style.pointerEvents = 'none';
         const child = cover.firstElementChild as HTMLElement | null;
-        if (child) { child.style.pointerEvents = 'auto'; child.style.cursor = 'pointer'; }
-      }
-      if (layer === 'paper') {
-        const child = el?.querySelector('[data-name="paper-white"]') as HTMLElement | null;
         if (child) { child.style.pointerEvents = 'auto'; child.style.cursor = 'pointer'; }
       }
     });
@@ -197,10 +246,6 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
         cover.style.zIndex = String(z + 1);
         cover.style.pointerEvents = 'none';
         const child = cover.firstElementChild as HTMLElement | null;
-        if (child) { child.style.pointerEvents = 'auto'; child.style.cursor = 'pointer'; }
-      }
-      if (layer === 'paper') {
-        const child = el?.querySelector('[data-name="paper-white"]') as HTMLElement | null;
         if (child) { child.style.pointerEvents = 'auto'; child.style.cursor = 'pointer'; }
       }
 
@@ -476,20 +521,19 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
 
   // ─── Paper hover ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const scene   = sceneRef.current;
-    if (!scene) return;
-    const paperEl  = scene.querySelector('[data-name="paper"]') as HTMLElement | null;
-    const activeEl = paperEl?.querySelector('[data-name="paper-white"]') as HTMLElement | null;
-    if (!paperEl || !activeEl) return;
+    const coverEl  = paperCoverRef.current;
+    if (!coverEl) return;
+    const activeEl = coverEl.firstElementChild as HTMLElement | null;
+    if (!activeEl) return;
 
     const onEnter = () => {
       if (stickyDraggingRef.current) return;
       if (deckRef.current[0] !== 'paper') return;
-      gsap.to(paperEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
+      gsap.to(coverEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
     };
     const onLeave = () => {
       if (deckRef.current[0] !== 'paper') return;
-      gsap.to(paperEl, { rotation: layerTiltRef.current.paper, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
+      gsap.to(coverEl, { rotation: layerTiltRef.current.paper, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
     };
 
     activeEl.addEventListener('mouseenter', onEnter);
@@ -517,9 +561,8 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
       const coverEl = folderCoverRef.current;
       if (coverEl) gsap.to(coverEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
     } else if (topLayer === 'paper') {
-      const scene   = sceneRef.current;
-      const paperEl = scene?.querySelector('[data-name="paper"]') as HTMLElement | null;
-      if (paperEl) gsap.to(paperEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
+      const coverEl = paperCoverRef.current;
+      if (coverEl) gsap.to(coverEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
     }
 
     // Clear hover on layers that are no longer on top
@@ -543,9 +586,8 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
       if (coverEl) gsap.to(coverEl, { rotation: layerTiltRef.current.folder, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
     }
     if (prevPaper) {
-      const scene   = sceneRef.current;
-      const paperEl = scene?.querySelector('[data-name="paper"]') as HTMLElement | null;
-      if (paperEl) gsap.to(paperEl, { rotation: layerTiltRef.current.paper, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
+      const coverEl = paperCoverRef.current;
+      if (coverEl) gsap.to(coverEl, { rotation: layerTiltRef.current.paper, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
     }
   }, [topLayer]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -574,11 +616,12 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
         folderCoverRef.current.style.pointerEvents = 'none';
         folderCoverRef.current.style.transformStyle = 'preserve-3d';
       }
-      el.style.pointerEvents = 'none';
-      if (layer === 'paper') {
-        const child = el.querySelector('[data-name="paper-white"]') as HTMLElement | null;
-        if (child) { child.style.pointerEvents = 'auto'; child.style.cursor = 'pointer'; }
+      if (layer === 'paper' && paperCoverRef.current) {
+        paperCoverRef.current.style.zIndex = String(Z_BASE['paper'] + 1);
+        paperCoverRef.current.style.pointerEvents = 'none';
+        paperCoverRef.current.style.transformStyle = 'preserve-3d';
       }
+      el.style.pointerEvents = 'none';
     });
 
     const navEl    = scene.querySelector('[data-name="ui-nav-container"]') as HTMLElement | null;
@@ -589,6 +632,9 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
     if (oldFile) oldFile.style.visibility = 'hidden';
     const oldFolder = scene.querySelector('[data-name="folder-yellow"]') as HTMLElement | null;
     if (oldFolder) oldFolder.style.visibility = 'hidden';
+    // The old "paper" Figma visual is replaced entirely by the ResumeCard cover.
+    const oldPaper = scene.querySelector('[data-name="paper"]') as HTMLElement | null;
+    if (oldPaper) oldPaper.style.visibility = 'hidden';
     const matEl    = scene.querySelector('[data-name="mat-grid"]') as HTMLElement | null;
     if (matEl) matEl.style.overflow = 'visible';
 
@@ -610,6 +656,9 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
     const folderCover = folderCoverRef.current;
     centerOnMat(folderCover);
     if (folderCover) folderCover.style.visibility = 'visible';
+    const paperCover = paperCoverRef.current;
+    centerOnMat(paperCover);
+    if (paperCover) paperCover.style.visibility = 'visible';
 
     updateStackPositions(false);
     isInitializedRef.current = true;
@@ -696,6 +745,9 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
     };
 
     const onWheel = (e: WheelEvent) => {
+      // Let scrollable content (e.g. the resume) handle its own wheel scroll
+      // instead of cycling the deck out from under it.
+      if ((e.target as HTMLElement).closest('[data-no-wheel-cycle]')) return;
       e.preventDefault();
       deltaAccumulator += e.deltaY;
       if (Math.abs(deltaAccumulator) < DELTA_THRESHOLD) return;
@@ -808,7 +860,8 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
     const coverOf = (layer: string): HTMLDivElement | null =>
       layer === 'book'   ? bookCoverRef.current :
       layer === 'file'   ? fileCoverRef.current :
-      layer === 'folder' ? folderCoverRef.current : null;
+      layer === 'folder' ? folderCoverRef.current :
+      layer === 'paper'  ? paperCoverRef.current : null;
 
     const seedDrag = (target: HTMLElement, clientX: number, clientY: number) => {
       if (target.closest('[data-no-deck-drag]')) return;
@@ -960,7 +1013,7 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
         const el = q(layer as LayerKey);
         return el && (e.target === el || el.contains(e.target as Node));
       });
-      const coverClicked = [bookCoverRef, fileCoverRef, folderCoverRef].some(
+      const coverClicked = [bookCoverRef, fileCoverRef, folderCoverRef, paperCoverRef].some(
         (ref) => ref.current && (e.target === ref.current || ref.current.contains(e.target as Node))
       );
       if (!clickedLayer && !coverClicked) return;
@@ -1039,7 +1092,17 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
       };
 
   return (
-    <GlobalCursorProvider isDark={isDark}>
+    <GlobalCursorProvider>
+    <DeckDragHotzone
+      deckRef={deckRef}
+      bookCoverRef={bookCoverRef}
+      fileCoverRef={fileCoverRef}
+      folderCoverRef={folderCoverRef}
+      paperCoverRef={paperCoverRef}
+      bookOpen={bookOpen}
+      fileOpen={fileOpen}
+    />
+    <ResumeNavHotzone navRef={resumeNavRef} />
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
       <div
         ref={sceneRef}
@@ -1076,7 +1139,7 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
         </div>
 
         {/* ── Sticky note ────────────────────────────────────────────────── */}
-        <StickyNote scaleRef={scaleRef} onDragActiveChange={(active) => { stickyDraggingRef.current = active; setStickyDragging(active); }} isDark={isDark} onToggleDark={() => setIsDark(d => !d)} isBookOpen={bookOpen} />
+        <StickyNote scaleRef={scaleRef} onDragActiveChange={(active) => { stickyDraggingRef.current = active; setStickyDragging(active); }} isBookOpen={bookOpen} />
 
         {/* ── Book cover overlay ─────────────────────────────────────────── */}
         <div
@@ -1093,7 +1156,6 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
             state={bookOpen ? 'open' : bookHovered ? 'hover' : 'closed'}
             className="pointer-events-auto cursor-pointer"
             onToggleOpen={toggleBook}
-            isDark={isDark}
           />
         </div>
 
@@ -1126,11 +1188,23 @@ export function HomeInteractive({ studies = [] }: { studies?: CaseStudy[] }) {
           </div>
         </div>
 
+        {/* ── Paper overlay (Resume) — always shows the resume, no click needed ── */}
+        <div
+          ref={paperCoverRef}
+          className="absolute isolate pointer-events-none overflow-visible"
+          style={{ transformOrigin: 'center center' }}
+        >
+          <div className="pointer-events-auto">
+            <ResumeCard data={resume} />
+          </div>
+        </div>
+
         {/* ── Nav overlay ────────────────────────────────────────────────── */}
         <div style={navStyle}>
           {NAV_ITEMS.map(({ layer, label }) => (
             <div
               key={layer}
+              ref={layer === 'paper' ? resumeNavRef : undefined}
               onClick={(e) => handleNavClick(layer, e)}
               className="flex gap-2 items-start cursor-pointer select-none"
               style={{ display: 'inline-flex' }}

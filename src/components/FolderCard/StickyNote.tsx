@@ -2,11 +2,12 @@
 
 import { useState, useRef, useEffect, useCallback } from "react"
 import type { CaseStudy } from "@/lib/projects"
+import { useGlobalCursor, type HotzoneTestResult } from "../GlobalCursor"
 
 const NOTE_W  = 197
-const ITEM_H  = 28     // 14px font × 2.0 line-height
+const ITEM_H  = 23     // 14px font × ~1.6 line-height (was 2.0 — kept tighter so the note stays on-screen)
 const PAD_TOP = 44.77  // list starts here (y inside the note div)
-const PAD_BOT = 59.23  // space below list to bottom of note (259 − 44.77 − 155)
+const PAD_BOT = 44     // space below list to bottom of note (was 59.23 — trimmed to reduce overall expanded height)
 
 function noteHeight(count: number) {
   return Math.ceil(PAD_TOP + Math.max(count, 1) * ITEM_H + PAD_BOT)
@@ -26,6 +27,7 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem, onClic
   const [hoveredItem, setHoveredItem] = useState<number | null>(null)
   const [listH, setListH]             = useState(studies.length * ITEM_H)
   const listRef                       = useRef<HTMLDivElement>(null)
+  const rootRef                       = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (listRef.current) setListH(listRef.current.scrollHeight)
@@ -76,8 +78,33 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem, onClic
   // Parameterised Y values for the bottom half of each SVG path
   const bY = (y: number) => y + delta   // shift any Y from the original 259px design
 
+  // Cursor: hovering a note title → "view" (click opens it); hovering the
+  // rest of the note surface → "drag" (the note itself is a draggable object).
+  const { registerHotzone, unregisterHotzone } = useGlobalCursor()
+  useEffect(() => {
+    const testFn = (clientX: number, clientY: number): HotzoneTestResult => {
+      const root = rootRef.current
+      if (!root) return { active: false }
+      const items = root.querySelectorAll("[data-list-item]")
+      for (let i = 0; i < items.length; i++) {
+        const rect = items[i].getBoundingClientRect()
+        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+          return { active: true, pct: 1.0, chevron: "none", hoverType: "expand-invert", icon: "view" }
+        }
+      }
+      const rootRect = root.getBoundingClientRect()
+      if (clientX >= rootRect.left && clientX <= rootRect.right && clientY >= rootRect.top && clientY <= rootRect.bottom) {
+        return { active: true, pct: 1.0, chevron: "none", hoverType: "expand-invert", icon: "drag" }
+      }
+      return { active: false }
+    }
+    registerHotzone("folder-sticky-note", testFn, 30)
+    return () => unregisterHotzone("folder-sticky-note")
+  }, [registerHotzone, unregisterHotzone])
+
   return (
     <div
+      ref={rootRef}
       data-no-deck-drag
       onMouseDown={onMouseDown}
       style={{
@@ -87,7 +114,6 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem, onClic
         width:         NOTE_W,
         height:        NOTE_H,
         pointerEvents: "auto",
-        cursor:        "grab",
         userSelect:    "none",
         zIndex:        20,
         transform:     `rotate(${tilt}deg)`,
@@ -146,7 +172,7 @@ export function StickyNote({ studies, flapWidth, flapHeight, onHoverItem, onClic
               fontWeight:     400,
               fontStyle:      "normal",
               fontSize:       14,
-              lineHeight:     "200%",
+              lineHeight:     "164%",
               color:          "#000000",
               cursor:         "pointer",
               textDecoration: hoveredItem === i ? "underline" : "none",
