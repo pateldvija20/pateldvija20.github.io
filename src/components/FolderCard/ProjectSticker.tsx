@@ -2,6 +2,7 @@
 
 import { useRef, useState, useEffect, useCallback } from "react"
 import type { CaseStudy } from "@/lib/projects"
+import { useGlobalCursor, type HotzoneTestResult } from "../GlobalCursor"
 
 // Sticker SVG is 398×144 — display at ~70% scale
 const STICKER_W = 279
@@ -34,6 +35,22 @@ export function ProjectSticker({ study, index, flapWidth, flapHeight, onHover, o
   const dragging    = useRef(false)
   const hasDragged  = useRef(false)
   const dragStart   = useRef({ mouseX: 0, mouseY: 0, posX: 0, posY: 0 })
+  const stickerRef  = useRef<HTMLDivElement>(null)
+
+  const { registerHotzone, unregisterHotzone } = useGlobalCursor()
+  useEffect(() => {
+    const id = `project-sticker-${study.id}`
+    const testFn = (clientX: number, clientY: number): HotzoneTestResult => {
+      const rect = stickerRef.current?.getBoundingClientRect()
+      if (!rect) return { active: false }
+      if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+        return { active: false }
+      }
+      return { active: true, pct: 1.0, chevron: "none", hoverType: "expand-invert", icon: "drag" }
+    }
+    registerHotzone(id, testFn, 30)
+    return () => unregisterHotzone(id)
+  }, [registerHotzone, unregisterHotzone, study.id])
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -67,6 +84,7 @@ export function ProjectSticker({ study, index, flapWidth, flapHeight, onHover, o
 
   return (
     <div
+      ref={stickerRef}
       data-no-deck-drag
       onMouseDown={onMouseDown}
       onMouseEnter={() => onHover(true)}
@@ -77,7 +95,6 @@ export function ProjectSticker({ study, index, flapWidth, flapHeight, onHover, o
         top:           pos.y,
         width:         STICKER_W,
         height:        STICKER_H,
-        cursor:        "grab",
         userSelect:    "none",
         zIndex:        20,
         transform:     `rotate(${tilt}deg)`,

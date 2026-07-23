@@ -36,9 +36,17 @@ function getSceneTopPx(el: HTMLElement, sceneEl: HTMLElement): number {
 }
 
 export function FolderCard({ isActive = false, studies = [], sceneRef }: { isActive?: boolean; studies?: CaseStudy[]; sceneRef?: RefObject<HTMLDivElement | null> }) {
-  // isOpen is derived from isActive — folder opens when it becomes the top layer,
-  // not on mouse hover, so 3D-transformed children can't trigger spurious onMouseLeave.
-  const isOpen = isActive
+  // Touch devices have no real hover, so the folder still opens as soon as it
+  // becomes the top layer there. On mouse devices it only opens while actually
+  // hovered — hover is tracked on the outer (non-3D-transformed) wrapper so
+  // tilted/rotated children can't fire spurious onMouseLeave.
+  const [isTouch, setIsTouch] = useState(false)
+  useEffect(() => {
+    setIsTouch(typeof window !== "undefined" && "ontouchstart" in window)
+  }, [])
+
+  const [isHovering, setIsHovering] = useState(false)
+  const isOpen = isActive && (isTouch || isHovering)
 
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [clickedStudy, setClickedStudy] = useState<CaseStudy | null>(null)
@@ -49,7 +57,7 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
   const frontRef    = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!isActive) { setHoveredIndex(null) }
+    if (!isActive) { setHoveredIndex(null); setIsHovering(false) }
   }, [isActive])
 
   // Front page open position: PAGE_TOP + (n-1)*15. Cover starts 20% down that page (80% coverage).
@@ -85,12 +93,13 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
         ref={wrapperRef}
         onMouseEnter={() => {
           if (!isActive) return
+          setIsHovering(true)
           if (wrapperRef.current && sceneRef?.current) {
             const sceneTop = getSceneTopPx(wrapperRef.current, sceneRef.current)
             setMaxLift(Math.max(0, sceneTop + PAGE_TOP - SAFE_MARGIN))
           }
         }}
-        onMouseLeave={() => { if (isActive) setHoveredIndex(null) }}
+        onMouseLeave={() => { if (isActive) { setHoveredIndex(null); setIsHovering(false) } }}
         style={{
           position:    "relative",
           width:       W,
