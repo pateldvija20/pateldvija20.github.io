@@ -3,7 +3,7 @@ import { getCaseStudies } from "@/lib/projects";
 import { getResume } from "@/lib/resume";
 
 export default async function Home() {
-  const studies = getCaseStudies();
+  const studies = await getCaseStudies();
   const resume = await getResume();
   return <HomeInteractive studies={studies} resume={resume} />;
 }

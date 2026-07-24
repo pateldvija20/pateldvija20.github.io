@@ -133,7 +133,7 @@ export function PageCard({ title, subtitle, children, originRect, onDismiss }: P
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto px-7 py-6">
+        <div className="page-card-scroll-body flex-1 overflow-y-auto px-7 py-6" data-no-wheel-cycle>
           {children}
         </div>
       </div>

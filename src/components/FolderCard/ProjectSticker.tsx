@@ -80,8 +80,6 @@ export function ProjectSticker({ study, index, flapWidth, flapHeight, onHover, o
     }
   }, [flapWidth, flapHeight])
 
-  if (!study.sticker) return null
-
   return (
     <div
       ref={stickerRef}
@@ -101,12 +99,46 @@ export function ProjectSticker({ study, index, flapWidth, flapHeight, onHover, o
         pointerEvents: "auto",
       }}
     >
-      <img
-        src={study.sticker}
-        alt={study.name}
-        draggable={false}
-        style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }}
-      />
+      {study.sticker ? (
+        <img
+          src={study.sticker}
+          alt={study.name}
+          draggable={false}
+          style={{ width: "100%", height: "100%", objectFit: "contain", pointerEvents: "none" }}
+        />
+      ) : (
+        // No bespoke art yet (e.g. a project added purely through Sanity) —
+        // a plain paper-tag stand-in so it's still visible & clickable.
+        <div
+          style={{
+            width:         "100%",
+            height:        "100%",
+            display:       "flex",
+            alignItems:    "center",
+            justifyContent: "center",
+            padding:       "0 14px",
+            textAlign:     "center",
+            background:    "#FFFFFF",
+            border:        "1.5px dashed rgba(0,9,18,0.25)",
+            borderRadius:  8,
+            boxShadow:     "2px 3px 10px rgba(0,0,0,0.12)",
+            pointerEvents: "none",
+          }}
+        >
+          <span style={{
+            fontSize:      13,
+            fontWeight:    600,
+            color:         "#000912",
+            lineHeight:    1.3,
+            overflow:      "hidden",
+            display:       "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+          }}>
+            {study.name}
+          </span>
+        </div>
+      )}
     </div>
   )
 }

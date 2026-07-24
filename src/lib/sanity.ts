@@ -11,6 +11,15 @@ export interface CaseStudy {
   slug:        string
 }
 
+// A case-study detail page is authored in Sanity as a repeatable array of
+// named sections (Tl;dr, Solution, Overview, ...) rather than one long body —
+// each section's `_key` doubles as a stable DOM/anchor id for the TOC sidebar.
+export interface CaseStudySection {
+  _key:    string
+  title:   string
+  content: any[] // Portable Text blocks
+}
+
 export const sanityClient = createClient({
   projectId: "7b0nphlp",
   dataset:   "production",
@@ -48,3 +57,9 @@ export async function getPageBlocks(id: string): Promise<any[]> {
     return []
   }
 }
+
+// getCaseStudySections lives in ./sanity-actions.ts (a dedicated "use server"
+// file) — it's called from a client component, and Next.js only allows
+// inline "use server" exports from files that aren't also part of a client
+// bundle. `sanity.ts` is imported by both server and client code, so it
+// can't host the action itself.

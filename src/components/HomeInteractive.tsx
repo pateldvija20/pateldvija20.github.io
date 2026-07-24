@@ -283,8 +283,16 @@ export function HomeInteractive({ studies = [], resume = null }: { studies?: Cas
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Global scroll lock ───────────────────────────────────────────────────
+  // The desk is a fixed scene, not a scrolling page, so native wheel/touch
+  // scroll is locked out globally. Anything that manages its own internal
+  // scroll (resume, case-study sections, ...) opts out via
+  // data-no-wheel-cycle — the same attribute the deck-cycling wheel handler
+  // below already respects.
   useEffect(() => {
-    const prevent = (e: Event) => e.preventDefault();
+    const prevent = (e: Event) => {
+      if ((e.target as HTMLElement)?.closest?.('[data-no-wheel-cycle]')) return;
+      e.preventDefault();
+    };
     document.addEventListener('wheel', prevent, { passive: false });
     document.addEventListener('touchmove', prevent, { passive: false });
     return () => {

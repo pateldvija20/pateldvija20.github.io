@@ -5,6 +5,9 @@ import gsap from "gsap"
 import { Page } from "./FolderCard/Page"
 import { PageCard } from "./FolderCard/PageCard"
 import { ProjectSticker } from "./FolderCard/ProjectSticker"
+import { CaseStudyContent } from "./FolderCard/CaseStudyContent"
+import { getCaseStudySections } from "@/lib/sanity-actions"
+import type { CaseStudySection } from "@/lib/sanity"
 import type { CaseStudy } from "@/lib/projects"
 
 // ─── Dimensions ─────────────────────────────────────────────────────────────────
@@ -53,6 +56,11 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
   const [clickedRect, setClickedRect]   = useState<DOMRect | null>(null)
   const [maxLift, setMaxLift]           = useState(280)
 
+  // Case-study body content is fetched lazily (by slug) only once a project
+  // is actually opened, so the desk scene never waits on it.
+  const [sections, setSections]         = useState<CaseStudySection[]>([])
+  const [sectionsLoading, setSectionsLoading] = useState(false)
+
   const wrapperRef  = useRef<HTMLDivElement>(null)
   const frontRef    = useRef<HTMLDivElement>(null)
 
@@ -83,8 +91,14 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
   }
 
   function handleStickerClick(studyIndex: number, rect: DOMRect) {
-    setClickedStudy(studies[studyIndex])
+    const study = studies[studyIndex]
+    setClickedStudy(study)
     setClickedRect(rect)
+    setSections([])
+    setSectionsLoading(true)
+    getCaseStudySections(study.slug)
+      .then(setSections)
+      .finally(() => setSectionsLoading(false))
   }
 
   return (
@@ -180,8 +194,10 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
           title={clickedStudy.name}
           subtitle={`${clickedStudy.year} · ${clickedStudy.tags}`}
           originRect={clickedRect}
-          onDismiss={() => { setClickedStudy(null); setClickedRect(null) }}
-        />
+          onDismiss={() => { setClickedStudy(null); setClickedRect(null); setSections([]) }}
+        >
+          <CaseStudyContent sections={sections} loading={sectionsLoading} />
+        </PageCard>
       )}
     </>
   )

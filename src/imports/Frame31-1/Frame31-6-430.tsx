@@ -241,7 +241,11 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
             onMouseEnter={() => setIsRoleTitleHovered(true)}
             onMouseLeave={() => setIsRoleTitleHovered(false)}
             style={{
-              width: 537,
+              // Was a hardcoded 537px — wider than this span's own 521px-wide
+              // flex parent (Frame71 above), so longer role words ("Product
+              // Designer", "Design Engineer") silently overflowed the cover's
+              // own edge and got clipped. 100% matches the parent exactly.
+              width: "100%",
               height: 104,
               fontFamily: "'Bricolage Grotesque', sans-serif",
               fontStyle: "normal",

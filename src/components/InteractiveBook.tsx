@@ -394,6 +394,14 @@ export function InteractiveBook({
           x: -288.5,
           duration: 0.6,
           ease: "power2.out",
+          // Only the right half (the cover) is visible when closed — clip
+          // away the left half's hit-box once the shift settles, so it
+          // can't sit hoverable/clickable over whatever's behind it on the
+          // desk. (pointer-events can't be used here — a parent layer-order
+          // system force-sets this element's pointer-events to "auto" on
+          // every layer update, regardless of anything set on it — clip-path
+          // is the one restriction that isn't touched by that.)
+          onComplete: () => gsap.set(container, { clipPath: `inset(0 0 0 ${cardW}px)` }),
         });
       }
       // Return cover to resting angle (flat rectangle)
@@ -424,6 +432,8 @@ export function InteractiveBook({
           x: -288.5,
           duration: 0.6,
           ease: "power2.out",
+          // Same phantom-hitbox fix as the closed state (see comment there).
+          onComplete: () => gsap.set(container, { clipPath: `inset(0 0 0 ${cardW}px)` }),
         });
       }
       // Keep cover flat in hover state to maintain rectangular shape
@@ -448,6 +458,7 @@ export function InteractiveBook({
 
       // Align open book layout center to mat center (reset x shift)
       if (container) {
+        gsap.set(container, { clipPath: "none" }); // restore the left half's hit-box before it swings into view
         gsap.to(container, {
           x: 0,
           duration: 0.85,
@@ -867,10 +878,22 @@ export function InteractiveBook({
       style={{
         width: cardW * 2, // 1154px (Full double-page width)
         height: cardH,
-        perspective: 2000,
-        transformStyle: "preserve-3d",
+        // NOTE: no perspective/transform-style:preserve-3d here — see the
+        // inner wrapper below. A parent component (HomeInteractive's layer
+        // z-order system) always force-sets THIS element's pointer-events
+        // to "auto" via direct DOM mutation on every layer update,
+        // regardless of anything set here — so pointer-events can't be used
+        // to hide the invisible left half when closed/hover (see -288.5
+        // translateX above). clip-path is the one restriction that survives
+        // that override, but clip-path's reference-box resolution is
+        // unreliable on an element that itself establishes a 3D rendering
+        // context — hence pushing perspective/preserve-3d one level in.
       }}
     >
+      {/* Perspective lives here, one level in, so clip-path on the outer
+          container above (applied imperatively per closed/hover/open state)
+          resolves against a plain 2D box instead of a 3D-context one. */}
+      <div style={{ position: "absolute", inset: 0, perspective: 2000, transformStyle: "preserve-3d" }}>
       {/* ── [1] STACKED PAGES DECK (Thickness effect under cover when closed) ── */}
       <div
         ref={pagesStackRef}
@@ -1295,6 +1318,7 @@ export function InteractiveBook({
         );
       })()}
 
+      </div>
     </div>
   );
 }
