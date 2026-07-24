@@ -16,6 +16,7 @@ export function UnlockBodyScroll() {
     // scroller and sticky behaves the way people expect.
     document.documentElement.style.setProperty("overflow", "auto", "important")
     document.documentElement.style.setProperty("height", "auto", "important")
+    document.documentElement.classList.remove("hide-cursor")
     document.body.style.setProperty("overflow", "visible", "important")
     document.body.style.setProperty("height", "auto", "important")
     document.body.style.position = ""

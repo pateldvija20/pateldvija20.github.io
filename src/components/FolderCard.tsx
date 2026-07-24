@@ -35,7 +35,21 @@ function getSceneTopPx(el: HTMLElement, sceneEl: HTMLElement): number {
   return (elRect.top - sceneRect.top) / scaleY
 }
 
-export function FolderCard({ isActive = false, studies = [], sceneRef }: { isActive?: boolean; studies?: CaseStudy[]; sceneRef?: RefObject<HTMLDivElement | null> }) {
+export function FolderCard({
+  isActive = false,
+  studies = [],
+  sceneRef,
+  zoomedStudyIndex = null,
+  onSelectProject,
+  onZoomComplete,
+}: {
+  isActive?: boolean
+  studies?: CaseStudy[]
+  sceneRef?: RefObject<HTMLDivElement | null>
+  zoomedStudyIndex?: number | null
+  onSelectProject?: (slug: string, index: number | null) => void
+  onZoomComplete?: (slug: string) => void
+}) {
   // Touch devices have no real hover, so the folder still opens as soon as it
   // becomes the top layer there. On mouse devices it only opens while actually
   // hovered — hover is tracked on the outer (non-3D-transformed) wrapper so
@@ -46,12 +60,12 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
   }, [])
 
   const [isHovering, setIsHovering] = useState(false)
-  const isOpen = isActive && (isTouch || isHovering)
+  const [isZoomingOut, setIsZoomingOut] = useState(false)
+  const isOpen = (isActive && (isTouch || isHovering)) || zoomedStudyIndex !== null || isZoomingOut
 
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   const [maxLift, setMaxLift]           = useState(280)
 
-  const router = useRouter()
   const wrapperRef  = useRef<HTMLDivElement>(null)
   const frontRef    = useRef<HTMLDivElement>(null)
 
@@ -81,23 +95,19 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
     setHoveredIndex(hovered ? studies.length - 1 - studyIndex : null)
   }
 
-  function handleStickerClick(studyIndex: number) {
-    router.push(`/projects/${studies[studyIndex].slug}`)
-  }
-
   return (
     <>
       <div
         ref={wrapperRef}
         onMouseEnter={() => {
-          if (!isActive) return
+          if (!isActive || zoomedStudyIndex !== null) return
           setIsHovering(true)
           if (wrapperRef.current && sceneRef?.current) {
             const sceneTop = getSceneTopPx(wrapperRef.current, sceneRef.current)
             setMaxLift(Math.max(0, sceneTop + PAGE_TOP - SAFE_MARGIN))
           }
         }}
-        onMouseLeave={() => { if (isActive) { setHoveredIndex(null); setIsHovering(false) } }}
+        onMouseLeave={() => { if (isActive && zoomedStudyIndex === null) { setHoveredIndex(null); setIsHovering(false) } }}
         style={{
           position:    "relative",
           width:       W,
@@ -131,18 +141,29 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
         </div>
 
         {/* ── PAGES ──────────────────────────────────────────────────────────── */}
-        {[...studies].reverse().map((study, i) => (
-          <Page
-            key={i}
-            study={study}
-            index={i}
-            total={studies.length}
-            pageTop={PAGE_TOP}
-            isOpen={isOpen}
-            isHovered={hoveredIndex === i}
-            maxLift={maxLift}
-          />
-        ))}
+        {[...studies].reverse().map((study, i) => {
+          const studyIndex = studies.length - 1 - i;
+          return (
+            <Page
+              key={i}
+              study={study}
+              index={i}
+              total={studies.length}
+              pageTop={PAGE_TOP}
+              isOpen={isOpen}
+              isHovered={hoveredIndex === i}
+              maxLift={maxLift}
+              isZoomed={zoomedStudyIndex === studyIndex && !isZoomingOut}
+              isZoomingOut={isZoomingOut && zoomedStudyIndex === studyIndex}
+              onZoomComplete={() => onZoomComplete?.(study.slug)}
+              onZoomOutComplete={() => {
+                setIsZoomingOut(false)
+                onSelectProject?.(study.slug, null)
+              }}
+              onClose={() => setIsZoomingOut(true)}
+            />
+          )
+        })}
 
         {/* ── FRONT COVER ────────────────────────────────────────────────────── */}
         <div
@@ -157,6 +178,7 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
             background:    `linear-gradient(180deg, ${COLOR_FRONT_TOP} 0%, ${COLOR_FRONT_MID} 55%, ${COLOR_FRONT_BOT} 100%)`,
             boxShadow:     "0 8px 40px rgba(102,189,255,0.25), inset 0 1px 0 rgba(255,255,255,0.35)",
             zIndex:        10,
+            pointerEvents: zoomedStudyIndex !== null ? "none" : "auto",
           }}
         >
           {studies.map((study, i) => (
@@ -164,10 +186,17 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
               key={study.id}
               study={study}
               index={i}
+              total={studies.length}
               flapWidth={W}
               flapHeight={H - (isOpen ? frontTopHover : FRONT_TOP)}
-              onHover={(hovered) => handleStickerHover(i, hovered)}
-              onClick={() => handleStickerClick(i)}
+              onHover={(hovered) => {
+                if (zoomedStudyIndex !== null) return
+                handleStickerHover(i, hovered)
+              }}
+              onClick={() => {
+                if (zoomedStudyIndex !== null) return
+                onSelectProject?.(study.slug, i)
+              }}
             />
           ))}
         </div>

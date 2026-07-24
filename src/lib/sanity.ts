@@ -48,7 +48,7 @@ export async function getCaseStudies(): Promise<CaseStudy[]> {
   }
 }
 
-// Single combined fetch (meta + sections) for the /projects/[slug] route —
+// Single combined fetch (meta + sections) for the /[slug] route —
 // this runs server-side only (inside a Server Component), so there's no
 // CORS concern the way there is for the client-invoked sections action below.
 export async function getCaseStudyBySlug(

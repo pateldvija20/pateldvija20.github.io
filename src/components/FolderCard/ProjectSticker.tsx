@@ -4,22 +4,56 @@ import { useRef, useState, useEffect, useCallback } from "react"
 import type { CaseStudy } from "@/lib/projects"
 import { useGlobalCursor, type HotzoneTestResult } from "../GlobalCursor"
 
-// Sticker SVG is 398×144 — display at ~70% scale
-const STICKER_W = 279
-const STICKER_H = 101
+// Sticker SVG or fallback paper label pill
+const STICKER_W = 180
+const STICKER_H = 54
+
+function getInitialStickerPos(index: number, total: number, flapW: number, flapH: number) {
+  const count = Math.max(1, total)
+  const cols = count <= 4 ? 2 : Math.ceil(Math.sqrt(count))
+  const rows = Math.ceil(count / cols)
+
+  const col = index % cols
+  const row = Math.floor(index / cols)
+
+  const cellWidth = flapW / cols
+  const cellHeight = flapH / rows
+
+  // Deterministic jitter per item
+  const jitterX = ((index * 37) % 24) - 12
+  const jitterY = ((index * 53) % 18) - 9
+
+  const baseX = col * cellWidth + (cellWidth - STICKER_W) / 2 + jitterX
+  const baseY = row * cellHeight + (cellHeight - STICKER_H) / 2 + jitterY
+
+  const maxX = Math.max(20, flapW - STICKER_W - 20)
+  const maxY = Math.max(20, flapH - STICKER_H - 20)
+
+  const posX = Math.max(20, Math.min(maxX, Math.round(baseX)))
+  const posY = Math.max(20, Math.min(maxY, Math.round(baseY)))
+  return { x: posX, y: posY }
+}
 
 interface ProjectStickerProps {
   study:       CaseStudy
   index:       number
+  total:       number
   flapWidth:   number
   flapHeight:  number
   onHover:     (hovered: boolean) => void
   onClick:     (rect: DOMRect) => void
 }
 
-export function ProjectSticker({ study, index, flapWidth, flapHeight, onHover, onClick }: ProjectStickerProps) {
-  const [pos, setPos]   = useState({ x: 20 + index * 24, y: 20 + index * 24 })
+export function ProjectSticker({ study, index, total, flapWidth, flapHeight, onHover, onClick }: ProjectStickerProps) {
+  const [pos, setPos] = useState(() => getInitialStickerPos(index, total || 4, flapWidth || 887, flapHeight || 570))
   
+  // Re-sync position when flap dimensions load
+  useEffect(() => {
+    if (flapWidth && flapHeight) {
+      setPos(getInitialStickerPos(index, total || 4, flapWidth, flapHeight))
+    }
+  }, [index, total, flapWidth, flapHeight])
+
   // Deterministic tilt based on study ID to avoid client/server hydration mismatch
   const tilt = (() => {
     let hash = 0;
@@ -86,6 +120,7 @@ export function ProjectSticker({ study, index, flapWidth, flapHeight, onHover, o
       data-no-deck-drag
       onMouseDown={onMouseDown}
       onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
       onClick={(e) => { if (!hasDragged.current) onClick(e.currentTarget.getBoundingClientRect()) }}
       style={{
         position:      "absolute",
@@ -120,13 +155,13 @@ export function ProjectSticker({ study, index, flapWidth, flapHeight, onHover, o
             textAlign:     "center",
             background:    "#FFFFFF",
             border:        "1.5px dashed rgba(0,9,18,0.25)",
-            borderRadius:  8,
+            borderRadius:  20,
             boxShadow:     "2px 3px 10px rgba(0,0,0,0.12)",
             pointerEvents: "none",
           }}
         >
           <span style={{
-            fontSize:      13,
+            fontSize:      18,
             fontWeight:    600,
             color:         "#000912",
             lineHeight:    1.3,

@@ -261,6 +261,7 @@ export function GlobalCursorProvider({
 
     return () => {
       document.removeEventListener("mousemove", onMouseMove);
+      document.documentElement.classList.remove("hide-cursor");
       if (animFrameRef.current !== null) {
         cancelAnimationFrame(animFrameRef.current);
       }

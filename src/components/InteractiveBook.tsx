@@ -401,7 +401,8 @@ export function InteractiveBook({
           // system force-sets this element's pointer-events to "auto" on
           // every layer update, regardless of anything set on it — clip-path
           // is the one restriction that isn't touched by that.)
-          onComplete: () => gsap.set(container, { clipPath: `inset(0 0 0 ${cardW}px)` }),
+          // We use safety margins of -40px on top, right, and bottom so shadows and rounded corners are not trimmed.
+          onComplete: () => gsap.set(container, { clipPath: `inset(-40px -120px -40px ${cardW}px)` }),
         });
       }
       // Return cover to resting angle (flat rectangle)
@@ -433,7 +434,7 @@ export function InteractiveBook({
           duration: 0.6,
           ease: "power2.out",
           // Same phantom-hitbox fix as the closed state (see comment there).
-          onComplete: () => gsap.set(container, { clipPath: `inset(0 0 0 ${cardW}px)` }),
+          onComplete: () => gsap.set(container, { clipPath: `inset(-40px -120px -40px ${cardW}px)` }),
         });
       }
       // Keep cover flat in hover state to maintain rectangular shape
@@ -982,6 +983,7 @@ export function InteractiveBook({
       {/* ── [2] DOUBLE SIDE COVER WRAPPER (Swings Y from 0 to -180deg) ── */}
       <div
         ref={coverWrapperRef}
+        data-name="cover-wrapper"
         className="absolute"
         style={{
           left: 577,

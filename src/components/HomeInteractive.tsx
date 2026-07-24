@@ -2,6 +2,7 @@
 
 import gsap from 'gsap';
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { useRouter } from 'next/navigation';
 import HomeImport from '../imports/Home-1/Home-1-1716';
 import { InteractiveBook } from './InteractiveBook';
 import { PurpleFile } from './PurpleFile';
@@ -29,6 +30,7 @@ function DeckDragHotzone({
   paperCoverRef,
   bookOpen,
   fileOpen,
+  hasScatteredRef,
 }: {
   deckRef: RefObject<LayerKey[]>;
   bookCoverRef: RefObject<HTMLDivElement | null>;
@@ -37,29 +39,62 @@ function DeckDragHotzone({
   paperCoverRef: RefObject<HTMLDivElement | null>;
   bookOpen: boolean;
   fileOpen: boolean;
+  hasScatteredRef: RefObject<boolean>;
 }) {
   const { registerHotzone, unregisterHotzone } = useGlobalCursor();
   useEffect(() => {
     const testFn = (clientX: number, clientY: number): HotzoneTestResult => {
-      const top = deckRef.current[0];
-      if ((top === 'book' && bookOpen) || (top === 'file' && fileOpen)) return { active: false };
+      const isScattered = hasScatteredRef.current;
+      const candidates = isScattered
+        ? (['book', 'file', 'folder', 'paper'] as const)
+        : [deckRef.current[0]];
 
-      const coverEl =
-        top === 'book' ? bookCoverRef.current :
-        top === 'file' ? fileCoverRef.current :
-        top === 'folder' ? folderCoverRef.current :
-        top === 'paper' ? paperCoverRef.current : null;
-      if (!coverEl) return { active: false };
+      for (const layer of candidates) {
+        if (layer === 'book' && bookOpen) continue;
+        if (layer === 'file' && fileOpen) continue;
 
-      const rect = coverEl.getBoundingClientRect();
-      if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
-        return { active: false };
+        const coverEl =
+          layer === 'book' ? bookCoverRef.current :
+          layer === 'file' ? fileCoverRef.current :
+          layer === 'folder' ? folderCoverRef.current :
+          layer === 'paper' ? paperCoverRef.current : null;
+        if (!coverEl) continue;
+
+        let rect: DOMRect | null = null;
+
+        if (layer === 'book' && !bookOpen) {
+          const wrapperEl = coverEl.querySelector('[data-name="cover-wrapper"]') as HTMLElement | null;
+          if (wrapperEl) {
+            rect = wrapperEl.getBoundingClientRect();
+          } else {
+            const inner = coverEl.firstElementChild as HTMLElement | null;
+            if (inner) {
+              const fullRect = inner.getBoundingClientRect();
+              // Right half is the cover (577px of 1154px)
+              rect = new DOMRect(fullRect.left + fullRect.width / 2, fullRect.top, fullRect.width / 2, fullRect.height);
+            }
+          }
+        } else {
+          const innerCard = coverEl.querySelector('.pointer-events-auto') as HTMLElement | null;
+          rect = innerCard ? innerCard.getBoundingClientRect() : coverEl.firstElementChild?.getBoundingClientRect() || coverEl.getBoundingClientRect();
+        }
+
+        if (!rect) continue;
+
+        if (
+          clientX >= rect.left &&
+          clientX <= rect.right &&
+          clientY >= rect.top &&
+          clientY <= rect.bottom
+        ) {
+          return { active: true, pct: 1.0, chevron: "none", hoverType: "expand-invert", icon: "drag" };
+        }
       }
-      return { active: true, pct: 1.0, chevron: "none", hoverType: "expand-invert", icon: "drag" };
+      return { active: false };
     };
     registerHotzone("deck-top-card", testFn, 10);
     return () => unregisterHotzone("deck-top-card");
-  }, [registerHotzone, unregisterHotzone, deckRef, bookCoverRef, fileCoverRef, folderCoverRef, paperCoverRef, bookOpen, fileOpen]);
+  }, [registerHotzone, unregisterHotzone, deckRef, bookCoverRef, fileCoverRef, folderCoverRef, paperCoverRef, bookOpen, fileOpen, hasScatteredRef]);
 
   return null;
 }
@@ -194,6 +229,9 @@ export function HomeInteractive({ studies = [], resume = null }: { studies?: Cas
   const [bookHovered, setBookHovered] = useState(false);
   const [fileHovered, setFileHovered] = useState(false);
   const [stickyDragging, setStickyDragging] = useState(false);
+
+  const [zoomedStudyIndex, setZoomedStudyIndex] = useState<number | null>(null);
+  const router = useRouter();
 
   // Nav layout + portrait detection
   const [navMobile,    setNavMobile]    = useState(false);
@@ -512,10 +550,12 @@ export function HomeInteractive({ studies = [], resume = null }: { studies?: Cas
     const onEnter = () => {
       if (stickyDraggingRef.current) return;
       if (deckRef.current[0] !== 'folder') return;
+      if (zoomedStudyIndex !== null) return;
       gsap.to(coverEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
     };
     const onLeave = () => {
       if (deckRef.current[0] !== 'folder') return;
+      if (zoomedStudyIndex !== null) return;
       gsap.to(coverEl, { rotation: layerTiltRef.current.folder, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
     };
 
@@ -525,7 +565,7 @@ export function HomeInteractive({ studies = [], resume = null }: { studies?: Cas
       activeEl.removeEventListener('mouseenter', onEnter);
       activeEl.removeEventListener('mouseleave', onLeave);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [zoomedStudyIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Paper hover ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -567,7 +607,7 @@ export function HomeInteractive({ studies = [], resume = null }: { studies?: Cas
       if (coverEl) gsap.to(coverEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
     } else if (topLayer === 'folder') {
       const coverEl = folderCoverRef.current;
-      if (coverEl) gsap.to(coverEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
+      if (coverEl && zoomedStudyIndex === null) gsap.to(coverEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
     } else if (topLayer === 'paper') {
       const coverEl = paperCoverRef.current;
       if (coverEl) gsap.to(coverEl, { rotation: 0, scale: 1.03, duration: 0.6, ease: 'back.out(1.7)' });
@@ -591,13 +631,13 @@ export function HomeInteractive({ studies = [], resume = null }: { studies?: Cas
     }
     if (prevFolder) {
       const coverEl = folderCoverRef.current;
-      if (coverEl) gsap.to(coverEl, { rotation: layerTiltRef.current.folder, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
+      if (coverEl && zoomedStudyIndex === null) gsap.to(coverEl, { rotation: layerTiltRef.current.folder, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
     }
     if (prevPaper) {
       const coverEl = paperCoverRef.current;
       if (coverEl) gsap.to(coverEl, { rotation: layerTiltRef.current.paper, scale: 1, duration: 0.6, ease: 'back.out(1.7)' });
     }
-  }, [topLayer]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [topLayer, zoomedStudyIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Initial setup ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -854,6 +894,48 @@ export function HomeInteractive({ studies = [], resume = null }: { studies?: Cas
     }
   }, [bookOpen, closeLayer]);
 
+  // ─── Folder zoom out position restore ──────────────────────────────────────
+  useEffect(() => {
+    if (zoomedStudyIndex === null && isInitializedRef.current) {
+      const coverEl = folderCoverRef.current;
+      const baseEl  = q('folder');
+      if (coverEl) {
+        const isScattered = hasScatteredRef.current;
+        if (isScattered) {
+          const { x, y, rotation } = SCATTER_TRANSFORMS.folder;
+          const rank = deckRef.current.indexOf('folder');
+          const z = DECK_Z[rank];
+          
+          coverEl.style.zIndex = String((z ?? 30) + 1);
+          gsap.killTweensOf(coverEl);
+          gsap.to(coverEl, {
+            x,
+            y,
+            rotation,
+            scale: 1,
+            duration: 0.65,
+            ease: "power2.inOut",
+          });
+          
+          if (baseEl) {
+            baseEl.style.zIndex = String(z ?? 30);
+            gsap.killTweensOf(baseEl);
+            gsap.to(baseEl, {
+              x,
+              y,
+              rotation,
+              scale: 1,
+              duration: 0.65,
+              ease: "power2.inOut",
+            });
+          }
+        } else {
+          closeLayer('folder');
+        }
+      }
+    }
+  }, [zoomedStudyIndex, closeLayer]);
+
   const closeFilePage = useCallback(() => {
     fileOpenRef.current = false;
     setFileOpen(false);
@@ -1109,6 +1191,7 @@ export function HomeInteractive({ studies = [], resume = null }: { studies?: Cas
       paperCoverRef={paperCoverRef}
       bookOpen={bookOpen}
       fileOpen={fileOpen}
+      hasScatteredRef={hasScatteredRef}
     />
     <ResumeNavHotzone navRef={resumeNavRef} />
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden' }}>
@@ -1192,7 +1275,43 @@ export function HomeInteractive({ studies = [], resume = null }: { studies?: Cas
           className="absolute isolate invisible pointer-events-none overflow-visible"
         >
           <div className="pointer-events-auto cursor-pointer">
-            <FolderCard isActive={topLayer === 'folder' && !stickyDragging} studies={workStudies} sceneRef={sceneRef} />
+            <FolderCard
+              isActive={topLayer === 'folder' && !stickyDragging}
+              studies={workStudies}
+              sceneRef={sceneRef}
+              zoomedStudyIndex={zoomedStudyIndex}
+              onSelectProject={(slug, index) => {
+                setZoomedStudyIndex(index);
+                if (index !== null) {
+                  const coverEl = folderCoverRef.current;
+                  const baseEl  = q('folder');
+                  if (coverEl) {
+                    gsap.killTweensOf(coverEl);
+                    gsap.to(coverEl, {
+                      x: 0,
+                      y: 0,
+                      rotation: 0,
+                      scale: 1,
+                      duration: 0.5,
+                      ease: "power2.out",
+                    });
+                    coverEl.style.zIndex = "1000";
+                  }
+                  if (baseEl) {
+                    gsap.killTweensOf(baseEl);
+                    gsap.to(baseEl, {
+                      x: 0,
+                      y: 0,
+                      rotation: 0,
+                      scale: 1,
+                      duration: 0.5,
+                      ease: "power2.out",
+                    });
+                    baseEl.style.zIndex = "999";
+                  }
+                }
+              }}
+            />
           </div>
         </div>
 
