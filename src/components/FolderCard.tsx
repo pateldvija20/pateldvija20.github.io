@@ -1,13 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef, RefObject } from "react"
+import { useRouter } from "next/navigation"
 import gsap from "gsap"
 import { Page } from "./FolderCard/Page"
-import { PageCard } from "./FolderCard/PageCard"
 import { ProjectSticker } from "./FolderCard/ProjectSticker"
-import { CaseStudyContent } from "./FolderCard/CaseStudyContent"
-import { getCaseStudySections } from "@/lib/sanity-actions"
-import type { CaseStudySection } from "@/lib/sanity"
 import type { CaseStudy } from "@/lib/projects"
 
 // ─── Dimensions ─────────────────────────────────────────────────────────────────
@@ -52,15 +49,9 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
   const isOpen = isActive && (isTouch || isHovering)
 
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
-  const [clickedStudy, setClickedStudy] = useState<CaseStudy | null>(null)
-  const [clickedRect, setClickedRect]   = useState<DOMRect | null>(null)
   const [maxLift, setMaxLift]           = useState(280)
 
-  // Case-study body content is fetched lazily (by slug) only once a project
-  // is actually opened, so the desk scene never waits on it.
-  const [sections, setSections]         = useState<CaseStudySection[]>([])
-  const [sectionsLoading, setSectionsLoading] = useState(false)
-
+  const router = useRouter()
   const wrapperRef  = useRef<HTMLDivElement>(null)
   const frontRef    = useRef<HTMLDivElement>(null)
 
@@ -90,15 +81,8 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
     setHoveredIndex(hovered ? studies.length - 1 - studyIndex : null)
   }
 
-  function handleStickerClick(studyIndex: number, rect: DOMRect) {
-    const study = studies[studyIndex]
-    setClickedStudy(study)
-    setClickedRect(rect)
-    setSections([])
-    setSectionsLoading(true)
-    getCaseStudySections(study.slug)
-      .then(setSections)
-      .finally(() => setSectionsLoading(false))
+  function handleStickerClick(studyIndex: number) {
+    router.push(`/projects/${studies[studyIndex].slug}`)
   }
 
   return (
@@ -183,22 +167,11 @@ export function FolderCard({ isActive = false, studies = [], sceneRef }: { isAct
               flapWidth={W}
               flapHeight={H - (isOpen ? frontTopHover : FRONT_TOP)}
               onHover={(hovered) => handleStickerHover(i, hovered)}
-              onClick={(rect) => handleStickerClick(i, rect)}
+              onClick={() => handleStickerClick(i)}
             />
           ))}
         </div>
       </div>
-
-      {clickedStudy && clickedRect && (
-        <PageCard
-          title={clickedStudy.name}
-          subtitle={`${clickedStudy.year} · ${clickedStudy.tags}`}
-          originRect={clickedRect}
-          onDismiss={() => { setClickedStudy(null); setClickedRect(null); setSections([]) }}
-        >
-          <CaseStudyContent sections={sections} loading={sectionsLoading} />
-        </PageCard>
-      )}
     </>
   )
 }

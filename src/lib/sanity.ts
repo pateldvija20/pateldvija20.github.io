@@ -48,6 +48,41 @@ export async function getCaseStudies(): Promise<CaseStudy[]> {
   }
 }
 
+// Single combined fetch (meta + sections) for the /projects/[slug] route —
+// this runs server-side only (inside a Server Component), so there's no
+// CORS concern the way there is for the client-invoked sections action below.
+export async function getCaseStudyBySlug(
+  slug: string
+): Promise<(CaseStudy & { sections: CaseStudySection[] }) | null> {
+  try {
+    const result = await sanityClient.fetch<(CaseStudy & { sections: CaseStudySection[] }) | null>(
+      `*[_type == "caseStudy" && slug.current == $slug][0]{
+        "id":          _id,
+        name,
+        description,
+        "year":        string(year),
+        tags,
+        type,
+        location,
+        "slug":        slug.current,
+        sections[]{
+          _key,
+          title,
+          content[]{
+            ...,
+            _type == "image" => { "asset": asset-> }
+          }
+        }
+      }`,
+      { slug }
+    )
+    return result ?? null
+  } catch (err) {
+    console.error("getCaseStudyBySlug error:", err)
+    return null
+  }
+}
+
 export async function getPageBlocks(id: string): Promise<any[]> {
   try {
     const result = await sanityClient.fetch(`*[_id == $id][0]{ body }`, { id })
@@ -57,9 +92,3 @@ export async function getPageBlocks(id: string): Promise<any[]> {
     return []
   }
 }
-
-// getCaseStudySections lives in ./sanity-actions.ts (a dedicated "use server"
-// file) — it's called from a client component, and Next.js only allows
-// inline "use server" exports from files that aren't also part of a client
-// bundle. `sanity.ts` is imported by both server and client code, so it
-// can't host the action itself.

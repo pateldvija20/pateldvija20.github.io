@@ -878,6 +878,7 @@ export function InteractiveBook({
       style={{
         width: cardW * 2, // 1154px (Full double-page width)
         height: cardH,
+        flexShrink: 0,
         // NOTE: no perspective/transform-style:preserve-3d here — see the
         // inner wrapper below. A parent component (HomeInteractive's layer
         // z-order system) always force-sets THIS element's pointer-events

@@ -50,6 +50,20 @@ function sectionId(key: string) {
   return `case-study-section-${key}`
 }
 
+// Finds the nearest scrollable ancestor (rather than a hardcoded class name)
+// so this component works both inside PageCard's modal body and as a plain
+// full-page route — walks up until it finds an actual overflow:auto/scroll
+// container, falling back to the document's own scrolling element.
+function findScrollRoot(el: HTMLElement | null): Element {
+  let node = el?.parentElement ?? null
+  while (node) {
+    const overflowY = getComputedStyle(node).overflowY
+    if (overflowY === "auto" || overflowY === "scroll") return node
+    node = node.parentElement
+  }
+  return document.scrollingElement ?? document.documentElement
+}
+
 interface CaseStudyContentProps {
   sections: CaseStudySection[]
   loading?: boolean
@@ -67,8 +81,7 @@ export function CaseStudyContent({ sections, loading = false }: CaseStudyContent
   // in the scroll container's "reading band" (a slice near the top). ──────────
   useEffect(() => {
     if (loading || sections.length === 0) return
-    const root = rootRef.current?.closest(".page-card-scroll-body")
-    if (!root) return
+    const root = findScrollRoot(rootRef.current)
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -95,8 +108,7 @@ export function CaseStudyContent({ sections, loading = false }: CaseStudyContent
   // enters the viewport. ──────────────────────────────────────────────────────
   useEffect(() => {
     if (loading || sections.length === 0) return
-    const root = rootRef.current?.closest(".page-card-scroll-body")
-    if (!root) return
+    const root = findScrollRoot(rootRef.current)
 
     const revealed = new Set<string>()
     const observer = new IntersectionObserver(
