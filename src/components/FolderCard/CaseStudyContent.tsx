@@ -38,32 +38,26 @@ interface CaseStudyContentProps {
 }
 
 export function CaseStudyContent({ study, sections, loading = false, onClose }: CaseStudyContentProps) {
-  const rootRef       = useRef<HTMLDivElement>(null)
-  const navRef        = useRef<HTMLElement>(null)
-  const indicatorRef  = useRef<HTMLDivElement>(null)
-  const itemRefs      = useRef<Record<string, HTMLButtonElement | null>>({})
-  const sectionRefs   = useRef<Record<string, HTMLElement | null>>({})
+  const rootRef          = useRef<HTMLDivElement>(null)
+  const navRef           = useRef<HTMLElement>(null)
+  const indicatorRef     = useRef<HTMLDivElement>(null)
+  const contentScrollRef = useRef<HTMLDivElement>(null)
+  const itemRefs         = useRef<Record<string, HTMLButtonElement | null>>({})
+  const sectionRefs      = useRef<Record<string, HTMLElement | null>>({})
   const [activeKey, setActiveKey] = useState<string | null>(sections[0]?._key ?? null)
 
   // ── Scrollspy: 100% frame-perfect active section determination ──────────────
   useEffect(() => {
     if (loading || sections.length === 0) return
-    const root = findScrollRoot(rootRef.current)
+    const scrollContainer = contentScrollRef.current
+    if (!scrollContainer) return
 
     const handleScroll = () => {
-      const isWindow = root === document.documentElement || root === document.scrollingElement
-      const rootRect = isWindow
-        ? { top: 0, height: window.innerHeight }
-        : (root as HTMLElement).getBoundingClientRect()
+      const containerRect = scrollContainer.getBoundingClientRect()
+      // Reading threshold: 140px down from container top
+      const readingLine = containerRect.top + 140
 
-      // Reading threshold: 120px down from container top
-      const readingLine = rootRect.top + 120
-
-      // If scrolled to very bottom, activate last section
-      const scrollHeight = isWindow ? document.documentElement.scrollHeight : (root as HTMLElement).scrollHeight
-      const scrollTop = isWindow ? window.scrollY : (root as HTMLElement).scrollTop
-      const clientHeight = isWindow ? window.innerHeight : (root as HTMLElement).clientHeight
-
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer
       if (scrollTop + clientHeight >= scrollHeight - 30) {
         setActiveKey(sections[sections.length - 1]._key)
         return
@@ -84,10 +78,10 @@ export function CaseStudyContent({ study, sections, loading = false, onClose }: 
     }
 
     handleScroll()
-    root.addEventListener("scroll", handleScroll, { passive: true })
+    scrollContainer.addEventListener("scroll", handleScroll, { passive: true })
     window.addEventListener("resize", handleScroll, { passive: true })
     return () => {
-      root.removeEventListener("scroll", handleScroll)
+      scrollContainer.removeEventListener("scroll", handleScroll)
       window.removeEventListener("resize", handleScroll)
     }
   }, [sections, loading])
@@ -126,7 +120,7 @@ export function CaseStudyContent({ study, sections, loading = false, onClose }: 
   if (loading) {
     return (
       <div className="flex gap-8 animate-pulse" aria-busy="true">
-        <div className="w-[168px] shrink-0 flex flex-col gap-5 pt-1">
+        <div className="w-[163px] shrink-0 flex flex-col gap-5 pt-1">
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} className="h-3 rounded bg-black/10" style={{ width: `${60 + (i % 3) * 15}%` }} />
           ))}
@@ -154,9 +148,9 @@ export function CaseStudyContent({ study, sections, loading = false, onClose }: 
   }
 
   return (
-    <div ref={rootRef} className="flex items-start gap-8 w-full">
-      {/* ── Sidebar (Back button + Table of contents) ── */}
-      <div className="w-[168px] shrink-0 sticky top-0 self-start relative flex flex-col gap-6 py-1 select-none">
+    <div ref={rootRef} className="flex items-start gap-8 w-full h-full min-h-0 overflow-hidden">
+      {/* ── Sidebar (Back button + Table of contents) — 100% Static ── */}
+      <div className="w-[163px] shrink-0 relative flex flex-col gap-6 py-6 select-none h-full overflow-hidden">
         {onClose && (
           <button
             data-no-deck-drag
@@ -164,7 +158,7 @@ export function CaseStudyContent({ study, sections, loading = false, onClose }: 
               e.stopPropagation()
               onClose()
             }}
-            className="inline-flex items-center gap-1.5 text-[17.5px] font-medium text-[#7A7A7A] hover:text-[#000912] transition-colors bg-transparent border-none cursor-pointer p-0 text-left"
+            className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-[#7A7A7A] hover:text-[#000912] transition-colors bg-transparent border-none cursor-pointer p-0 text-left"
           >
             ← Back to work
           </button>
@@ -189,7 +183,7 @@ export function CaseStudyContent({ study, sections, loading = false, onClose }: 
                     ref={(el) => { itemRefs.current[s._key] = el }}
                     data-no-deck-drag
                     onClick={() => scrollToSection(s._key)}
-                    className="text-left text-[18px] leading-snug bg-transparent border-none p-0 cursor-pointer transition-colors duration-300"
+                    className="text-left text-[13px] leading-snug bg-transparent border-none p-0 cursor-pointer transition-colors duration-300"
                     style={{
                       color:      isActive ? "#000912" : "#9CA3AF",
                       fontWeight: isActive ? 600 : 400,
@@ -207,8 +201,8 @@ export function CaseStudyContent({ study, sections, loading = false, onClose }: 
       {/* ── Separator ── */}
       <div className="w-px bg-black/10 self-stretch shrink-0" />
 
-      {/* ── Content ── */}
-      <div className="flex-1 min-w-0">
+      {/* ── Scrollable Content Column ── */}
+      <div ref={contentScrollRef} className="flex-1 min-w-0 overflow-y-auto h-full py-6 pr-4">
         {/* Main Header above section content */}
         {study && (
           <div className="mb-8 select-none">

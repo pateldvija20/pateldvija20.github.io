@@ -18,17 +18,22 @@ function EmbedHtmlBlock({ html }: { html: string }) {
     const container = ref.current
     if (!container || !html) return
     container.innerHTML = html
-    
-    // Ensure all child containers/tables/graphics fluidly scale to 100% width
-    container.querySelectorAll("*").forEach((el) => {
-      const htmlEl = el as HTMLElement
-      if (htmlEl.style.width && htmlEl.style.width.endsWith("px")) {
-        const px = parseFloat(htmlEl.style.width)
-        if (px > 500) {
-          htmlEl.style.width = "100%"
-          htmlEl.style.maxWidth = "100%"
+
+    requestAnimationFrame(() => {
+      if (!container) return
+      // Prevent fixed positioning while enabling horizontal scroll with hidden scrollbars
+      container.querySelectorAll("*").forEach((el) => {
+        const htmlEl = el as HTMLElement
+        const pos = getComputedStyle(htmlEl).position
+        if (pos === "fixed") {
+          htmlEl.style.position = "relative"
         }
-      }
+        htmlEl.classList.add("no-scrollbar")
+        if (getComputedStyle(htmlEl).overflowX === "scroll" || getComputedStyle(htmlEl).overflowX === "auto") {
+          htmlEl.style.setProperty("scrollbar-width", "none", "important")
+          htmlEl.style.setProperty("-ms-overflow-style", "none", "important")
+        }
+      })
     })
 
     container.querySelectorAll("script").forEach((oldScript) => {
@@ -37,9 +42,20 @@ function EmbedHtmlBlock({ html }: { html: string }) {
       newScript.textContent = oldScript.textContent
       oldScript.replaceWith(newScript)
     })
+
+    return () => {
+      if (container) {
+        container.innerHTML = ""
+      }
+    }
   }, [html])
 
-  return <div className="my-6 w-full overflow-x-auto [&>div]:w-full [&_table]:w-full" ref={ref} />
+  return (
+    <div
+      className="my-6 w-full overflow-x-auto overflow-y-hidden relative no-scrollbar [&_*]:no-scrollbar [&>div]:w-full"
+      ref={ref}
+    />
+  )
 }
 
 function resolveVideoEmbed(url: string): { kind: "iframe" | "file"; src: string } {

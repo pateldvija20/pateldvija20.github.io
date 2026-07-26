@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from "react"
 import gsap from "gsap"
+import { createPortal } from "react-dom"
 import type { CaseStudy as ProjectCaseStudy } from "@/lib/projects"
 import { type CaseStudySection, type CaseStudy as SanityCaseStudy } from "@/lib/sanity"
 import { getCaseStudySectionsAction } from "@/lib/sanity-actions"
@@ -95,12 +96,14 @@ export function Page({
         })
         .to(ref.current, {
           x: 0,
+          xPercent: -50,
           y: 0,
           rotateX: 0,
           scaleX: 1,
-          left: -316.5,
+          left: "50%",
           top: -147,
-          width: 1600,
+          width: "calc(100vw - 20px)",
+          maxWidth: "calc(100vw - 20px)",
           height: 1004,
           borderRadius: 0,
           duration: 0.65,
@@ -125,6 +128,7 @@ export function Page({
       tl.set(ref.current, { zIndex: 99999 })
         .to(ref.current, {
           x: 0,
+          xPercent: 0,
           y: -240, // elevated position above folder
           rotateX: -10,
           scaleX: openScaleX,
@@ -144,7 +148,7 @@ export function Page({
           rotateX: -20,
           duration: 0.4,
           ease: "power2.in",
-          clearProps: "left,top,width,height,borderRadius,zIndex"
+          clearProps: "left,top,width,height,borderRadius,zIndex,xPercent,maxWidth"
         })
       return
     }
@@ -185,119 +189,102 @@ export function Page({
   }, [isHovered, isOpen, isZoomed, isZoomingOut, maxLift, openY])
 
   return (
-    <div
-      ref={ref}
-      style={{
-        position: "absolute",
-        top: pageTop,
-        left: "3.5%",
-        right: "3.5%",
-        height: 450,
-        zIndex,
-        cursor: "default",
-        pointerEvents: isZoomed ? "auto" : "none",
-        borderRadius: 14,
-        background: isZoomed ? "#FCFEFF" : (study.cardImage ? "#18181A" : "#FCFEFF"),
-        boxShadow: "0 -4px 16px rgba(0,0,0,0.12)",
-        willChange: "transform, left, top, width, height",
-        overflow: "hidden",
-      }}
-    >
-      {isZoomed ? (
-        <div
-          data-no-wheel-cycle
-          data-no-deck-drag
-          className="absolute inset-0 flex flex-col bg-[#FCFEFF] text-[#000912] z-[100]"
-          style={{ pointerEvents: "auto" }}
-        >
-          {/* Scrollable Content Container */}
-          <div
-            className="flex-1 overflow-y-auto px-6 md:px-8 py-8 min-h-0 w-full"
-            style={{ overflowY: "auto" }}
-          >
-            {loading ? (
-              <div className="w-full py-12">
-                <CaseStudyContent study={study} sections={[]} loading={true} onClose={onClose} />
-              </div>
-            ) : caseStudyDetail ? (
-              <div className="w-full">
-                <CaseStudyContent study={study} sections={caseStudyDetail.sections} onClose={onClose} />
-              </div>
-            ) : (
-              <div className="py-16 text-center text-[13px] text-[#999]">
-                Could not load case study content.
-              </div>
-            )}
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Card image — fills the page when provided */}
-          {study.cardImage && (
-            <img
-              src={study.cardImage}
-              alt={study.name}
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-                objectPosition: "center",
-                borderRadius: 14,
-              }}
-            />
-          )}
-
-          {/* Label — fades in on hover (sits on top of image) */}
-          <div
-            ref={labelRef}
+    <>
+      <div
+        ref={ref}
+        style={{
+          position: "absolute",
+          top: pageTop,
+          left: "3.5%",
+          right: "3.5%",
+          height: 450,
+          zIndex,
+          cursor: "default",
+          pointerEvents: "none",
+          borderRadius: 14,
+          background: study.cardImage ? "#18181A" : "#FCFEFF",
+          boxShadow: "0 -4px 16px rgba(0,0,0,0.12)",
+          willChange: "transform, left, top, width, height",
+          overflow: "hidden",
+        }}
+      >
+        {/* Card image — fills the page when provided */}
+        {study.cardImage && (
+          <img
+            src={study.cardImage}
+            alt={study.name}
             style={{
-              opacity: 0,
-              transform: "translateY(6px)",
               position: "absolute",
-              bottom: "8%",
-              left: "8%",
-              right: "8%",
-              pointerEvents: "none",
-              background: study.cardImage ? "rgba(0,0,0,0.55)" : "transparent",
-              backdropFilter: study.cardImage ? "blur(6px)" : "none",
-              borderRadius: study.cardImage ? 10 : 0,
-              padding: study.cardImage ? "12px 16px" : 0,
+              inset: 0,
+              width: "100%",
+              height: "100%",
+              objectFit: "cover",
+              objectPosition: "center",
+              borderRadius: 14,
             }}
+          />
+        )}
+
+        {/* Label — fades in on hover */}
+        <div
+          ref={labelRef}
+          style={{
+            opacity: 0,
+            transform: "translateY(6px)",
+            position: "absolute",
+            bottom: "8%",
+            left: "8%",
+            right: "8%",
+            pointerEvents: "none",
+            background: study.cardImage ? "rgba(0,0,0,0.55)" : "transparent",
+            backdropFilter: study.cardImage ? "blur(6px)" : "none",
+            borderRadius: study.cardImage ? 10 : 0,
+            padding: study.cardImage ? "12px 16px" : 0,
+          }}
+        >
+          <p style={{ margin: 0, marginBottom: 4, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#66BDFF" }}>
+            {study.year} · {study.tags}
+          </p>
+          <p style={{ margin: 0, marginBottom: 8, fontSize: 20, fontWeight: 700, color: study.cardImage ? "#FFFFFF" : "#000912", lineHeight: 1.2 }}>
+            {study.name}
+          </p>
+          <p style={{ margin: 0, fontSize: 13, color: study.cardImage ? "rgba(255,255,255,0.75)" : "#555", lineHeight: 1.55 }}>
+            {study.description}
+          </p>
+        </div>
+      </div>
+
+      {/* ── Zoomed Case Study Modal Portal ── */}
+      {isZoomed && typeof window !== "undefined" && createPortal(
+        <div
+          className="fixed inset-0 z-[999999] flex items-center justify-center p-[10px] bg-black/40 backdrop-blur-xs"
+          onClick={onClose}
+        >
+          <div
+            data-no-wheel-cycle
+            data-no-deck-drag
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full h-full max-w-[calc(100vw-20px)] max-h-[calc(100vh-20px)] bg-[#FCFEFF] text-[#000912] rounded-[20px] shadow-2xl flex flex-col overflow-hidden mx-auto"
           >
-            <p style={{
-              margin: 0,
-              marginBottom: 4,
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              color: study.cardImage ? "#66BDFF" : "#66BDFF",
-            }}>
-              {study.year} · {study.tags}
-            </p>
-            <p style={{
-              margin: 0,
-              marginBottom: 8,
-              fontSize: 20,
-              fontWeight: 700,
-              color: study.cardImage ? "#FFFFFF" : "#000912",
-              lineHeight: 1.2,
-            }}>
-              {study.name}
-            </p>
-            <p style={{
-              margin: 0,
-              fontSize: 13,
-              color: study.cardImage ? "rgba(255,255,255,0.75)" : "#555",
-              lineHeight: 1.55,
-            }}>
-              {study.description}
-            </p>
+            <div className="flex-1 flex min-h-0 w-full overflow-hidden px-6 md:px-8 py-4">
+              {loading ? (
+                <div className="w-full py-12">
+                  <CaseStudyContent study={study} sections={[]} loading={true} onClose={onClose} />
+                </div>
+              ) : caseStudyDetail ? (
+                <div className="w-full h-full flex flex-col min-h-0">
+                  <CaseStudyContent study={study} sections={caseStudyDetail.sections} onClose={onClose} />
+                </div>
+              ) : (
+                <div className="py-16 text-center text-[13px] text-[#999]">
+                  Could not load case study content.
+                </div>
+              )}
+            </div>
           </div>
-        </>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   )
 }
