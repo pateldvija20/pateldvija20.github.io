@@ -70,7 +70,14 @@ export async function getCaseStudyBySlug(
           title,
           content[]{
             ...,
-            _type == "image" => { "asset": asset-> }
+            _type == "image" => { "asset": asset-> },
+            _type == "sideBySide" => {
+              ...,
+              media[]{
+                ...,
+                _type == "image" => { "asset": asset-> }
+              }
+            }
           }
         }
       }`,
