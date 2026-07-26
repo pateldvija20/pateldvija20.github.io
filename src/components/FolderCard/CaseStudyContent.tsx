@@ -25,11 +25,19 @@ function findScrollRoot(el: HTMLElement | null): Element {
 }
 
 interface CaseStudyContentProps {
+  study?: {
+    name:        string
+    description?: string
+    year?:        string
+    tags?:        string
+    type?:        string
+  }
   sections: CaseStudySection[]
   loading?: boolean
+  onClose?: () => void
 }
 
-export function CaseStudyContent({ sections, loading = false }: CaseStudyContentProps) {
+export function CaseStudyContent({ study, sections, loading = false, onClose }: CaseStudyContentProps) {
   const rootRef       = useRef<HTMLDivElement>(null)
   const navRef        = useRef<HTMLElement>(null)
   const indicatorRef  = useRef<HTMLDivElement>(null)
@@ -37,80 +45,74 @@ export function CaseStudyContent({ sections, loading = false }: CaseStudyContent
   const sectionRefs   = useRef<Record<string, HTMLElement | null>>({})
   const [activeKey, setActiveKey] = useState<string | null>(sections[0]?._key ?? null)
 
-  // ── Scrollspy: highlight the TOC entry for whichever section is topmost
-  // in the scroll container's "reading band" (a slice near the top). ──────────
+  // ── Scrollspy: 100% frame-perfect active section determination ──────────────
   useEffect(() => {
     if (loading || sections.length === 0) return
     const root = findScrollRoot(rootRef.current)
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries.filter((e) => e.isIntersecting)
-        if (visible.length === 0) return
-        // Pick whichever intersecting section is closest to the top of the band.
-        const topMost = visible.reduce((a, b) =>
-          a.boundingClientRect.top <= b.boundingClientRect.top ? a : b
-        )
-        const key = topMost.target.getAttribute("data-section-key")
-        if (key) setActiveKey(key)
-      },
-      { root, rootMargin: "-12% 0px -70% 0px", threshold: 0 }
-    )
+    const handleScroll = () => {
+      const isWindow = root === document.documentElement || root === document.scrollingElement
+      const rootRect = isWindow
+        ? { top: 0, height: window.innerHeight }
+        : (root as HTMLElement).getBoundingClientRect()
 
-    sections.forEach((s) => {
-      const el = sectionRefs.current[s._key]
-      if (el) observer.observe(el)
-    })
-    return () => observer.disconnect()
-  }, [sections, loading])
+      // Reading threshold: 120px down from container top
+      const readingLine = rootRect.top + 120
 
-  // ── Reveal-on-scroll: fade/slide each section up once, the first time it
-  // enters the viewport. ──────────────────────────────────────────────────────
-  useEffect(() => {
-    if (loading || sections.length === 0) return
-    const root = findScrollRoot(rootRef.current)
+      // If scrolled to very bottom, activate last section
+      const scrollHeight = isWindow ? document.documentElement.scrollHeight : (root as HTMLElement).scrollHeight
+      const scrollTop = isWindow ? window.scrollY : (root as HTMLElement).scrollTop
+      const clientHeight = isWindow ? window.innerHeight : (root as HTMLElement).clientHeight
 
-    const revealed = new Set<string>()
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          const key = entry.target.getAttribute("data-section-key")
-          if (!key || !entry.isIntersecting || revealed.has(key)) return
-          revealed.add(key)
-          gsap.fromTo(
-            entry.target,
-            { opacity: 0, y: 18 },
-            { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }
-          )
-          observer.unobserve(entry.target)
-        })
-      },
-      { root, rootMargin: "0px 0px -10% 0px", threshold: 0.1 }
-    )
-
-    sections.forEach((s) => {
-      const el = sectionRefs.current[s._key]
-      if (el) {
-        gsap.set(el, { opacity: 0, y: 18 }) // seed pre-reveal state
-        observer.observe(el)
+      if (scrollTop + clientHeight >= scrollHeight - 30) {
+        setActiveKey(sections[sections.length - 1]._key)
+        return
       }
-    })
-    return () => observer.disconnect()
+
+      let currentActive: string = sections[0]._key
+
+      for (const s of sections) {
+        const el = sectionRefs.current[s._key]
+        if (!el) continue
+        const rect = el.getBoundingClientRect()
+        if (rect.top <= readingLine) {
+          currentActive = s._key
+        }
+      }
+
+      setActiveKey(currentActive)
+    }
+
+    handleScroll()
+    root.addEventListener("scroll", handleScroll, { passive: true })
+    window.addEventListener("resize", handleScroll, { passive: true })
+    return () => {
+      root.removeEventListener("scroll", handleScroll)
+      window.removeEventListener("resize", handleScroll)
+    }
   }, [sections, loading])
 
-  // ── Slide the active-indicator bar next to whichever TOC item is active. ───
+  // ── Slide the active-indicator bar next to whichever TOC item is active ────
+  // Uses DOM offsetTop hierarchy which is 100% immune to 3D transforms & window scroll
   useEffect(() => {
     if (!activeKey || !indicatorRef.current) return
     const item = itemRefs.current[activeKey]
     const nav = navRef.current
     if (!item || !nav) return
-    const navRect = nav.getBoundingClientRect()
-    const itemRect = item.getBoundingClientRect()
+
+    let targetY = item.offsetTop
+    let parent = item.offsetParent as HTMLElement | null
+    while (parent && parent !== nav && nav.contains(parent)) {
+      targetY += parent.offsetTop
+      parent = parent.offsetParent as HTMLElement | null
+    }
+    const targetH = item.offsetHeight
+
     gsap.to(indicatorRef.current, {
-      y: itemRect.top - navRect.top,
-      height: itemRect.height,
+      y: targetY,
+      height: targetH,
       opacity: 1,
-      duration: 0.35,
+      duration: 0.2,
       ease: "power2.out",
     })
   }, [activeKey])
@@ -152,47 +154,77 @@ export function CaseStudyContent({ sections, loading = false }: CaseStudyContent
   }
 
   return (
-    <div ref={rootRef} className="flex items-start gap-8">
-      {/* ── Table of contents ── */}
-      <nav
-        ref={navRef}
-        className="w-[168px] shrink-0 sticky top-0 self-start relative py-1"
-        aria-label="Case study sections"
-      >
-        {/* Sliding active-section indicator */}
-        <div
-          ref={indicatorRef}
-          className="absolute left-0 w-[2.5px] rounded-full bg-[#000912] opacity-0"
-          style={{ top: 0 }}
-        />
-        <ul className="flex flex-col gap-[18px] pl-4 list-none m-0">
-          {sections.map((s) => {
-            const isActive = s._key === activeKey
-            return (
-              <li key={s._key}>
-                <button
-                  ref={(el) => { itemRefs.current[s._key] = el }}
-                  data-no-deck-drag
-                  onClick={() => scrollToSection(s._key)}
-                  className="text-left text-[14px] leading-snug bg-transparent border-none p-0 cursor-pointer transition-colors duration-300"
-                  style={{
-                    color:      isActive ? "#000912" : "#9CA3AF",
-                    fontWeight: isActive ? 600 : 400,
-                  }}
-                >
-                  {s.title}
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-      </nav>
+    <div ref={rootRef} className="flex items-start gap-8 w-full">
+      {/* ── Sidebar (Back button + Table of contents) ── */}
+      <div className="w-[168px] shrink-0 sticky top-0 self-start relative flex flex-col gap-6 py-1 select-none">
+        {onClose && (
+          <button
+            data-no-deck-drag
+            onClick={(e) => {
+              e.stopPropagation()
+              onClose()
+            }}
+            className="inline-flex items-center gap-1.5 text-[17.5px] font-medium text-[#7A7A7A] hover:text-[#000912] transition-colors bg-transparent border-none cursor-pointer p-0 text-left"
+          >
+            ← Back to work
+          </button>
+        )}
+        <nav
+          ref={navRef}
+          className="w-full relative"
+          aria-label="Case study sections"
+        >
+          {/* Sliding active-section indicator */}
+          <div
+            ref={indicatorRef}
+            className="absolute left-0 w-[2.5px] rounded-full bg-[#000912] opacity-0"
+            style={{ top: 0 }}
+          />
+          <ul className="flex flex-col gap-[18px] pl-4 list-none m-0">
+            {sections.map((s) => {
+              const isActive = s._key === activeKey
+              return (
+                <li key={s._key}>
+                  <button
+                    ref={(el) => { itemRefs.current[s._key] = el }}
+                    data-no-deck-drag
+                    onClick={() => scrollToSection(s._key)}
+                    className="text-left text-[18px] leading-snug bg-transparent border-none p-0 cursor-pointer transition-colors duration-300"
+                    style={{
+                      color:      isActive ? "#000912" : "#9CA3AF",
+                      fontWeight: isActive ? 600 : 400,
+                    }}
+                  >
+                    {s.title}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </nav>
+      </div>
 
       {/* ── Separator ── */}
       <div className="w-px bg-black/10 self-stretch shrink-0" />
 
       {/* ── Content ── */}
       <div className="flex-1 min-w-0">
+        {/* Main Header above section content */}
+        {study && (
+          <div className="mb-8 select-none">
+            <div className="text-[16px] font-mono tracking-[0.08em] uppercase text-[#6B7280] flex items-center gap-2">
+              {[
+                study.name,
+                study.tags || study.type,
+                study.year
+              ].filter((t): t is string => Boolean(t)).map((t) => t.toUpperCase()).join("  •  ")}
+            </div>
+            <h1 className="mt-2.5 mb-0 text-[40px] font-semibold leading-[1.22] text-[#000912] font-display">
+              {study.description || study.name}
+            </h1>
+          </div>
+        )}
+
         {sections.map((s, i) => (
           <section
             key={s._key}
@@ -201,7 +233,7 @@ export function CaseStudyContent({ sections, loading = false }: CaseStudyContent
             ref={(el) => { sectionRefs.current[s._key] = el }}
             className={i > 0 ? "pt-9 mt-9 border-t border-black/5" : ""}
           >
-            <h3 className="text-[12px] font-semibold uppercase tracking-wider text-[#888] mb-3">
+            <h3 className="text-[16px] font-semibold uppercase tracking-wider text-[#888] mb-3.5">
               {s.title}
             </h3>
             <PortableText value={s.content} components={portableTextComponents} />

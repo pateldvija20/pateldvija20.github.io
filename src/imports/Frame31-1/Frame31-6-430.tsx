@@ -215,7 +215,7 @@ export default function BookCover({ isClosed = true }: { isClosed?: boolean }) {
               flexGrow: 0,
             }}
           >
-            3+ Year of Design Experience specializing in UX and visual design
+            4+ Years of Design Experience specializing in UX and visual design
           </span>
         </div>
 

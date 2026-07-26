@@ -302,7 +302,7 @@ export function InteractiveBook({
   };
   const cornerEnabled = (corner: Corner) => {
     const onRight = corner === "tr" || corner === "br";
-    return onRight ? currentPage < 4 : currentPage > 1;
+    return onRight ? currentPage < 3 : currentPage > 1;
   };
 
   // Hover in: lift the corner a little (peek). Hover out: retract it.
@@ -704,7 +704,7 @@ export function InteractiveBook({
                         fontWeight: 500,
                         fontSize: "36px",
                         lineHeight: "160%",
-                        color: hoveredSymbolIndex === index ? "transparent" : "#000000",
+                        color: "#000000",
                         display: "flex",
                         alignItems: "center",
                         width: 32,
@@ -1215,7 +1215,7 @@ export function InteractiveBook({
         }}
       >
         {/* Next corners (top-right + bottom-right): hover peeks, click turns forward */}
-        {isBookFullyOpen && currentPage < 4 && (
+        {isBookFullyOpen && currentPage < 3 && (
           <>
             {/* Permanent dog-ear shadow — keeps the fold affordance visible on blank/white pages */}
             <div

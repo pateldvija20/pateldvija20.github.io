@@ -18,6 +18,19 @@ function EmbedHtmlBlock({ html }: { html: string }) {
     const container = ref.current
     if (!container || !html) return
     container.innerHTML = html
+    
+    // Ensure all child containers/tables/graphics fluidly scale to 100% width
+    container.querySelectorAll("*").forEach((el) => {
+      const htmlEl = el as HTMLElement
+      if (htmlEl.style.width && htmlEl.style.width.endsWith("px")) {
+        const px = parseFloat(htmlEl.style.width)
+        if (px > 500) {
+          htmlEl.style.width = "100%"
+          htmlEl.style.maxWidth = "100%"
+        }
+      }
+    })
+
     container.querySelectorAll("script").forEach((oldScript) => {
       const newScript = document.createElement("script")
       Array.from(oldScript.attributes).forEach((attr) => newScript.setAttribute(attr.name, attr.value))
@@ -26,7 +39,7 @@ function EmbedHtmlBlock({ html }: { html: string }) {
     })
   }, [html])
 
-  return <div className="my-6" ref={ref} />
+  return <div className="my-6 w-full overflow-x-auto [&>div]:w-full [&_table]:w-full" ref={ref} />
 }
 
 function resolveVideoEmbed(url: string): { kind: "iframe" | "file"; src: string } {
@@ -92,26 +105,26 @@ function MediaItem({ item }: { item: any }) {
 
 export const portableTextComponents: PortableTextComponents = {
   block: {
-    h1: ({ children }: any) => <h1 className="text-[20px] font-bold mt-6 mb-3 text-[#000912]">{children}</h1>,
-    h2: ({ children }: any) => <h2 className="text-[17px] font-semibold mt-5 mb-2 text-[#000912]">{children}</h2>,
-    h3: ({ children }: any) => <h3 className="text-[15px] font-semibold mt-4 mb-2 text-[#000912]">{children}</h3>,
-    normal: ({ children }: any) => <p className="text-[15px] leading-7 text-[#333] mb-4">{children}</p>,
+    h1: ({ children }: any) => <h1 className="text-[24px] font-bold mt-6 mb-3 text-[#000912]">{children}</h1>,
+    h2: ({ children }: any) => <h2 className="text-[21px] font-semibold mt-5 mb-2.5 text-[#000912]">{children}</h2>,
+    h3: ({ children }: any) => <h3 className="text-[19px] font-semibold mt-4 mb-2 text-[#000912]">{children}</h3>,
+    normal: ({ children }: any) => <p className="text-[19px] leading-8 text-[#333] mb-4.5">{children}</p>,
     blockquote: ({ children }: any) => (
-      <blockquote className="border-l-4 border-[#5BAEFF] pl-4 my-4 text-[#555] italic text-[15px]">{children}</blockquote>
+      <blockquote className="border-l-4 border-[#5BAEFF] pl-4.5 my-4.5 text-[#555] italic text-[19px] leading-8">{children}</blockquote>
     ),
   },
   list: {
-    bullet: ({ children }: any) => <ul className="ml-5 mb-4 list-disc">{children}</ul>,
-    number: ({ children }: any) => <ol className="ml-5 mb-4 list-decimal">{children}</ol>,
+    bullet: ({ children }: any) => <ul className="ml-5 mb-4.5 list-disc">{children}</ul>,
+    number: ({ children }: any) => <ol className="ml-5 mb-4.5 list-decimal">{children}</ol>,
   },
   listItem: {
-    bullet: ({ children }: any) => <li className="text-[15px] leading-7 text-[#333]">{children}</li>,
-    number: ({ children }: any) => <li className="text-[15px] leading-7 text-[#333]">{children}</li>,
+    bullet: ({ children }: any) => <li className="text-[19px] leading-8 text-[#333] mb-1.5">{children}</li>,
+    number: ({ children }: any) => <li className="text-[19px] leading-8 text-[#333] mb-1.5">{children}</li>,
   },
   marks: {
     strong: ({ children }: any) => <strong>{children}</strong>,
     em: ({ children }: any) => <em>{children}</em>,
-    code: ({ children }: any) => <code className="bg-black/5 px-1 rounded text-[13px]">{children}</code>,
+    code: ({ children }: any) => <code className="bg-black/5 px-1.5 py-0.5 rounded text-[17px]">{children}</code>,
     link: ({ value, children }: any) => (
       <a href={value?.href} target="_blank" rel="noopener noreferrer" className="underline text-[#3B82F6]">
         {children}

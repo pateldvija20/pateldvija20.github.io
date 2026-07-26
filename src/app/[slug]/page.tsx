@@ -45,23 +45,8 @@ export default async function ProjectPage({ params }: ProjectPageProps) {
         {/* NOTE: no `overflow: hidden` on this wrapper — it'd clip the
             sticky TOC sidebar out of view as the page scrolls past. Sticky
             children can't extend beyond an overflow-hidden ancestor. */}
-        <div className="bg-[#FCFEFF] rounded-[20px] shadow-xl">
-          {/* Header */}
-          <div className="px-7 pt-6 pb-4 border-b border-black/5">
-            {(study.year || study.tags) && (
-              <p className="m-0 text-[11px] tracking-widest uppercase text-[#888]">
-                {[study.year, study.tags].filter(Boolean).join(" · ")}
-              </p>
-            )}
-            <h1 className="mt-1.5 mb-0 text-[26px] font-bold text-[#000912]">
-              {study.name}
-            </h1>
-          </div>
-
-          {/* Body */}
-          <div className="px-7 py-6">
-            <CaseStudyContent sections={study.sections} />
-          </div>
+        <div className="bg-[#FCFEFF] rounded-[20px] shadow-xl p-8">
+          <CaseStudyContent study={study} sections={study.sections} />
         </div>
       </div>
     </main>

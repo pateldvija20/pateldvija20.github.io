@@ -8,18 +8,18 @@ import { getCaseStudySectionsAction } from "@/lib/sanity-actions"
 import { CaseStudyContent } from "./CaseStudyContent"
 
 export interface PageProps {
-  study:       ProjectCaseStudy
-  index:       number
-  total:       number
-  pageTop:     number
-  isOpen:      boolean
-  isHovered:   boolean
-  maxLift:     number   // max px the page may travel upward without leaving the scene
-  isZoomed?:   boolean
+  study: ProjectCaseStudy
+  index: number
+  total: number
+  pageTop: number
+  isOpen: boolean
+  isHovered: boolean
+  maxLift: number   // max px the page may travel upward without leaving the scene
+  isZoomed?: boolean
   isZoomingOut?: boolean
   onZoomComplete?: () => void
   onZoomOutComplete?: () => void
-  onClose?:    () => void
+  onClose?: () => void
 }
 
 // Pages fan downward into the folder body on open.
@@ -45,7 +45,7 @@ export function Page({
   onZoomOutComplete,
   onClose,
 }: PageProps) {
-  const ref      = useRef<HTMLDivElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
   const labelRef = useRef<HTMLDivElement>(null)
 
   const [caseStudyDetail, setCaseStudyDetail] = useState<(SanityCaseStudy & { sections: CaseStudySection[] }) | null>(null)
@@ -55,18 +55,18 @@ export function Page({
     if (isZoomed && !caseStudyDetail && !loading) {
       setLoading(true)
       getCaseStudySectionsAction(study.slug)
-      .then((res) => {
-        setCaseStudyDetail(res)
-        setLoading(false)
-      })
-      .catch((err) => {
-        console.error("Failed to load case study sections:", err)
-        setLoading(false)
-      })
+        .then((res) => {
+          setCaseStudyDetail(res)
+          setLoading(false)
+        })
+        .catch((err) => {
+          console.error("Failed to load case study sections:", err)
+          setLoading(false)
+        })
     }
   }, [isZoomed, study.slug, caseStudyDetail, loading])
 
-  const openY  = getOpenY(index, total)
+  const openY = getOpenY(index, total)
   const zIndex = isZoomed ? 99999 : total - index
   const fromFront = total - 1 - index
   const openScaleX = 1.0 + (total - 1 - fromFront) * 0.008
@@ -87,25 +87,25 @@ export function Page({
         onComplete: onZoomComplete
       })
       tl.set(ref.current, { zIndex: 99999 })
-      .to(ref.current, {
-        y: -240,
-        rotateX: -10,
-        duration: 0.35,
-        ease: "power2.out"
-      })
-      .to(ref.current, {
-        x: 0,
-        y: 0,
-        rotateX: 0,
-        scaleX: 1,
-        left: -276.5,
-        top: -157,
-        width: 1440,
-        height: 1024,
-        borderRadius: 0,
-        duration: 0.65,
-        ease: "power2.inOut"
-      })
+        .to(ref.current, {
+          y: -240,
+          rotateX: -10,
+          duration: 0.35,
+          ease: "power2.out"
+        })
+        .to(ref.current, {
+          x: 0,
+          y: 0,
+          rotateX: 0,
+          scaleX: 1,
+          left: -316.5,
+          top: -147,
+          width: 1600,
+          height: 1004,
+          borderRadius: 0,
+          duration: 0.65,
+          ease: "power2.inOut"
+        })
       return
     }
 
@@ -120,32 +120,32 @@ export function Page({
           onZoomOutComplete?.()
         }
       })
-      
+
       // Step 1: Shrink from fullscreen to fanned size elevated above folder
       tl.set(ref.current, { zIndex: 99999 })
-      .to(ref.current, {
-        x: 0,
-        y: -240, // elevated position above folder
-        rotateX: -10,
-        scaleX: openScaleX,
-        left: 26.61, // fanned left
-        top: pageTop,
-        width: 833.78, // fanned width
-        height: 450,
-        borderRadius: 14,
-        duration: 0.45,
-        ease: "power2.inOut"
-      })
-      // Step 2: Drop zIndex behind the open front cover (total - index < 10)
-      .set(ref.current, { zIndex: total - index })
-      // Step 3: Slide down from top into the open folder mouth
-      .to(ref.current, {
-        y: openY,
-        rotateX: -20,
-        duration: 0.4,
-        ease: "power2.in",
-        clearProps: "left,top,width,height,borderRadius,zIndex"
-      })
+        .to(ref.current, {
+          x: 0,
+          y: -240, // elevated position above folder
+          rotateX: -10,
+          scaleX: openScaleX,
+          left: 26.61, // fanned left
+          top: pageTop,
+          width: 833.78, // fanned width
+          height: 450,
+          borderRadius: 14,
+          duration: 0.45,
+          ease: "power2.inOut"
+        })
+        // Step 2: Drop zIndex behind the open front cover (total - index < 10)
+        .set(ref.current, { zIndex: total - index })
+        // Step 3: Slide down from top into the open folder mouth
+        .to(ref.current, {
+          y: openY,
+          rotateX: -20,
+          duration: 0.4,
+          ease: "power2.in",
+          clearProps: "left,top,width,height,borderRadius,zIndex"
+        })
       return
     }
 
@@ -153,21 +153,21 @@ export function Page({
     gsap.killTweensOf(ref.current)
     if (isOpen) {
       gsap.to(ref.current, {
-        y:        openY,
-        rotateX:  -20,
-        scaleX:   openScaleX,
+        y: openY,
+        rotateX: -20,
+        scaleX: openScaleX,
         duration: 0.4,
-        ease:     "power2.out",
-        delay:    (total - 1 - index) * 0.04,
+        ease: "power2.out",
+        delay: (total - 1 - index) * 0.04,
       })
     } else {
       gsap.to(ref.current, {
-        y:        0,
-        rotateX:  0,
-        scaleX:   1,
+        y: 0,
+        rotateX: 0,
+        scaleX: 1,
         duration: 0.35,
-        ease:     "power2.inOut",
-        delay:    index * 0.03,
+        ease: "power2.inOut",
+        delay: index * 0.03,
       })
     }
   }, [isOpen, isZoomed, isZoomingOut, index, openScaleX, openY, pageTop, total, onZoomComplete, onZoomOutComplete])
@@ -176,10 +176,10 @@ export function Page({
   useEffect(() => {
     if (!ref.current || !labelRef.current || isZoomed || isZoomingOut) return
     if (isOpen && isHovered) {
-      gsap.to(ref.current,      { y: openY - Math.min(280, maxLift), duration: 0.25, ease: "power2.out" })
+      gsap.to(ref.current, { y: openY - Math.min(280, maxLift), duration: 0.25, ease: "power2.out" })
       gsap.to(labelRef.current, { opacity: 1, y: 0, duration: 0.2, ease: "power2.out" })
     } else if (isOpen) {
-      gsap.to(ref.current,      { y: openY,       duration: 0.25, ease: "power2.out" })
+      gsap.to(ref.current, { y: openY, duration: 0.25, ease: "power2.out" })
       gsap.to(labelRef.current, { opacity: 0, y: 6, duration: 0.15 })
     }
   }, [isHovered, isOpen, isZoomed, isZoomingOut, maxLift, openY])
@@ -188,19 +188,19 @@ export function Page({
     <div
       ref={ref}
       style={{
-        position:     "absolute",
-        top:          pageTop,
-        left:         "3%",
-        right:        "3%",
-        height:       450,
+        position: "absolute",
+        top: pageTop,
+        left: "3.5%",
+        right: "3.5%",
+        height: 450,
         zIndex,
-        cursor:        "default",
+        cursor: "default",
         pointerEvents: isZoomed ? "auto" : "none",
         borderRadius: 14,
-        background:   isZoomed ? "#FCFEFF" : (study.cardImage ? "#18181A" : "#FCFEFF"),
-        boxShadow:    "0 -4px 16px rgba(0,0,0,0.12)",
-        willChange:   "transform, left, top, width, height",
-        overflow:     "hidden",
+        background: isZoomed ? "#FCFEFF" : (study.cardImage ? "#18181A" : "#FCFEFF"),
+        boxShadow: "0 -4px 16px rgba(0,0,0,0.12)",
+        willChange: "transform, left, top, width, height",
+        overflow: "hidden",
       }}
     >
       {isZoomed ? (
@@ -210,41 +210,18 @@ export function Page({
           className="absolute inset-0 flex flex-col bg-[#FCFEFF] text-[#000912] z-[100]"
           style={{ pointerEvents: "auto" }}
         >
-          {/* Header Bar */}
-          <div className="flex items-center justify-between px-10 py-6 border-b border-black/5 shrink-0 select-none">
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onClose?.()
-              }}
-              className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#666] hover:text-[#000912] transition-colors bg-transparent border-none cursor-pointer"
-            >
-              ← Back to work
-            </button>
-            <div className="text-right">
-              {study.year && (
-                <span className="text-[11px] tracking-widest uppercase text-[#888]">
-                  {study.year} · {study.tags}
-                </span>
-              )}
-              <h1 className="m-0 text-[20px] font-bold text-[#000912]">
-                {study.name}
-              </h1>
-            </div>
-          </div>
-
           {/* Scrollable Content Container */}
           <div
-            className="flex-1 overflow-y-auto px-10 py-8 min-h-0"
+            className="flex-1 overflow-y-auto px-6 md:px-8 py-8 min-h-0 w-full"
             style={{ overflowY: "auto" }}
           >
             {loading ? (
               <div className="w-full py-12">
-                <CaseStudyContent sections={[]} loading={true} />
+                <CaseStudyContent study={study} sections={[]} loading={true} onClose={onClose} />
               </div>
             ) : caseStudyDetail ? (
               <div className="w-full">
-                <CaseStudyContent sections={caseStudyDetail.sections} />
+                <CaseStudyContent study={study} sections={caseStudyDetail.sections} onClose={onClose} />
               </div>
             ) : (
               <div className="py-16 text-center text-[13px] text-[#999]">
@@ -261,11 +238,11 @@ export function Page({
               src={study.cardImage}
               alt={study.name}
               style={{
-                position:   "absolute",
-                inset:      0,
-                width:      "100%",
-                height:     "100%",
-                objectFit:  "cover",
+                position: "absolute",
+                inset: 0,
+                width: "100%",
+                height: "100%",
+                objectFit: "cover",
                 objectPosition: "center",
                 borderRadius: 14,
               }}
@@ -276,44 +253,44 @@ export function Page({
           <div
             ref={labelRef}
             style={{
-              opacity:       0,
-              transform:     "translateY(6px)",
-              position:      "absolute",
-              bottom:        "8%",
-              left:          "8%",
-              right:         "8%",
+              opacity: 0,
+              transform: "translateY(6px)",
+              position: "absolute",
+              bottom: "8%",
+              left: "8%",
+              right: "8%",
               pointerEvents: "none",
-              background:    study.cardImage ? "rgba(0,0,0,0.55)" : "transparent",
+              background: study.cardImage ? "rgba(0,0,0,0.55)" : "transparent",
               backdropFilter: study.cardImage ? "blur(6px)" : "none",
-              borderRadius:  study.cardImage ? 10 : 0,
-              padding:       study.cardImage ? "12px 16px" : 0,
+              borderRadius: study.cardImage ? 10 : 0,
+              padding: study.cardImage ? "12px 16px" : 0,
             }}
           >
             <p style={{
-              margin:        0,
-              marginBottom:  4,
-              fontSize:      11,
-              fontWeight:    600,
+              margin: 0,
+              marginBottom: 4,
+              fontSize: 11,
+              fontWeight: 600,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
-              color:         study.cardImage ? "#66BDFF" : "#66BDFF",
+              color: study.cardImage ? "#66BDFF" : "#66BDFF",
             }}>
               {study.year} · {study.tags}
             </p>
             <p style={{
-              margin:       0,
+              margin: 0,
               marginBottom: 8,
-              fontSize:     20,
-              fontWeight:   700,
-              color:        study.cardImage ? "#FFFFFF" : "#000912",
-              lineHeight:   1.2,
+              fontSize: 20,
+              fontWeight: 700,
+              color: study.cardImage ? "#FFFFFF" : "#000912",
+              lineHeight: 1.2,
             }}>
               {study.name}
             </p>
             <p style={{
-              margin:     0,
-              fontSize:   13,
-              color:      study.cardImage ? "rgba(255,255,255,0.75)" : "#555",
+              margin: 0,
+              fontSize: 13,
+              color: study.cardImage ? "rgba(255,255,255,0.75)" : "#555",
               lineHeight: 1.55,
             }}>
               {study.description}

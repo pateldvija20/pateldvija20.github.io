@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap');
 @import "tailwindcss";
 @import "tw-animate-css";
 
@@ -124,40 +125,6 @@ body {
   transition: background 0.25s ease-out;
 }
 
-html,
-body,
-*,
-*::before,
-*::after,
-a,
-button,
-[role="button"],
-input,
-textarea,
-.cursor-default,
-.cursor-pointer,
-.cursor-text,
-[style*="cursor: default"],
-[style*="cursor:default"],
-[style*="cursor: pointer"],
-[style*="cursor:pointer"],
-[style*="cursor: text"],
-[style*="cursor:text"] {
-  cursor: url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='12' height='12' rx='6' fill='%23000000'/%3E%3C/svg%3E") 6 6, auto !important;
-}
-
-[style*="cursor: grab"],
-[style*="cursor:grab"],
-.cursor-grab {
-  cursor: grab !important;
-}
-
-[style*="cursor: grabbing"],
-[style*="cursor:grabbing"],
-.cursor-grabbing {
-  cursor: grabbing !important;
-}
-
 h1,
 h2,
 h3,
@@ -171,11 +138,6 @@ h6 {
   * {
     @apply border-border outline-ring/50;
   }
-}
-
-.hide-cursor,
-.hide-cursor * {
-  cursor: none !important;
 }
 
 @media print {
