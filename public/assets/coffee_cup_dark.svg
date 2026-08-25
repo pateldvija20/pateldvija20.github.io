@@ -1,0 +1,23 @@
+<svg width="279" height="283" viewBox="0 0 279 283" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<g id="Component">
+<g id="coffee_cup">
+<g id="Property 1=coffee_cup_dark">
+<circle id="Ellipse 51" cx="127.877" cy="154.198" r="127.877" fill="url(#pattern0_0_1)"/>
+<path id="Ellipse 42" d="M142.448 1C217.21 1.00013 277.818 61.6075 277.818 136.37C277.817 211.133 217.21 271.74 142.448 271.74C67.6849 271.74 7.07752 211.133 7.07739 136.37C7.07739 61.6074 67.6848 1 142.448 1Z" fill="#2F2F2F" stroke="#FDFEFF" stroke-width="2"/>
+<path id="Ellipse 43" d="M259.7 136.372C265.264 136.372 269.815 140.889 269.376 146.436C268.755 154.266 267.411 162.022 265.361 169.605C263.908 174.976 258.102 177.698 252.862 175.826C247.623 173.954 244.943 168.196 246.315 162.804C247.683 157.428 248.631 151.954 249.152 146.431C249.674 140.892 254.136 136.372 259.7 136.372Z" fill="#FDFEFF"/>
+<path id="Ellipse 44" d="M30.7935 58.0744C42.8065 40.9432 58.6003 26.8061 76.9526 16.7572C95.3049 6.70828 115.723 1.01712 136.628 0.124229C157.532 -0.768666 178.361 3.16064 197.504 11.608C216.646 20.0554 233.588 32.7943 247.018 48.8387L208.982 80.6765C200.437 70.4679 189.658 62.3625 177.478 56.9877C165.298 51.6129 152.045 49.1128 138.744 49.6809C125.444 50.2491 112.452 53.8702 100.775 60.264C89.098 66.6578 79.0489 75.6528 71.4054 86.5528L30.7935 58.0744Z" fill="#FDFEFF"/>
+<circle id="Ellipse 41" cx="142.446" cy="136.369" r="99.9589" fill="#2F2F2F" stroke="#FDFEFF" stroke-width="2"/>
+<circle id="Ellipse 46" cx="142.188" cy="136.507" r="80.3699" stroke="#FDFEFF" stroke-width="2"/>
+</g>
+</g>
+</g>
+<defs>
+<pattern id="pattern0_0_1" patternUnits="userSpaceOnUse" patternTransform="matrix(3.294 0 0 6.588 0 26.321)" preserveAspectRatio="none" viewBox="0 0 329.4 658.8" width="1" height="1">
+<use xlink:href="#pattern0_0_1_inner" transform="translate(-329.4 0)"/>
+<g id="pattern0_0_1_inner">
+<circle id="Ellipse 193" cx="91.5" cy="91.5" r="91.5" fill="#FDFEFF"/>
+</g>
+<use xlink:href="#pattern0_0_1_inner" transform="translate(-164.7 329.4)"/>
+<use xlink:href="#pattern0_0_1_inner" transform="translate(164.7 329.4)"/>
+</pattern></defs>
+</svg>

@@ -1,0 +1,13 @@
+<svg width="3044" height="1093" viewBox="0 0 3044 1093" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<rect id="desk-base" width="3044" height="1093" rx="35.3243" fill="#2f2f2f"/>
+<rect width="3044" height="1093" rx="35.3243" fill="url(#pattern0_63_1175)"/>
+<defs>
+<pattern id="pattern0_63_1175" patternUnits="userSpaceOnUse" patternTransform="matrix(3.66 0 0 7.32 0 0)" preserveAspectRatio="none" viewBox="0 0 366 732" width="1" height="1">
+<use xlink:href="#pattern0_63_1175_inner" transform="translate(-366 0)"/>
+<g id="pattern0_63_1175_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#FDFEFF"/>
+</g>
+<use xlink:href="#pattern0_63_1175_inner" transform="translate(-183 366)"/>
+<use xlink:href="#pattern0_63_1175_inner" transform="translate(183 366)"/>
+</pattern></defs>
+</svg>

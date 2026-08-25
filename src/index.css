@@ -1,0 +1,43 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:ital,wght@1,500&family=Roboto+Slab:wght@500&display=swap');
+@import 'tailwindcss';
+
+:root {
+  --paper: #fdfeff;
+  --ink: #2f2f2f;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+/* min-height (not height) so the page can grow past the viewport and scroll
+   down to the footer once the Scattered canvas reaches its bottom edge. */
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Scrollable without visible bars — the Scattered canvas scrolls in both
+   axes, and real scrollbars would cut across the desk illustration. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Halftone grey desk texture used by the light footer */
+.halftone {
+  background-color: #e9e9ea;
+  background-image: radial-gradient(rgba(47, 47, 47, 0.32) 1.1px, transparent 1.2px);
+  background-size: 6px 6px;
+}

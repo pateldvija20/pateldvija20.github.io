@@ -1,0 +1,102 @@
+<svg width="911" height="911" viewBox="0 0 911 911" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+<rect x="1" y="1" width="908.277" height="908.562" rx="33.7019" fill="#FDFEFF"/>
+<rect x="1" y="1" width="908.277" height="908.562" rx="33.7019" stroke="#2F2F2F" stroke-width="2"/>
+<rect x="34" y="34" width="55.5231" height="842.562" rx="27.7615" fill="url(#pattern0_161_779)"/>
+<rect x="105.523" y="34" width="55.5231" height="842.562" rx="27.7615" fill="url(#pattern1_161_779)"/>
+<rect x="177.046" y="34" width="55.5231" height="842.562" rx="27.7615" fill="url(#pattern2_161_779)"/>
+<rect x="248.569" y="34" width="55.5231" height="842.562" rx="27.7615" fill="url(#pattern3_161_779)"/>
+<rect x="320.092" y="34" width="55.5231" height="842.562" rx="27.7615" fill="url(#pattern4_161_779)"/>
+<rect x="391.615" y="34" width="55.5231" height="842.562" rx="27.7615" fill="url(#pattern5_161_779)"/>
+<rect x="463.138" y="34" width="55.5231" height="842.562" rx="27.7615" fill="url(#pattern6_161_779)"/>
+<rect x="534.661" y="34" width="55.5231" height="842.562" rx="27.7615" fill="url(#pattern7_161_779)"/>
+<rect x="606.185" y="34" width="55.5231" height="842.562" rx="27.7615" fill="url(#pattern8_161_779)"/>
+<rect x="677.708" y="34" width="55.5231" height="842.562" rx="27.7615" fill="url(#pattern9_161_779)"/>
+<rect x="749.231" y="34" width="55.5231" height="842.562" rx="27.7615" fill="url(#pattern10_161_779)"/>
+<rect x="820.754" y="34" width="55.5231" height="842.562" rx="27.7615" fill="url(#pattern11_161_779)"/>
+<defs>
+<pattern id="pattern0_161_779" patternUnits="userSpaceOnUse" patternTransform="matrix(4.026 0 0 8.052 34 34)" preserveAspectRatio="none" viewBox="0 0 402.6 805.2" width="1" height="1">
+<use xlink:href="#pattern0_161_779_inner" transform="translate(-402.6 0)"/>
+<g id="pattern0_161_779_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#2F2F2F"/>
+</g>
+<use xlink:href="#pattern0_161_779_inner" transform="translate(-201.3 402.6)"/>
+<use xlink:href="#pattern0_161_779_inner" transform="translate(201.3 402.6)"/>
+</pattern><pattern id="pattern1_161_779" patternUnits="userSpaceOnUse" patternTransform="matrix(4.026 0 0 8.052 105.523 34)" preserveAspectRatio="none" viewBox="0 0 402.6 805.2" width="1" height="1">
+<use xlink:href="#pattern1_161_779_inner" transform="translate(-402.6 0)"/>
+<g id="pattern1_161_779_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#2F2F2F"/>
+</g>
+<use xlink:href="#pattern1_161_779_inner" transform="translate(-201.3 402.6)"/>
+<use xlink:href="#pattern1_161_779_inner" transform="translate(201.3 402.6)"/>
+</pattern><pattern id="pattern2_161_779" patternUnits="userSpaceOnUse" patternTransform="matrix(4.026 0 0 8.052 177.046 34)" preserveAspectRatio="none" viewBox="0 0 402.6 805.2" width="1" height="1">
+<use xlink:href="#pattern2_161_779_inner" transform="translate(-402.6 0)"/>
+<g id="pattern2_161_779_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#2F2F2F"/>
+</g>
+<use xlink:href="#pattern2_161_779_inner" transform="translate(-201.3 402.6)"/>
+<use xlink:href="#pattern2_161_779_inner" transform="translate(201.3 402.6)"/>
+</pattern><pattern id="pattern3_161_779" patternUnits="userSpaceOnUse" patternTransform="matrix(4.026 0 0 8.052 248.569 34)" preserveAspectRatio="none" viewBox="0 0 402.6 805.2" width="1" height="1">
+<use xlink:href="#pattern3_161_779_inner" transform="translate(-402.6 0)"/>
+<g id="pattern3_161_779_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#2F2F2F"/>
+</g>
+<use xlink:href="#pattern3_161_779_inner" transform="translate(-201.3 402.6)"/>
+<use xlink:href="#pattern3_161_779_inner" transform="translate(201.3 402.6)"/>
+</pattern><pattern id="pattern4_161_779" patternUnits="userSpaceOnUse" patternTransform="matrix(4.026 0 0 8.052 320.092 34)" preserveAspectRatio="none" viewBox="0 0 402.6 805.2" width="1" height="1">
+<use xlink:href="#pattern4_161_779_inner" transform="translate(-402.6 0)"/>
+<g id="pattern4_161_779_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#2F2F2F"/>
+</g>
+<use xlink:href="#pattern4_161_779_inner" transform="translate(-201.3 402.6)"/>
+<use xlink:href="#pattern4_161_779_inner" transform="translate(201.3 402.6)"/>
+</pattern><pattern id="pattern5_161_779" patternUnits="userSpaceOnUse" patternTransform="matrix(4.026 0 0 8.052 391.615 34)" preserveAspectRatio="none" viewBox="0 0 402.6 805.2" width="1" height="1">
+<use xlink:href="#pattern5_161_779_inner" transform="translate(-402.6 0)"/>
+<g id="pattern5_161_779_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#2F2F2F"/>
+</g>
+<use xlink:href="#pattern5_161_779_inner" transform="translate(-201.3 402.6)"/>
+<use xlink:href="#pattern5_161_779_inner" transform="translate(201.3 402.6)"/>
+</pattern><pattern id="pattern6_161_779" patternUnits="userSpaceOnUse" patternTransform="matrix(4.026 0 0 8.052 463.138 34)" preserveAspectRatio="none" viewBox="0 0 402.6 805.2" width="1" height="1">
+<use xlink:href="#pattern6_161_779_inner" transform="translate(-402.6 0)"/>
+<g id="pattern6_161_779_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#2F2F2F"/>
+</g>
+<use xlink:href="#pattern6_161_779_inner" transform="translate(-201.3 402.6)"/>
+<use xlink:href="#pattern6_161_779_inner" transform="translate(201.3 402.6)"/>
+</pattern><pattern id="pattern7_161_779" patternUnits="userSpaceOnUse" patternTransform="matrix(4.026 0 0 8.052 534.661 34)" preserveAspectRatio="none" viewBox="0 0 402.6 805.2" width="1" height="1">
+<use xlink:href="#pattern7_161_779_inner" transform="translate(-402.6 0)"/>
+<g id="pattern7_161_779_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#2F2F2F"/>
+</g>
+<use xlink:href="#pattern7_161_779_inner" transform="translate(-201.3 402.6)"/>
+<use xlink:href="#pattern7_161_779_inner" transform="translate(201.3 402.6)"/>
+</pattern><pattern id="pattern8_161_779" patternUnits="userSpaceOnUse" patternTransform="matrix(4.026 0 0 8.052 606.185 34)" preserveAspectRatio="none" viewBox="0 0 402.6 805.2" width="1" height="1">
+<use xlink:href="#pattern8_161_779_inner" transform="translate(-402.6 0)"/>
+<g id="pattern8_161_779_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#2F2F2F"/>
+</g>
+<use xlink:href="#pattern8_161_779_inner" transform="translate(-201.3 402.6)"/>
+<use xlink:href="#pattern8_161_779_inner" transform="translate(201.3 402.6)"/>
+</pattern><pattern id="pattern9_161_779" patternUnits="userSpaceOnUse" patternTransform="matrix(4.026 0 0 8.052 677.708 34)" preserveAspectRatio="none" viewBox="0 0 402.6 805.2" width="1" height="1">
+<use xlink:href="#pattern9_161_779_inner" transform="translate(-402.6 0)"/>
+<g id="pattern9_161_779_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#2F2F2F"/>
+</g>
+<use xlink:href="#pattern9_161_779_inner" transform="translate(-201.3 402.6)"/>
+<use xlink:href="#pattern9_161_779_inner" transform="translate(201.3 402.6)"/>
+</pattern><pattern id="pattern10_161_779" patternUnits="userSpaceOnUse" patternTransform="matrix(4.026 0 0 8.052 749.231 34)" preserveAspectRatio="none" viewBox="0 0 402.6 805.2" width="1" height="1">
+<use xlink:href="#pattern10_161_779_inner" transform="translate(-402.6 0)"/>
+<g id="pattern10_161_779_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#2F2F2F"/>
+</g>
+<use xlink:href="#pattern10_161_779_inner" transform="translate(-201.3 402.6)"/>
+<use xlink:href="#pattern10_161_779_inner" transform="translate(201.3 402.6)"/>
+</pattern><pattern id="pattern11_161_779" patternUnits="userSpaceOnUse" patternTransform="matrix(4.026 0 0 8.052 820.754 34)" preserveAspectRatio="none" viewBox="0 0 402.6 805.2" width="1" height="1">
+<use xlink:href="#pattern11_161_779_inner" transform="translate(-402.6 0)"/>
+<g id="pattern11_161_779_inner">
+<circle cx="91.5" cy="91.5" r="91.5" fill="#2F2F2F"/>
+</g>
+<use xlink:href="#pattern11_161_779_inner" transform="translate(-201.3 402.6)"/>
+<use xlink:href="#pattern11_161_779_inner" transform="translate(201.3 402.6)"/>
+</pattern></defs>
+</svg>
