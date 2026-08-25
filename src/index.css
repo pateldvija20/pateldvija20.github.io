@@ -1,5 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:ital,wght@1,500&family=Roboto+Slab:wght@500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:ital,wght@0,500;1,500&family=Roboto+Slab:wght@400;500&display=swap');
 @import 'tailwindcss';
+
+/* DM Mono ships both faces on purpose: the import used to fetch only the
+   italic (ital@1), so anything asking for 'DM Mono' came out slanted whether
+   it wanted to or not — the case-study section nav was italic for that reason
+   alone, not by choice. Roman (0,500) is the default; italic stays available
+   for anything that actually asks for it. */
 
 :root {
   --paper: #fdfeff;

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import type { Project } from "./projects";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { cardImage, type Project } from "./projects";
 import type { Theme } from "./Piece";
 
 /**
@@ -20,18 +20,45 @@ import type { Theme } from "./Piece";
  * scroll-spy highlight instead.
  */
 
-/** Figma's `Container`, inset 4px inside the 1649x1037 sheet. */
-const SIDEBAR_W = 253;
-const BODY_W = 1147;
-/** The body column's inset inside `Main Content`. */
-const BODY_PAD_X = 120;
-const BODY_PAD_TOP = 100;
+/**
+ * Layout read straight off `MacBook Pro 14" - 1` (322:11690), a 1512x982
+ * frame. Everything below is that file's own number rather than a rounded
+ * approximation, so the odd decimals are deliberate.
+ */
+/** `Sidebar` 67:13037, and the inset its `Sections Container` sits at. */
+const SIDEBAR_W = 207.012;
+const SIDEBAR_PAD = 48.506;
+/** `Section Link` 67:13042 — padding, the gap between links, and the accent
+ *  bar the active one carries. */
+const RAIL_PY = 11.082;
+const RAIL_GAP = 11.082;
+const RAIL_FONT = 16.622;
+const RAIL_BAR = 2.77;
+/** `Project Header` 67:13060 inside `Main Content` 67:13056. */
+const BODY_PAD_X = 110.816;
+const BODY_W = 1079.536;
+/** Hero bottom to the header — `Frame 48096010`'s own top padding. */
+const BODY_PAD_TOP = 92.347;
+/** Header/section to the next block: 274.082 - 200.204, and 591.398 - 517.520. */
+const SECTION_GAP = 73.878;
+/** `2ae66f10…-1920x1080` 67:13059 — 1301.168 x 731.907, i.e. 16:9. */
+const HERO_ASPECT = 731.907 / 1301.168;
+/** Type scale, all DM Mono Medium / DM Sans / Roboto Slab Regular. */
+const META_FONT = 18.469;
+const META_GAP = 28.628;
+const META_PY = 7.388;
+const TITLE_FONT = 44.327;
+const TITLE_TRACK = 0.8865;
 
 export type CaseStudySection = {
   /** Rail label, and the scroll target's id. */
   id: string;
   title: string;
   children?: React.ReactNode;
+  /** Renders no heading above the body — the section styles its own. */
+  hideTitle?: boolean;
+  /** Omitted from the section rail while still rendering in the body. */
+  inRail?: boolean;
 };
 
 /** The rail Greenera ships with; a project can pass its own. */
@@ -47,20 +74,35 @@ export const DEFAULT_SECTIONS: CaseStudySection[] = [
   { id: "reflection", title: "Reflection" },
 ];
 
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+
 export function CaseStudy({
   project,
   theme,
   sections = DEFAULT_SECTIONS,
+  chrome = 1,
 }: {
   project: Project;
   theme: Theme;
   sections?: CaseStudySection[];
+  /**
+   * How much of the page's furniture is unfolded, 0..1. At 0 the hero fills
+   * the card exactly and everything else is collapsed or below the fold, so
+   * the page *is* the thumbnail; at 1 it is the full case study.
+   *
+   * This is what lets the expand read as one continuous object: the hero is
+   * never faded or swapped — it is the same element throughout, and the rail
+   * and body simply open out around it.
+   */
+  chrome?: number;
 }) {
+  // Light values are the Figma file's own (#18191a ink, #7c838b muted,
+  // #e3e5e8 rules, #0059ff accent); dark mirrors them against the desk's ink.
   const face = theme === "light" ? "#fdfeff" : "#2f2f2f";
-  const ink = theme === "light" ? "#2f2f2f" : "#fdfeff";
-  const muted = theme === "light" ? "#2f2f2f99" : "#fdfeff99";
-  const divider = theme === "light" ? "#2f2f2f14" : "#fdfeff14";
-  const accent = "#2563eb";
+  const ink = theme === "light" ? "#18191a" : "#fdfeff";
+  const muted = theme === "light" ? "#7c838b" : "#fdfeff99";
+  const divider = theme === "light" ? "#e3e5e8" : "#fdfeff14";
+  const accent = "#0059ff";
 
   // Scroll-spy: whichever section the reader is in lights up on the rail.
   // A rail click pins its section for the duration of the smooth scroll —
@@ -109,19 +151,69 @@ export function CaseStudy({
     };
   }, [project.slug, sections]);
 
+  /**
+   * The body's live box, and the hero's own aspect. Together these give the
+   * two heights the hero interpolates between — filling the card, and its
+   * natural block height — and a ResizeObserver keeps the first honest while
+   * the page is still growing underneath it.
+   */
+  const [box, setBox] = useState({ w: 0, h: 0 });
+  const [heroAspect, setHeroAspect] = useState(0);
+  useLayoutEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) =>
+      setBox({ w: e.contentRect.width, h: e.contentRect.height }),
+    );
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (chrome >= 0.999) return;
+    const el = bodyRef.current;
+    if (el && el.scrollTop !== 0) el.scrollTop = 0;
+  }, [chrome]);
+
+  const heroSrc = cardImage(project);
+  // The file crops the hero to 16:9 (1301.168 x 731.907) rather than letting
+  // the asset's own proportions decide, so the header always lands in the
+  // same place. `heroAspect` is still measured — it is the fallback for an
+  // image that has not loaded yet.
+  const heroH =
+    box.w && box.h
+      ? lerp(box.h, box.w * (HERO_ASPECT || heroAspect), chrome)
+      : undefined;
+
   return (
     <div className="flex h-full w-full" style={{ background: face, color: ink }}>
       {/* Section rail. A fixed column, outside the scroll — only the body
           column moves, exactly as authored in the Figma file. */}
       <nav
-        className="hidden shrink-0 flex-col justify-center gap-[12px] px-[40px] lg:flex"
-        style={{ width: SIDEBAR_W, borderRight: `1px solid ${divider}` }}
+        className="hidden shrink-0 flex-col overflow-hidden lg:flex"
+        style={{
+          // Folds out of nothing rather than fading in: at chrome 0 it has no
+          // width at all, so the hero genuinely owns the whole card.
+          width: SIDEBAR_W * chrome,
+          opacity: chrome,
+          borderRight: chrome > 0.02 ? `1px solid ${divider}` : "none",
+          // The file bottom-anchors the list rather than centring it: the
+          // container sits at y 557.861 in a 982-tall sidebar, which is
+          // exactly 982 - 375.633 - 48.506. Same inset on the left.
+          justifyContent: "flex-end",
+          gap: RAIL_GAP,
+          paddingLeft: SIDEBAR_PAD * chrome,
+          paddingRight: SIDEBAR_PAD * chrome,
+          paddingBottom: SIDEBAR_PAD,
+        }}
+        aria-hidden={chrome < 0.5}
         aria-label={`${project.name} sections`}
       >
-        {sections.map((s) => (
-          <a
-            key={s.id}
-            href={`#${project.slug}-${s.id}`}
+        {sections.map((s) =>
+          s.inRail === false ? null : (
+            <a
+              key={s.id}
+              href={`#${project.slug}-${s.id}`}
             onClick={(e) => {
               // Native anchor navigation scrolls every scrollable ancestor,
               // which pans the whole desk page. Scroll only the body column.
@@ -139,14 +231,20 @@ export function CaseStudy({
                 40;
               el.scrollTo({ top, behavior: "smooth" });
             }}
-            className="whitespace-nowrap py-[12px] text-[14px] uppercase transition-colors duration-200"
+            className="whitespace-nowrap uppercase transition-colors duration-200"
             style={{
-              color: active === s.id ? accent : ink,
-              opacity: active === s.id ? 1 : 0.55,
-              borderLeft: `3px solid ${active === s.id ? accent : "transparent"}`,
-              paddingLeft: 14,
+              // Only the active link carries the bar and the indent — the
+              // rest sit flush at the rail's own inset, so the current
+              // section steps out of the column rather than merely
+              // recolouring. That step is the design (67:13042 vs 67:13044),
+              // not an oversight.
+              color: active === s.id ? accent : muted,
+              borderLeft: active === s.id ? `${RAIL_BAR}px solid ${accent}` : "none",
+              paddingLeft: active === s.id ? RAIL_PY : 0,
+              paddingBlock: RAIL_PY,
               fontFamily: "'DM Mono', monospace",
-              letterSpacing: "0.04em",
+              fontWeight: 500,
+              fontSize: RAIL_FONT,
             }}
           >
             {s.title}
@@ -155,20 +253,77 @@ export function CaseStudy({
       </nav>
 
       {/* Body column — the only part that scrolls. */}
-      <div ref={bodyRef} className="min-w-px flex-1 overflow-y-auto" data-no-track-drag>
+      <div
+        ref={bodyRef}
+        className="min-w-px flex-1"
+        data-no-track-drag
+        style={{
+          // Locked while the page is still unfolding, so the body cannot be
+          // scrolled away from the hero mid-move.
+          overflowY: chrome > 0.99 ? "auto" : "hidden",
+        }}
+      >
+        {/* Full-width art above the header, per the Figma layout, and the
+            rail's Intro scroll target. This is the same image the folder
+            sheet shows — at chrome 0 it fills the card exactly, so expanding
+            unfolds the page around it instead of replacing it. */}
         <div
-          className="mx-auto"
-          style={{ maxWidth: BODY_W, paddingInline: BODY_PAD_X, paddingTop: BODY_PAD_TOP, paddingBottom: 120 }}
+          id={`${project.slug}-intro`}
+          style={{ height: heroH, overflow: "hidden" }}
         >
-          <header style={{ marginBottom: 80 }}>
-            <div className="flex items-center gap-[31px] text-[16px]" style={{ color: muted }}>
+          <img
+            src={heroSrc}
+            alt=""
+            draggable={false}
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              if (img.naturalWidth) setHeroAspect(img.naturalHeight / img.naturalWidth);
+            }}
+            className="block h-full w-full select-none object-cover"
+          />
+        </div>
+        <div
+          style={{
+            // Left-aligned at `Project Header`'s own x (110.816) with a fixed
+            // 1079.536 measure — NOT centred. `mx-auto` drifted the column
+            // toward the middle as the page widened, which is why the header
+            // never lined up with the rail.
+            maxWidth: BODY_W + BODY_PAD_X * 2,
+            paddingInline: BODY_PAD_X,
+            // Folds away with everything else, so at chrome 0 the hero is
+            // flush against the card's edges with nothing showing beneath it.
+            paddingTop: BODY_PAD_TOP * chrome,
+            paddingBottom: 120,
+          }}
+        >
+          <header style={{ marginBottom: SECTION_GAP }}>
+            <div
+              className="flex items-start uppercase"
+              style={{
+                color: muted,
+                gap: META_GAP,
+                fontFamily: "'DM Mono', monospace",
+                fontWeight: 500,
+                fontSize: META_FONT,
+                paddingBlock: META_PY,
+              }}
+            >
               <span>{project.name}</span>
               {project.type ? <span>{project.type}</span> : null}
               {project.year ? <span>{project.year}</span> : null}
             </div>
+            {/* No `capitalize`: the file sets this in sentence case
+                ("…Identity for Hackathons"), and the utility was forcing a
+                capital F onto the preposition. */}
             <h1
-              className="font-['Roboto_Slab'] font-medium capitalize"
-              style={{ marginTop: 54 - 42, fontSize: 56, lineHeight: 1.125 }}
+              className="font-['Roboto_Slab'] font-normal"
+              style={{
+                marginTop: RAIL_GAP,
+                fontSize: TITLE_FONT,
+                letterSpacing: TITLE_TRACK,
+                lineHeight: "normal",
+                maxWidth: 934.551,
+              }}
             >
               {project.title ?? project.name}
             </h1>
@@ -178,12 +333,26 @@ export function CaseStudy({
             <section
               key={s.id}
               id={`${project.slug}-${s.id}`}
-              style={{ scrollMarginTop: 40, marginBottom: 80 }}
+              style={{ scrollMarginTop: 40, marginBottom: SECTION_GAP }}
             >
-              <h2 className="text-[24px] font-semibold" style={{ marginBottom: 24 }}>
-                {s.title}
-              </h2>
-              {s.children ?? (
+              {s.hideTitle ? null : (
+                <h2
+                  className="uppercase"
+                  style={{
+                    fontFamily: "'DM Mono', monospace",
+                    fontWeight: 500,
+                    fontSize: META_FONT,
+                    color: muted,
+                    paddingBlock: META_PY,
+                    marginBottom: RAIL_GAP,
+                  }}
+                >
+                  {s.title}
+                </h2>
+              )}
+              {s.children !== undefined ? (
+                s.children
+              ) : (
                 // Placeholder until this project's content is designed. Sized
                 // off Greenera's blocks so the scroll length is representative.
                 <div

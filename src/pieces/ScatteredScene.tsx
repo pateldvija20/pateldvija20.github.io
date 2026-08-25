@@ -68,14 +68,14 @@ export function ScatteredScene({
         <DeskMat theme={theme} className="h-[1093px] w-[3044px]" />
       </div>
 
-      <div className="absolute left-[2789px] top-[2259px] z-[1]">
+      <div className="absolute left-[3019.78px] top-[2132.71px] z-[1]">
         {drag(
           <div className="rotate-[-72.02deg]">
             <Pencil color="black" theme={theme} className={LOOSE_PENCIL} />
           </div>,
         )}
       </div>
-      <div className="absolute left-[3233px] top-[1398px] z-[1]">
+      <div className="absolute left-[3022.64px] top-[1357.44px] z-[1]">
         {drag(<Pencil color="darkgreen" theme={theme} className={LOOSE_PENCIL} />)}
       </div>
 
@@ -147,14 +147,14 @@ export function ScatteredScene({
         {drag(<Sticker n={3} className="h-[169.02px] w-[191.17px]" />)}
       </div>
 
-      <div className="absolute left-[3367px] top-[1321px] z-[1]">
+      <div className="absolute left-[3522.75px] top-[872.26px] z-[1]">
         {drag(
           <div className="rotate-[-94.89deg]">
             <Pencil color="darkblue" theme={theme} className={LOOSE_PENCIL} />
           </div>,
         )}
       </div>
-      <div className="absolute left-[3027px] top-[1446px] z-[1]">
+      <div className="absolute left-[2750.61px] top-[1450.24px] z-[1]">
         {drag(
           <div className="rotate-[9.85deg]">
             <Pencil color="yellow" theme={theme} className={LOOSE_PENCIL} />

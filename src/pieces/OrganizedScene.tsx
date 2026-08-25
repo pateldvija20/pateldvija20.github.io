@@ -242,7 +242,10 @@ const DESK_PENCILS = {
   box: { left: 1068.4, top: 933.4, w: 726, h: 726.2, deg: -20.02 },
   loose: [
     { color: "cyan", left: 1955.0, top: 831.0, deg: -23.64 },
-    { color: "purple", left: 1134.6, top: 523.7, deg: -27.52 },
+    // Moved off the mat stand to the clear desk on the left; laid near
+    // horizontal because that strip is only ~200 units tall and a 656-long
+    // pencil at the old -27.52 would have run off the desk's bottom edge.
+    { color: "purple", left: 313, top: 619, deg: -75 },
     { color: "yellow", left: 932.0, top: 818.0, deg: 0 },
   ] as const,
 };

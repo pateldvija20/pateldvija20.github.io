@@ -16,6 +16,8 @@ export type Project = {
   type?: string;
   year?: string;
   title?: string;
+  /** Full-width art shown above the header (Figma `Project Main Image`). */
+  hero?: string;
 };
 
 export const PROJECTS: Project[] = [
@@ -48,5 +50,18 @@ export const PROJECTS: Project[] = [
     slug: "hacksvit",
     name: "HackSVIT",
     thumb: "/assets/projects/hacksvit.png",
+    type: "Brand Design",
+    year: "2022",
+    title: "Designing Visual Identity for Hackathons",
+    hero: "/assets/projects/hacksvit/hero.png",
   },
 ];
+
+/**
+ * The image a project shows on its folder sheet and on the card that pulls
+ * out of it. This is deliberately the case study's own hero when there is one:
+ * the expanded page collapses back into that card, so if the two carried
+ * different pictures the shrink ended on a cut. Projects without a hero yet
+ * fall back to their standalone thumbnail.
+ */
+export const cardImage = (p: Project) => p.hero ?? p.thumb;

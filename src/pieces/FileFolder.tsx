@@ -1,11 +1,13 @@
 import gsap from "gsap";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { SvgPiece, type Theme } from "./Piece";
 import { useIsTouch } from "./useIsTouch";
 import { useElementScale } from "./useElementScale";
 import { useCenterOnPiece } from "./ScatteredFocus";
-import { PROJECTS } from "./projects";
+import { PROJECTS, cardImage, type Project } from "./projects";
 import { CaseStudy } from "./CaseStudy";
+import { HACKSVIT_SECTIONS } from "./hacksvit";
 
 /**
  * The case-studies folder.
@@ -69,6 +71,20 @@ const STEP = 0.3;
 const EASE = "power1.out";
 const HOVER_DUR = 0.25;
 const OPEN_DUR = 0.55;
+/** Growing to, and shrinking back from, the viewport page. */
+const EXPAND_DUR = 0.55;
+/**
+ * Opening decelerates into place — it starts moving at once and settles, which
+ * is what makes it feel like it was already on its way. Closing eases at both
+ * ends instead: it has somewhere specific to land, so it gathers itself before
+ * it goes and softens as it arrives. `power2` rather than `power3` on both —
+ * the same shapes, just less abrupt at the fast end.
+ */
+const EXPAND_EASE = "power2.out";
+const SHRINK_EASE = "power2.inOut";
+/** Swapping the page between its thumbnail and the case study. Kept shorter
+ *  than the box move so the picture has settled before the page stops. */
+const CROSSFADE = 0.3;
 const HOVER_EASE = "power2.out";
 const OPEN_EASE = "power3.out";
 
@@ -86,7 +102,8 @@ const OPEN_EASE = "power3.out";
  */
 
 /** Map overall openness onto one property's own slice of the transition. */
-const seg = (t: number, a: number, b: number) => Math.min(Math.max((t - a) / (b - a), 0), 1);
+const seg = (t: number, a: number, b: number) =>
+  Math.min(Math.max((t - a) / (b - a), 0), 1);
 const lerp = (a: number, b: number, u: number) => a + (b - a) * u;
 
 /**
@@ -118,15 +135,12 @@ const CLOSED_SHEETS = [
  */
 const SHEET_BORDER = 3.44761;
 /**
- * A sheet's full card height at its column's width — the closed export's
- * own aspect ratio. Stacked sheets keep this full height and run down into
- * the pocket, where the front flap's curved edge carves them off exactly as
- * in the Figma file. (The export's visible rects stop at the pocket line;
- * clipping the stack there instead is what made the front card read as a
- * cut-out rectangle floating above the flap.) Only the strip above the flap
- * is ever visible.
+ * A stacked sheet is 461.12 tall and its rounded bottom tucks just behind the
+ * pocket flap, which starts at y=454 — so only a ~55px lip of each sheet ever
+ * sits below the flap line. Every number below is read off the variants in
+ * `Main Container` (251:9961) rather than derived.
  */
-const liftHeight = (w: number) => (CLOSED_SHEET_H * w) / CLOSED_SHEET_W;
+const SHEET_H = 461.1196958160217;
 const SHEETS = [
   { left: 99.998, top: 48, width: 1200.3 + SHEET_BORDER },
   { left: 94.998, top: 118, width: 1210.3 + SHEET_BORDER },
@@ -134,25 +148,63 @@ const SHEETS = [
   { left: 84.998, top: 258, width: 1230.3 + SHEET_BORDER },
   { left: 79.998, top: 328, width: 1240.3 + SHEET_BORDER },
   { left: 74.998, top: 388, width: 1250.3 + SHEET_BORDER },
-].map((r) => ({ ...r, height: liftHeight(r.width) }));
+].map((r) => ({ ...r, height: SHEET_H }));
 
 /**
- * Hovering a sheet raises it out of the stack (14786…14787). Only the strip
- * above the pocket flap — y 0..455 — is ever visible, so the lift has to move
- * the sheet *up*: growing it downward from a pinned bottom edge, as this used
- * to, changes nothing you can see.
- *
- * So a lifted sheet keeps its column and grows to its full card height, with
- * its top pulled to a common line just above the stack. The widest sheet then
- * measures 869 tall — which is where Figma's own 868.3 lift height comes from,
- * and what confirms the reading.
+ * A raised sheet is always this tall, whatever its column's width — it is the
+ * same figure the pulled card uses, which is what makes the hover pose and the
+ * pull pose one continuous move rather than two sizes.
  */
-const LIFT_TOP = 20;
-const LIFTED = SHEETS.map((s) => ({
+const LIFT_H = 868.305653353018;
+
+/**
+ * Hovering a sheet raises it out of the stack (14786…14787). Each variant's
+ * frame grows upward by exactly how far its sheet rises above the folder, so
+ * the tops read straight off those frame heights (962.4, 1028.4, 1088.4,
+ * 1158.4, 1228.4, 1278.4 against the 944.4 at rest) as negative stage y.
+ *
+ * The travel is NOT uniform and the sheet does not keep its box: it grows from
+ * 461.12 to 868.31 as it rises. An earlier build moved every sheet the same
+ * distance at a fixed height, which is why the fan never opened evenly.
+ */
+const HOVERED = SHEETS.map((s, i) => ({
   left: s.left,
   width: s.width,
-  top: LIFT_TOP,
-  height: s.height,
+  top: [-334, -284, -214, -144, -84, -18][i],
+  height: LIFT_H,
+}));
+
+/**
+ * Clicking a sheet pulls its card clear of the folder (14792…14797) and then
+ * lets it settle back down on top of the folder (14798…14803). Both poses keep
+ * the sheet's own column and width — only the top moves — so the card tracks
+ * the sheet it came from instead of jumping to a shared slot.
+ *
+ * The raise is an *anticipation* move, not a pose anything rests in: the card
+ * lifts until its bottom edge is fully clear of the top edge of the card
+ * stacked above it, comes to the front, and only then drops down and expands —
+ * a file pulled up out of a drawer before being laid flat. Every card travels
+ * the same distance so the gesture reads identically wherever you click, which
+ * makes it one figure rather than six: the 70 the stack steps by, plus the
+ * card's raised height, plus the clearance.
+ *
+ * The bottom card steps by 60 rather than 70, so it simply clears by 15
+ * instead of 5 — the gap is relative, the travel is not.
+ */
+const PULL_STEP = 70;
+const PULL_CLEAR = 5;
+const PULL_TRAVEL = PULL_STEP + LIFT_H + PULL_CLEAR;
+const PULL_FRONT = SHEETS.map((s) => ({
+  left: s.left,
+  width: s.width,
+  top: s.top - PULL_TRAVEL,
+  height: LIFT_H,
+}));
+const PULL_REST = SHEETS.map((s) => ({
+  left: s.left,
+  width: s.width,
+  top: 76,
+  height: LIFT_H,
 }));
 
 /** Sheet chrome, measured off the open export: 3.44761 stroke, 14.6064 outer
@@ -185,10 +237,22 @@ const HIT_OPEN = { left: 1.91, top: 0.85, width: 1399.32, height: 942.71 };
  */
 const ART_FLAP_TOP = 454.87;
 
-/** Where the pulled-out card comes to rest, sitting on top of the folder —
- *  straight off the final state's frame (245:9301 in 249:9857), in stage
- *  units. Every project pulls out to this same pose. */
-const PULL = { left: 75, top: 76, width: 1254.72, height: 868.31 };
+/** The inset the expanded page rests at, from every viewport edge. Figma has
+ *  this at 40 (224:801); 12 is a deliberate departure. Viewport pixels, not
+ *  stage units — this last step leaves the folder's coordinate space, so the
+ *  margin stays a true 12px at any window size instead of scaling with the
+ *  desk. */
+const EXPAND_INSET = 12;
+
+/**
+ * The expanded page's back control. It sits flush in the page's own top-left
+ * corner rather than inset, so only its bottom-right corner is rounded — the
+ * page's `overflow: hidden` and border radius carve the other three to match
+ * the corner it fills. Hovering widens it to reveal the label.
+ */
+const BACK_SIZE = 36;
+const BACK_RADIUS = 12;
+const BACK_LABEL = "Back To Home";
 
 export function FileFolder({
   theme,
@@ -215,12 +279,30 @@ export function FileFolder({
    *  `pulledRef` mirrors it for stable callbacks and guards. */
   const [pulled, setPulled] = useState<number | null>(null);
   const pulledRef = useRef<number | null>(null);
+  /** Index of the project filling the viewport, once the card has handed off
+   *  to the page. Lives outside the folder's transformed stage entirely. */
+  const [expanded, setExpanded] = useState<number | null>(null);
+  /**
+   * True from the moment a project card is clicked until that card is back in
+   * the stack — across the pull, the expanded page, and the collapse home.
+   *
+   * The folder must read OPEN for that entire span, and nothing else can say
+   * so: `open` is false whenever the folder was raised by hover rather than a
+   * click, and `hovered` is false because the pointer spends the whole time
+   * over the expanded page, which is portalled to <body> and therefore
+   * outside this component. It is set synchronously on click, before the
+   * centring await, so the folder never blinks shut in the gap.
+   *
+   * This replaces an earlier `tucked` flag that did the opposite — it forced
+   * the folder *shut* behind the expanded page — which is what left the card
+   * animating home into a closed folder.
+   */
+  const [cardOut, setCardOut] = useState(false);
   /** The case study mounts only once the card is fully out and at rest. */
-  const [cardLoaded, setCardLoaded] = useState(false);
   const pullCardRef = useRef<HTMLDivElement>(null);
   const pullTlRef = useRef<gsap.core.Timeline | null>(null);
   const centerOnPiece = useCenterOnPiece();
-  const shown = open || (hovered && !dismissed);
+  const shown = cardOut || open || (hovered && !dismissed);
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const closedRef = useRef<HTMLImageElement>(null);
@@ -365,86 +447,139 @@ export function FileFolder({
       move(was, SHEETS[was]);
     }
     if (active !== null) {
-      // The sheet rises where it sits in the stack — it does NOT come forward
-      // over the sheets stacked in front of it. Only a click (the pull) may
-      // promote a sheet above the stack.
-      move(active, LIFTED[active]);
+      // The sheet rises in its own slot: its z-index stays below the sheets
+      // stacked in front of it, so it never covers them — only a click (the
+      // pull) promotes a sheet above the stack.
+      move(active, HOVERED[active]);
     }
   }, [liftedSheet, shown, pulled]);
 
-  // Closing the folder returns any pulled card with it.
+  // Closing the folder returns any pulled card with it — but only when the
+  // folder closes on its own. During a pull the folder is *told* to close (the
+  // card is taking over the viewport), and that must not tear the card down.
   useEffect(() => {
-    if (open) return;
+    if (open || pulledRef.current !== null) return;
     pullTlRef.current?.kill();
-    if (pulledRef.current !== null) {
-      const sheet = sheetRefs.current[pulledRef.current];
-      if (sheet)
-        gsap.set(sheet, { visibility: "visible", zIndex: pulledRef.current });
-    }
-    pulledRef.current = null;
-    setCardLoaded(false);
+    setExpanded(null);
+    setCardOut(false);
     setPulled(null);
   }, [open]);
 
-  // Pulling a card out of the folder (14785 -> 14792…14797). The sheet first
-  // rises to its lift pose — usually it is already there, hovered — then the
-  // pose hands off, invisibly and at identical geometry, to a card that lives
-  // above the flap. The card glides to rest on top of the folder, and only
-  // then does the case study mount into it.
+  /**
+   * Pulling a card out of the folder, in the order the variants lay it out:
+   *
+   *   14785 -> 14786…14791   the sheet rises out of the stack (already there,
+   *                          hovered) and grows to its full 868 height
+   *   14786 -> 14792…14797   it clears the folder entirely, top at -468
+   *   14797 -> 14798…14803   it settles back down onto the folder, top at 76
+   *   -> 224:801             it expands to the viewport at a 40px inset
+   *
+   * The sheet hands off to the card invisibly at identical geometry, so the
+   * two never both show. The folder is asked to close as the card settles, so
+   * by the time the page fills the viewport the folder behind it is back at
+   * rest — and the case study only mounts once the page has finished expanding.
+   */
   useLayoutEffect(() => {
     if (pulled === null) return;
     const i = pulled;
     const sheet = sheetRefs.current[i];
     const card = pullCardRef.current;
     if (!sheet || !card) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)")
-      .matches;
-    const liftPose = { ...LIFTED[i], rotate: 0, transformOrigin: "0 0" };
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const clearPose = { ...PULL_FRONT[i], rotate: 0, transformOrigin: "0 0" };
     gsap.killTweensOf(sheet);
-    gsap.set(sheet, { zIndex: PROJECTS.length });
     if (reduce) {
       gsap.set(sheet, { visibility: "hidden" });
-      gsap.set(card, {
-        ...PULL,
-        rotate: 0,
-        transformOrigin: "0 0",
-        visibility: "visible",
-      });
-      setCardLoaded(true);
+      gsap.set(card, { ...PULL_REST[i], rotate: 0, transformOrigin: "0 0", visibility: "visible" });
+      setExpanded(i);
       return;
     }
-    const tl = gsap.timeline({ onComplete: () => setCardLoaded(true) });
+    const tl = gsap.timeline({
+      onComplete: () => {
+        // Hand the card over to the viewport-level page, which grows out of
+        // exactly the box the card now occupies.
+        setExpanded(i);
+      },
+    });
     pullTlRef.current = tl;
-    tl.to(sheet, { ...liftPose, duration: STEP, ease: EASE, overwrite: true });
-    tl.set(sheet, { visibility: "hidden", zIndex: i });
-    tl.set(card, { ...liftPose, visibility: "visible" });
-    tl.to(card, { ...PULL, duration: 0.5, ease: "power3.inOut" });
+    // 1. Up — on the SHEET, at its own z-index, so it rises out from *behind*
+    //    the cards stacked over it. Promoting it to the front here (as this
+    //    used to) skipped the whole point of the anticipation: the card
+    //    appeared on top and then merely translated.
+    tl.to(sheet, {
+      ...clearPose,
+      duration: 0.45,
+      ease: "power3.out",
+      overwrite: true,
+    });
+    // 2. To the front — the handoff itself. The sheet vanishes and the z20
+    //    card takes over at identical geometry, so "coming forward" costs no
+    //    time and cannot be seen as a swap.
+    tl.set(sheet, { visibility: "hidden" });
+    // `fromTo` rather than `.set()` + `.to(…, overwrite: true)`: that overwrite
+    // kills every other tween on the target, including a `.set()` queued
+    // earlier in this same timeline, so the starting pose silently never
+    // applied. Folding the start values into the tween sidesteps it entirely.
+    tl.fromTo(
+      card,
+      { ...clearPose, visibility: "visible" },
+      {
+        ...PULL_REST[i],
+        // 3. Down onto the folder, which stays open beneath it.
+        duration: 0.45,
+        ease: "power3.inOut",
+        // Without this, GSAP applies the `from` pose the instant the tween is
+        // built (t=0), not when its turn in the timeline arrives (t=0.45) —
+        // so the card appeared, visible, while the sheet was still mid-rise.
+        // Both were on screen at once for ~365ms: the duplicate.
+        immediateRender: false,
+      },
+    );
     return () => {
       tl.kill();
     };
   }, [pulled]);
 
-  // Returning the card: the case study unmounts at once, the card glides back
-  // to its lift pose, hands off invisibly to the sheet again, and the sheet
-  // drops into its slot in the stack — the pull run in reverse.
-  const closeCard = useCallback(() => {
+  /**
+   * Returning the card: the page shrinks back into the card's box (owned by
+   * `ExpandedPage`, which also handles Escape), the folder re-opens, the card
+   * rises clear of it again and then drops into its slot in the stack — the
+   * pull run backwards. This runs only once the collapse has finished, so the
+   * card is never animating in the folder while a full-size page is still on
+   * top of it.
+   */
+  const onShrunk = useCallback(() => {
+    // Unmounting the page is this callback's job, not the click handler's —
+    // see `shrink` in ExpandedPage.
+    setExpanded(null);
     const i = pulledRef.current;
-    if (i === null) return;
-    setCardLoaded(false);
+    if (i === null) {
+      setCardOut(false);
+      return;
+    }
     const sheet = sheetRefs.current[i];
     const card = pullCardRef.current;
     const finish = () => {
-      gsap.set(sheet, { zIndex: i });
+      if (sheet) gsap.set(sheet, { zIndex: i });
       pulledRef.current = null;
       setPulled(null);
+      // The pointer may well have been sitting still over the folder this
+      // whole time, in which case no enter event ever fires and `hovered`
+      // would stay stale-false — so ask the DOM where the pointer actually is
+      // rather than waiting to be told. `:hover` is true regardless of
+      // whether an event happened to be dispatched.
+      const onFolder = [hitRef.current, ...sheetRefs.current].some(
+        (el) => el?.matches(":hover"),
+      );
+      setHovered(onFolder);
+      setCardOut(false);
     };
     if (!sheet || !card) {
       finish();
       return;
     }
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)")
-      .matches;
-    const liftPose = { ...LIFTED[i], rotate: 0, transformOrigin: "0 0" };
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const clearPose = { ...PULL_FRONT[i], rotate: 0, transformOrigin: "0 0" };
     const stacked = { ...SHEETS[i], rotate: 0, transformOrigin: "0 0" };
     if (reduce) {
       gsap.set(card, { visibility: "hidden" });
@@ -454,26 +589,60 @@ export function FileFolder({
     }
     const tl = gsap.timeline({ onComplete: finish });
     pullTlRef.current = tl;
-    tl.to(card, { ...liftPose, duration: 0.45, ease: "power3.inOut" });
+    // The pull, backwards: up off the folder…
+    tl.to(card, { ...clearPose, duration: 0.45, ease: "power3.inOut" }, 0.1);
+    // …z-index back to default — the card hands off to the sheet, which lives
+    // in the stack — and then down into its slot. `fromTo` keeps the starting
+    // pose inside the tween so `overwrite` can't strip it (see the pull).
     tl.set(card, { visibility: "hidden" });
-    tl.set(sheet, { visibility: "visible" });
-    tl.to(sheet, { ...stacked, duration: STEP, ease: EASE, overwrite: true });
+    tl.fromTo(
+      sheet,
+      { ...clearPose, visibility: "visible" },
+      {
+        ...stacked,
+        duration: 0.45,
+        ease: "power3.inOut",
+        overwrite: true,
+        // Mirrors the pull: without this the sheet reappeared at t=0 instead
+        // of waiting for the card to actually finish clearing the folder.
+        immediateRender: false,
+      },
+    );
   }, []);
 
-  // Escape returns the pulled card.
-  useEffect(() => {
-    if (pulled === null) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && closeCard();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [pulled, closeCard]);
-
-  const pullOut = (i: number) => {
+  const pullOut = async (i: number) => {
     if (pulledRef.current !== null) return;
+    // Claimed synchronously, before the await, so a second click during the
+    // pan is ignored rather than starting a second pull.
     pulledRef.current = i;
+    setCardOut(true);
     setLiftedSheet(null);
+    // Bring the folder to the middle of the viewport *first*, then pull. The
+    // page expands out of the card's own box, so a folder sitting off in a
+    // corner of the desk would otherwise have its card fly in from the edge —
+    // centring first means the pull and the expansion both play from the
+    // middle. Scattered only; Organised already holds the focused piece
+    // centred and supplies no context, so this resolves immediately there.
+    if (centerOnPiece && buttonRef.current) {
+      try {
+        await centerOnPiece(buttonRef.current);
+      } catch {
+        // A pan that never settles must not strand the folder mid-pull.
+      }
+    }
     setPulled(i);
   };
+
+  // While a project fills the viewport the desk behind it must not scroll —
+  // the page carries its own scroller.
+  useEffect(() => {
+    if (expanded === null) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [expanded]);
 
   // Sheets invert with the theme, matching the folder art's own fill/stroke.
   const face = theme === "light" ? "#fdfeff" : "#2f2f2f";
@@ -565,9 +734,23 @@ export function FileFolder({
             onClick={async () => {
               // Bring the piece to the middle of the viewport first (Scattered
               // only) so the sequence never plays half off-screen.
-              if (centerOnPiece && buttonRef.current)
+              //
+              // Centring and toggling are different intents, so tell them
+              // apart by whether the piece actually travelled: a click that
+              // *fetched* the folder from elsewhere on the desk means "bring
+              // this to me and open it", and must not also toggle it shut if
+              // it happened to be open already. Once it is centred, clicking
+              // it toggles as normal.
+              let moved = false;
+              if (centerOnPiece && buttonRef.current) {
+                const before = buttonRef.current.getBoundingClientRect();
                 await centerOnPiece(buttonRef.current);
-              onOpenChange(!open);
+                const after = buttonRef.current.getBoundingClientRect();
+                moved =
+                  Math.abs(after.left - before.left) > 1 ||
+                  Math.abs(after.top - before.top) > 1;
+              }
+              onOpenChange(moved ? true : !open);
             }}
             // Opts this click out of OrganizedScene's swipe-track pointer
             // capture, which would otherwise steal it before it reaches onClick.
@@ -575,16 +758,27 @@ export function FileFolder({
             aria-label={open ? "Close file" : "Open file"}
             aria-expanded={open}
             className="absolute block cursor-pointer border-0 bg-transparent p-0"
-            style={{ ...HIT_CLOSED, position: "absolute", zIndex: 5, pointerEvents: "auto" }}
+            style={{
+              ...HIT_CLOSED,
+              position: "absolute",
+              zIndex: 5,
+              pointerEvents: "auto",
+            }}
           />
 
           {/* The six project sheets, between the folder's back and its flap.
-              The layer clips at the stage box only — the full-height sheets
-              run past the pocket line and the flap's curved edge carves
-              them, as in the Figma file. */}
+              The layer clips at the stage box on the sides and bottom — the
+              sheets run past the pocket line and the flap's curved edge
+              carves them — but keeps headroom above for the raise. A pulled
+              sheet clears to -895 at the extreme, so 400px of headroom (which
+              covered the hover raise) cut the card off mid-flight. */}
           <div
             ref={sheetLayerRef}
-            style={{ ...layer, zIndex: 6, overflow: "hidden" }}
+            style={{
+              ...layer,
+              zIndex: 6,
+              clipPath: "inset(-1000px 0px 0px 0px)",
+            }}
           >
             {PROJECTS.map((p, i) => (
               <button
@@ -610,7 +804,7 @@ export function FileFolder({
                 tabIndex={shown && pulled === null ? 0 : -1}
               >
                 <img
-                  src={p.thumb}
+                  src={cardImage(p)}
                   alt=""
                   draggable={false}
                   className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
@@ -637,7 +831,10 @@ export function FileFolder({
                 and the raised sheet never collapses. These invisible strips
                 sit above the stack and keep each tab hoverable while a sheet
                 is lifted; the lifted sheet's own strip stands down so its
-                card still takes the pointer directly. */}
+                card still takes the pointer directly. Strips BELOW the lifted
+                sheet stand down too: its body slides up beneath their bands,
+                and a strip stealing the hover mid-slide makes the two sheets
+                swap-lift in a jittering loop at the border. */}
             {PROJECTS.map((p, i) => (
               <div
                 key={`${p.slug}-strip`}
@@ -658,7 +855,9 @@ export function FileFolder({
                     SHEETS[i].top,
                   zIndex: PROJECTS.length + 1,
                   pointerEvents:
-                    shown && pulled === null && liftedSheet !== i
+                    shown &&
+                    pulled === null &&
+                    (liftedSheet === null || i > liftedSheet)
                       ? "auto"
                       : "none",
                   cursor: "pointer",
@@ -704,15 +903,15 @@ export function FileFolder({
             style={{ ...layer, zIndex: 10 }}
           />
 
-          {/* The pulled-out project card, above the flap so it can come to
-              rest on top of the folder. It stays hidden until the pull hands
-              off to it at the lift pose, and the case study mounts into it
-              only once it has fully settled at PULL. */}
+          {/* The pulled-out project card, above the flap so it can clear the
+              folder and then settle on top of it. It stays hidden until the
+              pull hands off to it at the lift pose, and it only ever shows the
+              thumbnail — the case study itself belongs to the viewport page
+              below, which grows out of this card's final box. */}
           {pulled !== null ? (
             <div
               ref={pullCardRef}
-              role="dialog"
-              aria-label={`${PROJECTS[pulled].name} case study`}
+              aria-hidden
               className="absolute"
               style={{
                 left: 0,
@@ -724,58 +923,253 @@ export function FileFolder({
                 borderRadius: SHEET_RADIUS,
                 boxSizing: "border-box",
                 overflow: "hidden",
-                pointerEvents: "auto",
+                pointerEvents: "none",
               }}
             >
-              {cardLoaded ? (
-                <div
-                  className="h-full w-full overflow-y-auto"
-                  data-no-track-drag
-                >
-                  <CaseStudy project={PROJECTS[pulled]} theme={theme} />
-                </div>
-              ) : (
-                <img
-                  src={PROJECTS[pulled].thumb}
-                  alt=""
-                  draggable={false}
-                  className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
-                />
-              )}
-              {/* Back button, tucked into the card's top-left corner
-                  (Component 10, 56x56 at 4,4). */}
-              <button
-                type="button"
-                onClick={closeCard}
-                data-no-track-drag
-                aria-label={`Close ${PROJECTS[pulled].name} case study`}
-                className="absolute left-[4px] top-[4px] z-10 flex size-[56px] cursor-pointer items-center justify-center border-0 p-0"
-                style={{
-                  background: "#2f2f2f",
-                  color: "#fdfeff",
-                  borderRadius: 11,
-                }}
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden
-                >
-                  <path
-                    d="M19 12H5m0 0 7-7m-7 7 7 7"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </button>
+              <img
+                src={cardImage(PROJECTS[pulled])}
+                alt=""
+                draggable={false}
+                className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
+              />
             </div>
           ) : null}
         </div>
       </div>
+
+      {expanded !== null ? (
+        <ExpandedPage
+          project={PROJECTS[expanded]}
+          theme={theme}
+          from={pullCardRef.current}
+          onShrunk={onShrunk}
+        />
+      ) : null}
     </div>
+  );
+}
+
+/**
+ * A project blown up to fill the viewport at Figma's 40px inset (224:801).
+ *
+ * Portalled to `<body>` on purpose: the folder lives inside the canvas's
+ * `transform: scale()`, and a transformed ancestor makes `position: fixed`
+ * resolve against that ancestor instead of the viewport — so an in-place
+ * overlay would be scaled and clipped along with the desk.
+ *
+ * It grows out of, and shrinks back into, the exact screen box the pulled card
+ * occupies, so the handoff in both directions is invisible.
+ */
+function ExpandedPage({
+  project,
+  theme,
+  from,
+  onShrunk,
+}: {
+  project: Project;
+  theme: Theme;
+  from: HTMLElement | null;
+  /** Called once the page has finished collapsing back into the card — this
+   *  is what unmounts it, so the shrink is always seen through to the end. */
+  onShrunk: () => void;
+}) {
+  const pageRef = useRef<HTMLDivElement>(null);
+  /**
+   * How far the case study's furniture is unfolded, 0..1 — see `chrome` in
+   * CaseStudy. Nothing cross-fades: the hero *is* the sheet's thumbnail and
+   * stays put throughout, while the rail and body open out around it.
+   */
+  const [chrome, setChrome] = useState(0);
+  const chromeRef = useRef({ v: 0 });
+  /** Guards a second Escape/click while the collapse is already running. */
+  const closingRef = useRef(false);
+  /** Back control: collapsed to a square until hovered or focused. */
+  const [backOpen, setBackOpen] = useState(false);
+  const backLabelRef = useRef<HTMLSpanElement>(null);
+  const [labelW, setLabelW] = useState(0);
+  useLayoutEffect(() => {
+    if (backLabelRef.current) setLabelW(backLabelRef.current.scrollWidth);
+  }, []);
+  const face = theme === "light" ? "#fdfeff" : "#2f2f2f";
+  const ink = theme === "light" ? "#2f2f2f" : "#fdfeff";
+  /** The card's screen box, captured before the folder starts closing under
+   *  it — by the time we shrink back, the folder has moved on. */
+  const originRef = useRef<DOMRect | null>(null);
+
+  const viewportBox = () => ({
+    left: EXPAND_INSET,
+    top: EXPAND_INSET,
+    width: window.innerWidth - EXPAND_INSET * 2,
+    height: window.innerHeight - EXPAND_INSET * 2,
+  });
+
+  useLayoutEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+    const target = viewportBox();
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const r = from?.getBoundingClientRect() ?? null;
+    originRef.current = r;
+    if (!r || reduce) {
+      gsap.set(el, target);
+      chromeRef.current.v = 1;
+      setChrome(1);
+      return;
+    }
+    const tween = gsap.fromTo(
+      el,
+      { left: r.left, top: r.top, width: r.width, height: r.height },
+      { ...target, duration: EXPAND_DUR, ease: EXPAND_EASE },
+    );
+    // Mirror of the collapse: the page unfolds over the LAST `CROSSFADE` of
+    // the grow so it finishes exactly as the box lands, which is the
+    // time-reverse of folding away over the FIRST `CROSSFADE` of the shrink.
+    const swap = gsap.to(chromeRef.current, {
+      v: 1,
+      duration: CROSSFADE,
+      delay: Math.max(0, EXPAND_DUR - CROSSFADE),
+      ease: EXPAND_EASE,
+      onUpdate: () => setChrome(chromeRef.current.v),
+    });
+    return () => {
+      tween.kill();
+      swap.kill();
+    };
+    // Runs once per expansion: `from` is read at mount and captured above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * Collapse back into the card. `onShrunk` is the *completion* callback and
+   * the only thing that unmounts this page — an earlier version fired the
+   * unmount alongside the tween, so the element left the DOM on the next
+   * render and the shrink played out on a detached node: invisible, and the
+   * page simply blinked out.
+   */
+  const shrink = useCallback(() => {
+    if (closingRef.current) return;
+    closingRef.current = true;
+    const el = pageRef.current;
+    const r = originRef.current;
+    if (!el || !r || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      onShrunk();
+      return;
+    }
+    /*
+     * Sequential, and deliberately NOT a strict time-reversal of the grow.
+     * Reversing exactly meant the furniture collapsed *while* the box was
+     * already shrinking, so the page appeared to fold in behind the hero —
+     * two moves fighting for the same moment.
+     *
+     * Expanding reads as [box grows] -> [hero settles into place]. The mirror
+     * of that is the reverse ORDER, one after the other: the hero grows back
+     * out to fill the page at full size, and only then does the whole thing
+     * travel home.
+     */
+    const tl = gsap.timeline({ onComplete: onShrunk });
+    tl.to(chromeRef.current, {
+      v: 0,
+      duration: CROSSFADE,
+      ease: SHRINK_EASE,
+      onUpdate: () => setChrome(chromeRef.current.v),
+    });
+    tl.to(el, {
+      left: r.left,
+      top: r.top,
+      width: r.width,
+      height: r.height,
+      duration: EXPAND_DUR,
+      ease: SHRINK_EASE,
+    });
+  }, [onShrunk]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && shrink();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [shrink]);
+
+  return createPortal(
+    <div
+      ref={pageRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${project.name} case study`}
+      data-no-track-drag
+      className="fixed z-[100] overflow-hidden"
+      style={{
+        background: face,
+        border: `2px solid ${ink}`,
+        borderRadius: SHEET_RADIUS,
+        boxSizing: "border-box",
+      }}
+    >
+      {/* The case study fills the page. Its own hero is the sheet's
+          thumbnail, so there is nothing to cross-fade — `chrome` just unfolds
+          the rail and body around an image that never moves or swaps. */}
+      <div className="h-full w-full">
+        <CaseStudy
+          project={project}
+          theme={theme}
+          chrome={chrome}
+          sections={project.slug === "hacksvit" ? HACKSVIT_SECTIONS : undefined}
+        />
+      </div>
+
+      {/* Back control, filling the page's top-left corner. Only the
+          bottom-right corner is rounded here; the page clips the rest. */}
+      <button
+        type="button"
+        onClick={shrink}
+        onMouseEnter={() => setBackOpen(true)}
+        onMouseLeave={() => setBackOpen(false)}
+        onFocus={() => setBackOpen(true)}
+        onBlur={() => setBackOpen(false)}
+        data-no-track-drag
+        // The visible label is part of the accessible name (WCAG 2.5.3), with
+        // the project appended so the control still says what it closes while
+        // collapsed.
+        aria-label={`${BACK_LABEL} — close ${project.name} case study`}
+        className="absolute left-0 top-0 z-10 flex cursor-pointer items-center overflow-hidden border-0 p-0"
+        style={{
+          background: "#2f2f2f",
+          color: "#fdfeff",
+          height: BACK_SIZE,
+          borderBottomRightRadius: BACK_RADIUS,
+          transition: "width 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
+          width: BACK_SIZE + (backOpen ? labelW : 0),
+        }}
+      >
+        <span
+          className="flex shrink-0 items-center justify-center"
+          style={{ width: BACK_SIZE, height: BACK_SIZE }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M19 12H5m0 0 7-7m-7 7 7 7"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+        {/* Measured rather than guessed: the button tweens to a real width, so
+            the label can be any length without a magic number to keep in step
+            (and `width: auto` cannot be transitioned). */}
+        <span
+          ref={backLabelRef}
+          aria-hidden
+          className="whitespace-nowrap pr-[14px] text-[15px] leading-none"
+          style={{
+            opacity: backOpen ? 1 : 0,
+            transition: "opacity 0.2s ease",
+          }}
+        >
+          {BACK_LABEL}
+        </span>
+      </button>
+    </div>,
+    document.body,
   );
 }

@@ -69,19 +69,15 @@ export function ComponentCard({
           }`}
           style={{ width: CARD_W, height: CARD_H - 2 }}
         >
-          {/* Kept as a spacer when the eyebrow is hidden, so the three rows
-              stay on Figma's 40 / 160.5 / 260 baseline grid either way. */}
+          {/* Kept as a spacer when the eyebrow is hidden. With the description
+              row removed the column is just eyebrow + name, and
+              `justify-between` still pins the name to the bottom. */}
           <div className="flex h-[42px] w-full items-start justify-between">
             {intro && (
               <p className="whitespace-nowrap font-['DM_Sans'] text-[32px] font-semibold capitalize leading-normal">
                 {copy.eyebrow}
               </p>
             )}
-          </div>
-          <div className="flex w-[300px] items-start justify-between">
-            <p className="min-w-px flex-[1_0_0] font-['DM_Mono'] text-[16px] italic leading-normal">
-              {copy.description}
-            </p>
           </div>
           <div className="flex w-full items-center justify-end">
             <p className="whitespace-nowrap font-['Roboto_Slab'] text-[64px] font-medium capitalize leading-normal">
