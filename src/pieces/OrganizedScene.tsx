@@ -369,6 +369,7 @@ export function OrganizedScene({
     onBookOpenChange,
     fileOpen,
     onFileOpenChange,
+    deepLinkProject,
   };
 
   // While the intro is up the track is parked on the card's own slot, so the
