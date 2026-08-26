@@ -38,6 +38,24 @@ function parseProjectRoute(): { folder: boolean; slug: string | null } {
 }
 
 /* ------------------------------------------------------------------ */
+/* Routing: /work-experience lands on the about book, opened already   */
+/* to its Work Experience + Education spread.                          */
+/* ------------------------------------------------------------------ */
+
+/** Path segment → 1-based spread index into AboutBook's own SPREADS array. */
+const ABOUT_ROUTES: Record<string, number> = {
+  "work-experience": 2,
+};
+
+function parseAboutRoute(): { spread: number } | null {
+  if (typeof window === "undefined") return null;
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  if (parts.length !== 1) return null;
+  const spread = ABOUT_ROUTES[parts[0]];
+  return spread ? { spread } : null;
+}
+
+/* ------------------------------------------------------------------ */
 /* Shared: measure the viewport and scale the 1729-wide scene to fit    */
 /* ------------------------------------------------------------------ */
 
@@ -69,6 +87,7 @@ function ScatteredStage({
   fileOpen,
   onFileOpenChange,
   deepLinkProject,
+  deepLinkSpread,
 }: {
   theme: Theme;
   bookOpen: boolean;
@@ -76,6 +95,7 @@ function ScatteredStage({
   fileOpen: boolean;
   onFileOpenChange: (open: boolean) => void;
   deepLinkProject: number | null;
+  deepLinkSpread: number | null;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const fit = useFit(viewportRef);
@@ -193,6 +213,7 @@ function ScatteredStage({
               fileOpen={fileOpen}
               onFileOpenChange={onFileOpenChange}
               deepLinkProject={deepLinkProject}
+              deepLinkSpread={deepLinkSpread}
               draggable
               scale={fit}
             />
@@ -214,6 +235,7 @@ function OrganizedStage({
   fileOpen,
   onFileOpenChange,
   deepLinkProject,
+  deepLinkSpread,
   landOnFile = false,
 }: {
   theme: Theme;
@@ -222,6 +244,7 @@ function OrganizedStage({
   fileOpen: boolean;
   onFileOpenChange: (open: boolean) => void;
   deepLinkProject: number | null;
+  deepLinkSpread: number | null;
   landOnFile?: boolean;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -245,6 +268,7 @@ function OrganizedStage({
           fileOpen={fileOpen}
           onFileOpenChange={onFileOpenChange}
           deepLinkProject={deepLinkProject}
+          deepLinkSpread={deepLinkSpread}
           landOnFile={landOnFile}
           scale={fit}
         />
@@ -293,17 +317,22 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(systemTheme);
   const themeOverridden = useRef(false);
   // The URL decides the starting state: /projects lands on the open folder,
-  // /projects/<slug> lands inside that case study.
+  // /projects/<slug> lands inside that case study, /work-experience lands
+  // on the about book already open to that spread.
   const initialRoute = useRef(parseProjectRoute()).current;
-  // The project routes land in Organized mode, on the folder slide — the
-  // desk's default is scattered only for a plain visit.
-  const [mode, setMode] = useState<Mode>(initialRoute.folder ? "organized" : "scattered");
-  const [bookOpen, setBookOpen] = useState(false);
+  const initialAboutRoute = useRef(parseAboutRoute()).current;
+  // Any recognised deep link lands in Organized mode — the desk's default
+  // is scattered only for a plain visit.
+  const [mode, setMode] = useState<Mode>(
+    initialRoute.folder || initialAboutRoute ? "organized" : "scattered",
+  );
+  const [bookOpen, setBookOpen] = useState(initialAboutRoute !== null);
   const [fileOpen, setFileOpen] = useState(initialRoute.folder);
   const deepLinkIndex = initialRoute.slug
     ? PROJECTS.findIndex((p) => p.slug === initialRoute.slug)
     : -1;
   const deepLinkProject = deepLinkIndex >= 0 ? deepLinkIndex : null;
+  const deepLinkSpread = initialAboutRoute?.spread ?? null;
   const [loading, setLoading] = useState(true);
   const clock = useBayClock();
 
@@ -319,6 +348,18 @@ export default function App() {
     const onPop = () => setFileOpen(parseProjectRoute().folder);
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // Closing the book off a /work-experience landing drops the URL back
+  // home — otherwise the address bar keeps claiming a spread that's no
+  // longer open. Opening the book from elsewhere has no route of its own
+  // to push (which spread you land on isn't a link), so that direction is
+  // left alone, same as the folder's own pattern above.
+  const handleBookOpenChange = useCallback((next: boolean) => {
+    setBookOpen(next);
+    if (!next && parseAboutRoute()) {
+      history.replaceState(null, "", "/");
+    }
   }, []);
 
   // Follow the OS while it's still the one deciding. Reading the query again
@@ -341,14 +382,22 @@ export default function App() {
   }, []);
 
   // Both layouts start from rest — hover takes over from there. Skipped on
-  // mount: the URL may have just opened the folder (/projects, deep links),
-  // and that state must survive until the viewer actually switches layouts.
-  const firstMode = useRef(true);
+  // mount: the URL may have just opened the folder or book (/projects,
+  // /work-experience), and that state must survive until the viewer
+  // actually switches layouts.
+  //
+  // Tracking "have we skipped the first run yet" with a plain boolean flag
+  // looks right but isn't: Strict Mode double-invokes effects on mount in
+  // dev, so the flag gets consumed by that harmless extra pass and the
+  // *second* (still-initial) invocation wrongly takes the reset branch,
+  // instantly closing whatever a deep link had just opened. Comparing
+  // against the previous `mode` value instead is immune to that — Strict
+  // Mode's extra pass re-runs with the same `mode`, so it's a no-op, while
+  // a genuine later switch always differs from what's stored.
+  const prevMode = useRef(mode);
   useEffect(() => {
-    if (firstMode.current) {
-      firstMode.current = false;
-      return;
-    }
+    if (prevMode.current === mode) return;
+    prevMode.current = mode;
     setBookOpen(false);
     setFileOpen(false);
   }, [mode]);
@@ -357,10 +406,11 @@ export default function App() {
   const stageProps = {
     theme,
     bookOpen,
-    onBookOpenChange: setBookOpen,
+    onBookOpenChange: handleBookOpenChange,
     fileOpen,
     onFileOpenChange: handleFileOpenChange,
     deepLinkProject,
+    deepLinkSpread,
     landOnFile: initialRoute.folder,
   };
 

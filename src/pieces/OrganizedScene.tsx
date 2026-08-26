@@ -52,6 +52,8 @@ type SlideProps = {
   onFileOpenChange: (open: boolean) => void;
   /** Project to mount already expanded (deep link); only the file slide uses it. */
   deepLinkProject?: number | null;
+  /** Spread to open the about book to (deep link); only the book slide uses it. */
+  deepLinkSpread?: number | null;
 };
 
 type Slide = {
@@ -140,9 +142,15 @@ const SLIDES: Slide[] = [
       name: "About Me",
       description: "How I got here, how I like to work, and what I am chasing next.",
     },
-    render: ({ theme, bookOpen, onBookOpenChange }) => (
+    render: ({ theme, bookOpen, onBookOpenChange, deepLinkSpread }) => (
       <div className="flex items-center justify-center" style={{ width: 1200, height: boxed(717.823) }}>
-        <AboutBook theme={theme} open={bookOpen} onOpenChange={onBookOpenChange} />
+        <AboutBook
+          theme={theme}
+          open={bookOpen}
+          onOpenChange={onBookOpenChange}
+          deepLinkSpread={deepLinkSpread}
+          restTilt={0}
+        />
       </div>
     ),
   },
@@ -262,6 +270,8 @@ const DESK_PENCIL_H = 656;
 
 /** The folder opens by arriving at the centre here, not by being clicked. */
 const FILE_SLIDE = SLIDES.findIndex((s) => s.key === "file");
+/** Where a /work-experience deep link lands the carousel. */
+const BOOK_SLIDE = SLIDES.findIndex((s) => s.key === "book");
 
 export function OrganizedScene({
   theme,
@@ -271,6 +281,7 @@ export function OrganizedScene({
   onFileOpenChange,
   scale,
   deepLinkProject = null,
+  deepLinkSpread = null,
   landOnFile = false,
 }: SlideProps & {
   /** Stage `fit` scale, so pointer deltas convert back to scene units. */
@@ -278,12 +289,16 @@ export function OrganizedScene({
   /** Land centred on the folder slide, open (/projects and deep links). */
   landOnFile?: boolean;
 }) {
-  // A deep link or /projects lands directly on the file slide, folder open —
+  // A deep link or /projects lands directly on the file slide, folder open;
+  // /work-experience lands directly on the book slide instead — either way,
   // no intro card, no first swipe needed.
   const startOnFile = deepLinkProject != null || landOnFile;
-  const [active, setActive] = useState(startOnFile ? FILE_SLIDE : 0);
+  const startOnBook = deepLinkSpread != null;
+  const [active, setActive] = useState(
+    startOnFile ? FILE_SLIDE : startOnBook ? BOOK_SLIDE : 0,
+  );
   /** False until the first gesture, while the card still reads as the intro. */
-  const [swiped, setSwiped] = useState(startOnFile);
+  const [swiped, setSwiped] = useState(startOnFile || startOnBook);
 
   // Swiping *is* the trigger in this mode: the folder opens when it lands in
   // the active position and closes again as soon as it is swiped past, so only
@@ -298,7 +313,7 @@ export function OrganizedScene({
   // Mirrors `swiped` so `step` can branch on it without nesting one setState
   // inside another updater — those run twice under StrictMode and would count
   // the gesture twice.
-  const swipedRef = useRef(startOnFile);
+  const swipedRef = useRef(startOnFile || startOnBook);
 
   // The first gesture spends itself on clearing the intro: the card leaves for
   // the corner and the track slides its own slot's worth, which brings slide 0
@@ -370,6 +385,7 @@ export function OrganizedScene({
     fileOpen,
     onFileOpenChange,
     deepLinkProject,
+    deepLinkSpread,
   };
 
   // While the intro is up the track is parked on the card's own slot, so the

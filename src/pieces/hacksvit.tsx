@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { CaseStudySection } from "./CaseStudy";
-import { PROJECTS } from "./projects";
 import { HacksvitSiteEmbed } from "./hacksvit-site";
+import { RelatedProjects } from "./caseStudyBits";
 import stickerSheetRaw from "../assets/sticker-sheet.svg?raw";
 
 /**
@@ -932,22 +932,6 @@ function Figure({
   );
 }
 
-function MetaLabel({ children }: { children: ReactNode; }) {
-  return (
-    <div
-      className="uppercase"
-      style={{
-        fontFamily: MONO,
-        fontSize: 11,
-        letterSpacing: "0.08em",
-        opacity: 0.45,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 /**
  * The identity grid, off `325-12091`: row one is the section lead in the
  * left column with three cards beside it; row two flanks the body copy with
@@ -1149,53 +1133,13 @@ export const HACKSVIT_SECTIONS: CaseStudySection[] = [
     children: <HacksvitSiteEmbed />,
   },
   {
+    // Was a hand-coded placeholder — two empty grey boxes over literal
+    // "Project title" / "—" / "—" text, never wired to real projects. Now
+    // the same shared block Greenera and The Family Table close on, so all
+    // three case studies point at real projects through real deep links.
     id: "also-checkout",
     title: "Also checkout",
-    hideTitle: true,
     inRail: false,
-    children: (
-      <div className="flex flex-col gap-[24px]">
-        <p
-          style={{
-            fontFamily: MONO,
-            fontSize: 13,
-            letterSpacing: "0.08em",
-            opacity: 0.45,
-          }}
-        >
-          Also checkout …
-        </p>
-        <div className="grid grid-cols-2 gap-[20px]">
-          {[0, 1].map((i) => (
-            <div key={i} className="flex flex-col gap-[14px]">
-              <div
-                className="w-full"
-                style={{
-                  aspectRatio: "4 / 2.6",
-                  borderRadius: 12,
-                  background: "#e9ecf0",
-                }}
-              />
-              <div className="grid grid-cols-3 gap-[12px]">
-                <div>
-                  <MetaLabel>Project name</MetaLabel>
-                  <div className="mt-[6px] text-[13px] font-medium opacity-60">
-                    Project title
-                  </div>
-                </div>
-                <div>
-                  <MetaLabel>Project type</MetaLabel>
-                  <div className="mt-[6px] text-[13px] font-medium opacity-60">—</div>
-                </div>
-                <div>
-                  <MetaLabel>Year</MetaLabel>
-                  <div className="mt-[6px] text-[13px] font-medium opacity-60">—</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    ),
+    children: <RelatedProjects slugs={["greenera", "the-family-table"]} />,
   },
 ];

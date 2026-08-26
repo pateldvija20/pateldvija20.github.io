@@ -1,344 +1,171 @@
-import { useState, type ReactNode } from "react";
 import type { CaseStudySection } from "./CaseStudy";
-import { PROJECTS } from "./projects";
 import { PersonaBoard } from "./PersonaBoard";
+import {
+  DefinitionGrid,
+  DIVIDER,
+  Figure,
+  IconRow,
+  ImageCard,
+  Label,
+  RelatedProjects,
+  SectionBody,
+  SectionLead,
+} from "./caseStudyBits";
 
 /**
  * The Greenera case study, authored as CaseStudy sections.
  *
- * Skeleton, section order and layout numbers come from the portfolio Figma
- * file (`Container` 67:12759 — the body order there is TL;DR → Solution →
- * Brief → Initial Findings → The Problem → Goal → Outcome, which is the
- * order the rail follows here too). The final copy for the Problem bodies,
- * Solution blocks, Initial Findings leads, Outcome and the whole Reflection
- * section comes from the client's edit sheet, which supersedes the file
- * where the two disagree.
+ * Two sources, and they disagree in a specific, resolvable way. The skeleton —
+ * section order, the tinted image cards, the layout numbers — comes from the
+ * Greenera Figma file (`Container` 8:235), whose body runs TL;DR → Brief →
+ * Challenge → Solution → The Problem → Initial Findings → Goal → Outcome. Its
+ * sidebar still lists the *old* order and omits Challenge, so the body wins
+ * and the rail here mirrors it. The copy comes from the v2 edit sheet, which
+ * the file has only partly absorbed (Outcome is still lorem ipsum there), so
+ * the sheet wins on every line of text.
+ *
+ * The sheet also asks for five beats the file has no frames for yet — the
+ * metadata and scope blocks, Why a Score, The Business Case, and Before /
+ * After — built here in the page's existing language. Why a Score and The
+ * Business Case run text-only: both call for tight crops (the original leaf
+ * badge; the Certification card's Brand-reported / AI-analyzed tags) that
+ * aren't exported yet. Before / After is text-only for the same reason —
+ * pair 3 has no "before" collage of its own, and reusing pair 2's would be
+ * worse than none.
  *
  * Art is committed under `public/assets/projects/greenera/` as 2x PNG
- * exports: the four Problem collages (`Desktop 1–4` 67:12907/19/40/49),
- * the persona quote board (67:12831), and the four hi-fi screens from the
- * Greenera file (746:4576, 746:4028, 746:4804, 746:4470).
+ * exports from the Figma file: the hero lineup (8:258), the three Solution
+ * cards (8:290 / 8:295 / 8:300), the four Problem collages (8:310 / 322 /
+ * 343 / 352) and the Outcome lineup (8:567). The tints are baked into those
+ * exports — they are the image frame's own fill, not a wrapper here.
+ *
+ * The purchase journey matrix (Initial Findings) was originally hand-built
+ * out of divs so its data stayed editable, but that meant maintaining a
+ * second copy of the same six-stage table already drawn in the Figma file.
+ * It now renders as `journey-table.png`, a clean export of that table — the
+ * same trade the Family Table case study makes for its own journey map.
  */
 
 const ART = "/assets/projects/greenera";
 
-/** Matches the standard body size used across the case studies. */
-const BODY_FONT = 22.163;
-const BODY_TRACK = 0.2216;
-const MUTED = "#7c838b";
-const INK = "#18191a";
-const DIVIDER = "#e3e5e8";
-const MONO = "'DM Mono', monospace";
-
-function SectionLead({ children }: { children: ReactNode }) {
-  return (
-    <p
-      className="font-medium"
-      style={{ fontSize: BODY_FONT, letterSpacing: BODY_TRACK, lineHeight: "normal" }}
-    >
-      {children}
-    </p>
-  );
-}
-
-function SectionBody({ children }: { children: ReactNode }) {
-  return (
-    <p
-      style={{
-        fontSize: BODY_FONT,
-        letterSpacing: BODY_TRACK,
-        lineHeight: "normal",
-        color: MUTED,
-      }}
-    >
-      {children}
-    </p>
-  );
-}
-
-function Figure({
-  src,
-  ratio,
-  radius = 12,
-  className = "",
-  style,
-  alt = "",
-}: {
-  src: string;
-  ratio?: string;
-  radius?: number;
-  className?: string;
-  style?: React.CSSProperties;
-  alt?: string;
-}) {
-  const [ok, setOk] = useState(true);
-  return (
-    <div
-      className={`relative overflow-hidden ${className}`}
-      style={{ aspectRatio: ratio, borderRadius: radius, background: "#e9ecf0", ...style }}
-    >
-      {ok ? (
-        <img
-          src={src}
-          alt={alt}
-          draggable={false}
-          onError={() => setOk(false)}
-          className="absolute inset-0 h-full w-full select-none object-cover"
-        />
-      ) : (
-        <div className="absolute inset-0 bg-[#e9ecf0]" style={{ borderRadius: radius }} />
-      )}
-    </div>
-  );
-}
-
-/**
- * The 162x162 rounded tile the Goal and Reflection rows lead with. The
- * Figma file ships these as empty #ccdeff squares; they carry an emoji for
- * now until real icons are drawn.
- */
-function IconTile({ glyph }: { glyph: string }) {
-  return (
-    <div
-      className="flex shrink-0 items-center justify-center"
-      style={{
-        width: 162,
-        height: 162,
-        background: "#ccdeff",
-        border: `0.727px solid ${DIVIDER}`,
-        borderRadius: 17.438,
-        fontSize: 64,
-        lineHeight: 1,
-      }}
-    >
-      {glyph}
-    </div>
-  );
-}
-
-/** One [icon | header + body] row, shared by Goal and Reflection. */
-function IconRow({
-  glyph,
-  header,
-  body,
-}: {
-  glyph: string;
-  header: string;
-  body: string;
-}) {
-  return (
-    <div className="flex items-center gap-[40px]">
-      <IconTile glyph={glyph} />
-      <div
-        className="flex min-w-0 flex-1 flex-col gap-[12px]"
-        style={{ fontSize: BODY_FONT, letterSpacing: BODY_TRACK, lineHeight: "normal" }}
-      >
-        <p className="w-full">{header}</p>
-        <p className="w-full" style={{ color: MUTED }}>
-          {body}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/** The six-stage purchase journey matrix, `Purchase Journey Section Block` 67:12839. */
-const JOURNEY_STAGES = [
-  "Discovery",
-  "Browsing",
-  "Product Research",
-  "Purchase",
-  "Logistics",
-  "After-Sale Services",
-] as const;
-
-const JOURNEY: { label: string; cells: string[][] }[] = [
-  {
-    label: "Contact Points",
-    cells: [
-      [
-        "Social media",
-        "Brand campaigns",
-        "Blogs & Reviews",
-        "AI - recs",
-        "Marketplace recommendations",
-        "Search",
-        "Ads",
-        "Supermarket Aisles",
-      ],
-      ["Brand websites", "Ecommerce marketplaces", "Search results", "Recommendation feeds"],
-      ["Product pages", "Reviews", "Comparison sites", "Product specifications"],
-      ["Shopping cart", "Checkout", "Payment gateway"],
-      ["Shipment tracking", "Courier updates"],
-      ["Returns portal", "Customer support", "Loyalty & review prompts"],
-    ],
-  },
-  {
-    label: "User Actions",
-    cells: [
-      ["Deciding what to buy and which brand to trust"],
-      ["Comparing a shortlist of familiar brands"],
-      ["Evaluating one product in depth before buying"],
-      ["Finalizing cart, payment, and delivery choice"],
-      ["Tracking the order and waiting on delivery"],
-      ["Using the product, leaving feedback, or requesting a return"],
-    ],
-  },
-  {
-    label: "User Pain-point",
-    cells: [
-      ["Too much channel noise before trust has a chance to form, so genuine claims get scrolled past"],
-      ["Multiple brands compete for attention, and price and discounts pull judgment away from sustainability"],
-      ["Dense jargon and unverifiable claims force users to leave the app to research elsewhere, which builds no trust"],
-      ["No sense of the delivery's carbon footprint."],
-      ["No guidance on proper use, disposal, or take-back"],
-      ["Support is generic: refunds, reviews, customer service, nothing tied to sustainability"],
-    ],
-  },
+/** Timeline / role / methods / tools, stated before any prose. */
+const META: [string, string][] = [
+  ["Timeline", "2025"],
+  ["Role", "End-to-end UI/UX designer (solo)"],
+  ["Methods", "Product teardown, user interviews, journey mapping, hi-fi prototyping"],
+  ["Tools", "Figma, FigJam"],
 ];
 
-const JOURNEY_CELL = 12.333;
+/** What was actually researched, what was actually designed, and how far it
+ *  got — the honest stand-in for the shipped metrics this project has none of. */
+const SCOPE: [string, string][] = [
+  [
+    "Research",
+    "Teardown of a live product page, four user interviews, and a six-stage purchase journey map, synthesized into four problem statements and four design goals.",
+  ],
+  [
+    "Design",
+    "High-fidelity screens for the scan entry point, the At a Glance score, the ingredient breakdown, and the claim verification split. Built solo, end to end.",
+  ],
+  [
+    "Status",
+    "Concept project. Designed and ready to test, not yet validated with users. The Outcome section says exactly what would prove it.",
+  ],
+];
 
-function JourneyTable() {
+/** Two parallel sentences per row: one naming the cost, one naming the fix. */
+const BEFORE_AFTER: [string, string][] = [
+  [
+    "Four separate trust signals, none of them scored, and the badge exits the page.",
+    "One Verified Score at the top of the page, broken into three named categories.",
+  ],
+  [
+    "Ingredient names with no explanation, so understanding them means leaving the page.",
+    "Fifteen ingredients by concentration, each with a one-sentence explanation in place.",
+  ],
+  [
+    "Brand claims and third-party certifications look identical, so neither can be checked.",
+    "Each claim tagged Brand-reported or AI-analyzed, with the source attached.",
+  ],
+];
+
+function BeforeAfter() {
   return (
-    <div
-      className="relative w-full overflow-hidden"
-      style={{
-        background: "#fdfeff",
-        border: `1px solid ${DIVIDER}`,
-        borderRadius: 12,
-        padding: 24,
-      }}
-    >
-      <div
-        className="relative flex flex-col"
-        style={{ gap: 31.861, maxWidth: 955.833, marginInline: "auto" }}
-      >
-        {/* The #dee6fa band behind the Product Research column — the design's
-            way of saying this is the stage the project lives in. It spans the
-            full column height, row gaps included (67:12841). */}
+    <div className="flex flex-col">
+      {BEFORE_AFTER.map(([before, after], i) => (
         <div
-          aria-hidden
-          className="absolute bottom-0 top-0"
+          key={before}
+          className="grid gap-[60px]"
           style={{
-            left: "calc(71.944px + (100% - 71.944px - 5 * 20.556px) * 3 / 6 + 20.556px * 3 - 10px)",
-            width: "calc((100% - 71.944px - 5 * 20.556px) / 6 + 20px)",
-            background: "#dee6fa",
-            borderRadius: 12.333,
+            gridTemplateColumns: "1fr 1fr",
+            paddingBlock: 32,
+            borderTop: `1px solid ${DIVIDER}`,
+            borderBottom: i === BEFORE_AFTER.length - 1 ? `1px solid ${DIVIDER}` : "none",
           }}
-        />
-        {/* Stage header row. */}
-        <div className="relative flex items-end" style={{ gap: 20.556 }}>
-          <div style={{ width: 71.944, flexShrink: 0 }}>
-            <p
-              className="font-medium"
-              style={{ fontSize: JOURNEY_CELL, letterSpacing: 0.1233, color: INK, paddingBottom: 12.333 }}
-            >
-              Stage
-            </p>
+        >
+          <div className="flex flex-col gap-[12px]">
+            <Label>Before</Label>
+            <SectionBody>{before}</SectionBody>
           </div>
-          {JOURNEY_STAGES.map((stage, i) => (
-            <div key={stage} className="min-w-0 flex-1">
-              <p
-                className="font-medium"
-                style={{
-                  fontSize: JOURNEY_CELL,
-                  letterSpacing: 0.1233,
-                  color: INK,
-                  whiteSpace: "nowrap",
-                  paddingBottom: 12.333,
-                  borderBottom: `2.056px solid ${i === 2 ? "#0059ff" : INK}`,
-                }}
-              >
-                {stage}
-              </p>
-            </div>
-          ))}
+          <div className="flex flex-col gap-[12px]">
+            <Label>After</Label>
+            <SectionLead>{after}</SectionLead>
+          </div>
         </div>
-        {/* Content rows. */}
-        {JOURNEY.map((row) => (
-          <div key={row.label} className="relative flex items-start" style={{ gap: 20.556 }}>
-            <div style={{ width: 71.944, flexShrink: 0 }}>
-              <p
-                className="font-medium"
-                style={{ fontSize: JOURNEY_CELL, letterSpacing: 0.1233, color: INK, paddingBlock: 10.447 }}
-              >
-                {row.label}
-              </p>
-            </div>
-            {row.cells.map((cell, i) => (
-              <div key={i} className="min-w-0 flex-1">
-                {cell.length > 1 ? (
-                  <ul
-                    className="list-disc pl-[18.5px]"
-                    style={{
-                      fontSize: JOURNEY_CELL,
-                      letterSpacing: 0.1233,
-                      color: "#545558",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 2,
-                    }}
-                  >
-                    {cell.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p
-                    style={{
-                      fontSize: JOURNEY_CELL,
-                      letterSpacing: 0.1233,
-                      color: "#545558",
-                      padding: 4.111,
-                    }}
-                  >
-                    {cell[0]}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** Two related-project cards — the projects stacked before and after
- *  Greenera in the folder fan (`Related Projects Block` 67:12992). */
-function RelatedProjects() {
-  const related = ["the-family-table", "hacksvit"]
-    .map((slug) => PROJECTS.find((p) => p.slug === slug))
-    .filter((p) => p !== undefined);
-  return (
-    <div className="grid grid-cols-2 gap-[40px]">
-      {related.map((p) => (
-        <a key={p.slug} href={`#${p.slug}`} className="flex flex-col gap-[12px]">
-          <Figure src={p.hero ?? p.thumb} ratio="466 / 360" radius={12} alt={p.name} />
-          <div
-            className="flex items-start gap-[31px] uppercase"
-            style={{
-              color: MUTED,
-              fontFamily: MONO,
-              fontWeight: 500,
-              fontSize: 16,
-            }}
-          >
-            <span>{p.name}</span>
-            {p.type ? <span>{p.type}</span> : null}
-            {p.year ? <span>{p.year}</span> : null}
-          </div>
-          {p.title ? (
-            <p className="font-medium" style={{ fontSize: BODY_FONT, letterSpacing: BODY_TRACK }}>
-              {p.title}
-            </p>
-          ) : null}
-        </a>
       ))}
     </div>
   );
 }
+
+/** `Extended Content Block` 8:288 — three even cards, 60 apart. */
+const SOLUTION = [
+  {
+    img: `${ART}/solution-score.png`,
+    alt: "At a Glance card with the Verified Score, split three ways",
+    header: "One score, not five scattered signals.",
+    body: "The page leads with a single Verified Score, split into Human Health, Sourcing Impact, and Supply Chain. Shoppers see what to check first instead of guessing.",
+  },
+  {
+    img: `${ART}/solution-ingredients.png`,
+    alt: "Ingredient breakdown, sorted by concentration",
+    header: "Plain-language ingredients, no detour required.",
+    body: "Fifteen ingredients, sorted by concentration, each explained in one sentence, on the page. No jump to Alexa or a separate chat window.",
+  },
+  {
+    img: `${ART}/solution-certification.png`,
+    alt: "Certification card tagging each claim Brand-reported or AI-analyzed",
+    header: "Brand claims and verified data, kept visibly apart.",
+    body: "Every claim is tagged Brand-reported or AI-analyzed. Shoppers know which one to trust, and why.",
+  },
+] as const;
+
+/** `Text Content Block` 8:308 — four teardown collages, 60 apart. */
+const PROBLEM = [
+  {
+    img: `${ART}/problem-1.png`,
+    alt: "Annotated product page — search bar, question chips, leaf badge and Alexa icon",
+    header: "Every entry point promises a different kind of truth, so none of them earn trust.",
+    body: "Search bar, question chips, a leaf badge, an Alexa icon. Four paths to the same answer. The badge carries no score or certification behind it, and tapping it exits the page into a chat window.",
+  },
+  {
+    img: `${ART}/problem-2.png`,
+    alt: "Annotated product page — specs, claims and callouts stacked at equal weight",
+    header: "More information isn't more trust, it's more to verify.",
+    body: "Specs, claims, ingredient callouts, and suggested questions all carry the same visual weight. A shopper scanning for five minutes still can't tell which claim to check first.",
+  },
+  {
+    img: `${ART}/problem-3.png`,
+    alt: "Annotated buy box — Subscribe & Save, stock urgency and a separate eco-refill card",
+    header: "The purchase moment optimizes for urgency, not the habit it claims to support.",
+    body: 'One-time purchase and Subscribe & Save look identical, so neither points toward the lower-waste option. "Only 13 left in stock" pushes for speed instead. Refill and impact info sit in a separate card, outside the buy box, so it never enters the decision.',
+  },
+  {
+    img: `${ART}/problem-4.png`,
+    alt: "Annotated reviews section",
+    header: "Reviews tell you if it worked, not whether the claims are true.",
+    body: 'Reviews cover smell and streaks, not whether a "safer chemicals" claim holds up. The page hands shoppers a pile of claims and expects them to verify it alone.',
+  },
+] as const;
 
 export const GREENERA_SECTIONS: CaseStudySection[] = [
   {
@@ -347,69 +174,42 @@ export const GREENERA_SECTIONS: CaseStudySection[] = [
     children: null,
   },
   {
+    // Sits directly under the header, before any prose, and carries no
+    // eyebrow of its own — it reads as part of the title block.
+    id: "meta",
+    title: "Details",
+    hideTitle: true,
+    inRail: false,
+    children: <DefinitionGrid items={META} bordered />,
+  },
+  {
     id: "tldr",
     title: "TL;DR",
     children: (
-      <div
-        className="flex flex-col"
-        style={{
-          gap: 22.163,
-          padding: 22.163,
-          borderRadius: 11.082,
-          border: `0.923px solid ${DIVIDER}`,
-        }}
-      >
-        <SectionLead>
-          Shoppers who want to buy sustainably can't tell which claims to
-          trust. Product pages stack specs, sustainability badges, and
-          marketing claims with no hierarchy, so a five-minute read leaves a
-          shopper no closer to knowing what actually matters.
-        </SectionLead>
-        <SectionBody>
-          Greenera turns that into one moment: scan a product and get a
-          Verified Score, broken into Human Health, Sourcing Impact, and Supply
-          Chain, with plain-language ingredient breakdowns underneath. Where a
-          claim can't be verified yet, like an independent supply-chain audit,
-          the score says so instead of rounding up.
-        </SectionBody>
-      </div>
-    ),
-  },
-  {
-    id: "solution",
-    title: "Solution",
-    children: (
-      <div className="flex flex-col gap-[60px]">
-        {(
-          [
-            {
-              img: `${ART}/at-a-glance.png`,
-              alt: "At a Glance card with the Verified Score",
-              header: "One score, not five scattered signals.",
-              body: "The product page leads with a single Verified Score, split into Human Health, Ecosystem Impact, and Supply Chain. Shoppers see what to check first instead of guessing.",
-            },
-            {
-              img: `${ART}/ingredients.png`,
-              alt: "Ingredient breakdown screen",
-              header: "Plain-language ingredients, no detour required.",
-              body: "Fifteen ingredients, sorted by concentration, each explained in one sentence, right on the page. No jump to Alexa or a separate chat window.",
-            },
-            {
-              img: `${ART}/certification.png`,
-              alt: "Certification card splitting brand-reported and AI-analyzed claims",
-              header: "Brand claims and verified data, kept visibly separate.",
-              body: "The Certification card tags every claim Brand-reported or AI-analyzed. Shoppers know exactly which one to trust, and why.",
-            },
-          ] as const
-        ).map((block) => (
-          <div key={block.header} className="grid gap-[40px]" style={{ gridTemplateColumns: "1fr 1fr" }}>
-            <Figure src={block.img} ratio="1 / 1" radius={12} alt={block.alt} />
-            <div className="flex flex-col gap-[12px]">
-              <SectionLead>{block.header}</SectionLead>
-              <SectionBody>{block.body}</SectionBody>
-            </div>
-          </div>
-        ))}
+      <div className="flex flex-col gap-[40px]">
+        <div
+          className="flex flex-col"
+          style={{
+            gap: 22.163,
+            padding: 22.163,
+            borderRadius: 11.082,
+            border: `0.923px solid ${DIVIDER}`,
+          }}
+        >
+          <SectionLead>
+            Shoppers who want to buy sustainably can't tell which claims to
+            trust. Product pages stack specs, badges, and marketing claims at
+            the same visual weight, so five minutes of reading leaves you no
+            closer to knowing what matters.
+          </SectionLead>
+          <SectionBody>
+            Greenera turns that into one moment. Scan a product, get a Verified
+            Score split into Human Health, Sourcing Impact, and Supply Chain,
+            with plain-language ingredient breakdowns underneath. Where a claim
+            can't be verified yet, the score says so instead of rounding up.
+          </SectionBody>
+        </div>
+        <DefinitionGrid items={SCOPE} muted />
       </div>
     ),
   },
@@ -418,10 +218,71 @@ export const GREENERA_SECTIONS: CaseStudySection[] = [
     title: "Brief",
     children: (
       <SectionLead>
-        Design an e-commerce experience that promotes informed, health- and
-        environmentally conscious purchasing decisions through simple and
-        transparent shopping.
+        Design an e-commerce experience that makes health- and
+        environment-conscious buying decisions simple and transparent.
       </SectionLead>
+    ),
+  },
+  {
+    id: "challenge",
+    title: "Challenge",
+    children: (
+      <SectionLead>
+        How might a product page make sustainability claims verifiable at a
+        glance, instead of handing shoppers a pile of claims and expecting them
+        to check it alone?
+      </SectionLead>
+    ),
+  },
+  {
+    id: "solution",
+    title: "Solution",
+    children: (
+      <div className="flex flex-col gap-[60px]">
+        <SectionBody>Three screens carry the idea. Here's what each one does.</SectionBody>
+        {SOLUTION.map((block) => (
+          <ImageCard key={block.header} {...block} columns="1fr 1fr" gap={40} radius={12} />
+        ))}
+      </div>
+    ),
+  },
+  {
+    id: "problem",
+    title: "The Problem",
+    children: (
+      <div className="flex flex-col gap-[60px]">
+        <SectionBody>
+          I pulled apart a live product page for a cleaning product and walked
+          it the way a shopper would. Four things broke.
+        </SectionBody>
+        {PROBLEM.map((block) => (
+          <ImageCard
+            key={block.header}
+            {...block}
+            columns="481fr 431fr"
+            gap={60}
+            radius={17.438}
+          />
+        ))}
+      </div>
+    ),
+  },
+  {
+    // Answers the question an interviewer asks before they finish scrolling:
+    // why a score, and not one more badge.
+    id: "why-a-score",
+    title: "Why a Score",
+    children: (
+      <div className="flex flex-col gap-[24px]">
+        <SectionLead>The teardown ruled out the badge before I drew anything.</SectionLead>
+        <SectionBody>
+          The failure on the live page wasn't a missing signal. It was an
+          unbacked one: a leaf icon with no score, no certification, and no
+          comparison behind it. Adding another badge repeats the problem. A
+          score has to show its parts, so the parts became the design. Three
+          named categories, each traceable to a source.
+        </SectionBody>
+      </div>
     ),
   },
   {
@@ -430,10 +291,23 @@ export const GREENERA_SECTIONS: CaseStudySection[] = [
     children: (
       <div className="flex flex-col gap-[60px]">
         <div className="flex flex-col gap-[20px]">
-          <SectionLead>User interview</SectionLead>
+          <SectionLead>But why fix the product page and not search, or checkout?</SectionLead>
           <SectionBody>
-            Four interviews, mixed levels of interest in sustainability, to
-            understand why sustainable shopping feels hard.
+            Because that's where the decision gets made. Mapping six stages,
+            from first discovery to after-sale, showed browsing and product
+            research carrying every trust question. Search sends people to the
+            page. Checkout only confirms what they already decided.
+          </SectionBody>
+        </div>
+        <div className="flex flex-col gap-[20px]">
+          <SectionLead>
+            People aren't unwilling to check. The checking is just too
+            expensive.
+          </SectionLead>
+          <SectionBody>
+            Four interviews, across a range of interest in sustainability.
+            Nobody rejected sustainable products. They rejected the effort of
+            verifying them.
           </SectionBody>
         </div>
         {/* The interactive persona board — React port of the user's
@@ -446,58 +320,20 @@ export const GREENERA_SECTIONS: CaseStudySection[] = [
           <PersonaBoard />
         </div>
         <div className="flex flex-col gap-[20px]">
-          <SectionLead>End-to-end purchase journey</SectionLead>
+          <SectionLead>The trust questions all cluster in one place.</SectionLead>
           <SectionBody>
-            Mapping my own shopping habits and friends' across six stages,
-            discovery to after-sale, surfaced where purchase decisions actually
-            happen. That's the part of the journey worth designing for.
+            Six stages, mapped with contact points, user actions, and pain
+            points at each. Discovery and browsing raise the questions. Product
+            research is where shoppers try and fail to answer them. That's the
+            stage worth designing for.
           </SectionBody>
         </div>
-        <JourneyTable />
-      </div>
-    ),
-  },
-  {
-    id: "problem",
-    title: "The Problem",
-    children: (
-      <div className="flex flex-col gap-[60px]">
-        {(
-          [
-            {
-              img: `${ART}/problem-1.png`,
-              alt: "Annotated Amazon product page — search bar, chips, leaf badge and Alexa icon",
-              header: "Every entry point promises a different kind of truth, so none of them build user trust.",
-              body: "Search bar, question chips, a leaf badge, an Alexa icon: four separate paths to the same answer. The badge carries no score or certification behind it, and tapping it exits the page entirely into a chat window.",
-            },
-            {
-              img: `${ART}/problem-2.png`,
-              alt: "Annotated product page — specs, claims and callouts stacked with equal weight",
-              header: "More information isn't more trust, it's more to verify.",
-              body: "Specs, claims, ingredient callouts, and suggested questions all carry the same visual weight. A shopper scanning for five minutes still can't tell which claim to check first.",
-            },
-            {
-              img: `${ART}/problem-3.png`,
-              alt: "Annotated buy box — Subscribe & Save, stock urgency and a separate eco-refill card",
-              header: "The purchase moment optimizes for urgency, not the habit it claims to support.",
-              body: 'One-time purchase and Subscribe & Save look identical, so neither points toward the lower-waste option. "Only 13 left in stock" pushes for speed instead. Refill and environmental-impact info sit in a separate card, outside the buy box, so it never enters the decision.',
-            },
-            {
-              img: `${ART}/problem-4.png`,
-              alt: "Annotated reviews section",
-              header: "Reviews tell you if it worked, not if the claims are true.",
-              body: 'Reviews cover experience, smell, streaks, not whether a "safer chemicals" claim actually holds up. The page hands shoppers a pile of claims and expects them to verify it alone.',
-            },
-          ] as const
-        ).map((block) => (
-          <div key={block.header} className="grid items-start gap-[60px]" style={{ gridTemplateColumns: "481fr 431fr" }}>
-            <Figure src={block.img} ratio="1 / 1" radius={17.438} alt={block.alt} />
-            <div className="flex flex-col gap-[24px]">
-              <SectionLead>{block.header}</SectionLead>
-              <SectionBody>{block.body}</SectionBody>
-            </div>
-          </div>
-        ))}
+        <Figure
+          src={`${ART}/journey-table.png`}
+          ratio={String(1944 / 1017)}
+          radius={12}
+          alt="Six-stage purchase journey matrix — contact points, user actions, and pain points for Discovery, Browsing, Product Research, Purchase, Logistics, and After-Sale Services, with Product Research highlighted"
+        />
       </div>
     ),
   },
@@ -514,20 +350,57 @@ export const GREENERA_SECTIONS: CaseStudySection[] = [
         <IconRow
           glyph="💬"
           header="Explain claims in plain language, in place."
-          body="Jargon pushes users to leave the page and ask Alexa or search elsewhere, which builds no trust."
+          body="Jargon pushes people off the page to ask Alexa or search elsewhere, which builds no trust."
         />
         <IconRow
           glyph="✅"
           header="Make claims verifiable, not just visible."
-          body="Trust rests on reviews and influencer content, neither of which can confirm a company's claim."
+          body="Trust currently rests on reviews and influencer content, neither of which can confirm a company's claim."
         />
         <IconRow
           glyph="♻️"
           header="Put the sustainable option in the path of the purchase decision."
-          body="Right now refill and environmental impact info sit outside the buy box, so urgency wins by default."
+          body="Refill and impact info sit outside the buy box, so urgency wins by default. This is the one goal I didn't get to. See Reflection."
         />
       </div>
     ),
+  },
+  {
+    // The section that separates UI work from product work: who this is worth
+    // money to, and where the money and the score pull against each other.
+    id: "business-case",
+    title: "The Business Case",
+    children: (
+      <div className="flex flex-col gap-[40px]">
+        <div className="flex flex-col gap-[24px]">
+          <SectionLead>Transparency only differentiates if it's checkable.</SectionLead>
+          <SectionBody>
+            Brands already compete on sustainability claims. The teardown shows
+            what that competition currently looks like, which is a leaf badge
+            with nothing behind it. A brand with real data has no way to look
+            different from a brand with a marketing line. Greenera gives the
+            honest one a surface where the difference is visible.
+          </SectionBody>
+        </div>
+        <div className="flex flex-col gap-[24px]">
+          <SectionLead>The revenue model and the score pull against each other.</SectionLead>
+          <SectionBody>
+            If brands pay to be scored, the thing judging them has a reason to
+            be generous. I designed against that before I had a name for it.
+            Every claim is tagged Brand-reported or AI-analyzed, and undisclosed
+            categories stay undisclosed instead of rounding up. The label is the
+            safeguard. Whether it holds under commercial pressure is an open
+            question, and it's the first thing I'd stress-test with a real
+            brand.
+          </SectionBody>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "before-after",
+    title: "Before / After",
+    children: <BeforeAfter />,
   },
   {
     id: "outcome",
@@ -535,15 +408,30 @@ export const GREENERA_SECTIONS: CaseStudySection[] = [
     children: (
       <div className="flex flex-col gap-[60px]">
         <div className="flex flex-col gap-[24px]">
-          <SectionLead>Three of four goals shipped as high-fidelity screens.</SectionLead>
+          <SectionLead>Three of four goals designed, none validated yet.</SectionLead>
           <SectionBody>
-            The camera scan, At a Glance score, ingredient breakdown, and
-            claim-verification split are designed and ready to test. Goal 4,
-            sustainable options inside the purchase decision, didn't make this
-            pass. See Reflection.
+            The scan entry point, the At a Glance score, the ingredient
+            breakdown, and the claim verification split all exist as
+            high-fidelity screens. The fourth goal, putting the sustainable
+            option inside the purchase decision, didn't make this pass.
           </SectionBody>
         </div>
-        <Figure src={`${ART}/product-page.png`} ratio="972 / 600" radius={12} alt="The full Greenera product page design" />
+        <Figure
+          src={`${ART}/outcome-lineup.png`}
+          ratio="972 / 600"
+          radius={12}
+          alt="The four Greenera screens: camera scan, product page, ingredient breakdown, verified score breakdown"
+        />
+        <div className="flex flex-col gap-[24px]">
+          <SectionLead>What would prove it.</SectionLead>
+          <SectionBody>
+            The bet is that a single scored hierarchy changes what shoppers
+            check first. Testing it means putting the original page and this one
+            in front of the same people and watching where they look, in what
+            order, and how long before they give up. Until then it's a design
+            bet, not a result.
+          </SectionBody>
+        </div>
       </div>
     ),
   },
@@ -551,33 +439,56 @@ export const GREENERA_SECTIONS: CaseStudySection[] = [
     id: "reflection",
     title: "Reflection",
     children: (
-      <div className="flex flex-col gap-[40px]">
-        <IconRow
-          glyph="⚖️"
-          header="The score doesn't match itself."
-          body="The At a Glance card and the Verified Score Breakdown screen show different sub-scores for the same product. One needs to be the source of truth."
-        />
-        <IconRow
-          glyph="❓"
-          header="0% means two different things right now."
-          body='Unrated categories like Energy Mix and Packaging Circularity show 0%, same as a genuine fail. That undercuts the promise that unverified claims get flagged instead of rounded up. Needs a distinct "Not disclosed" state.'
-        />
-        <IconRow
-          glyph="🚧"
-          header="Goal 4 never got a screen."
-          body="Refill and environmental-impact info still live outside the buy box. With more time, I'd design that into the purchase moment directly, next to Subscribe & Save, instead of deferring it."
-        />
-        <SectionBody>
-          Next step: usability test the At a Glance hierarchy against the
-          original layout. Right now it's a design bet, not a validated one.
-        </SectionBody>
+      <div className="flex flex-col gap-[60px]">
+        <div className="flex flex-col gap-[40px]">
+          <Label>What I'd carry into the next project</Label>
+          <IconRow
+            glyph="🗺️"
+            header="Map the journey before touching a screen."
+            body="Interviews told me people wanted help. The journey map told me where to put it. Without that step I'd have redesigned search, which raises the question but never answers it."
+          />
+          <IconRow
+            glyph="❓"
+            header="An unverifiable claim needs its own state, not a zero."
+            body={
+              <>
+                Categories with no disclosed data currently read as 0%, the same
+                as a genuine failure. That quietly undercuts the whole promise
+                of the score. It needs a distinct "Not disclosed" treatment.
+              </>
+            }
+          />
+          <IconRow
+            glyph="⚖️"
+            header="One number, one source of truth."
+            body="The At a Glance card and the Verified Score breakdown show different sub-scores for the same product. Two screens, two answers, which is exactly the problem I set out to fix."
+          />
+          <IconRow
+            glyph="🔤"
+            header="I never tested a simpler format against this one."
+            body="A single letter grade would be faster to read and easier to remember than three categories. I didn't prototype one, so I can't claim the score wins. That comparison is the first thing I'd run."
+          />
+        </div>
+        <div className="flex flex-col gap-[40px]">
+          <Label>What I'd do differently now with AI</Label>
+          <IconRow
+            glyph="🧪"
+            header="Pressure-test the score with real data first."
+            body="I designed the score with clean sample values. I'd now generate a spread of messy cases — missing fields, partial disclosures, conflicting certifications — and run them through the layout before calling it done."
+          />
+          <IconRow
+            glyph="⏱️"
+            header="Synthesize interviews faster, spend the time on the map."
+            body="Four transcripts took longer to code than the journey map that came out of them. I'd cluster them with AI and put the saved hours into more journey stages and more teardowns."
+          />
+        </div>
       </div>
     ),
   },
   {
-    id: "related",
-    title: "Related projects",
+    id: "also-checkout",
+    title: "Also checkout",
     inRail: false,
-    children: <RelatedProjects />,
+    children: <RelatedProjects slugs={["the-family-table", "hacksvit"]} />,
   },
 ];
