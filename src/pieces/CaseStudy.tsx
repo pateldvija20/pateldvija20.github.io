@@ -83,11 +83,11 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 export function CaseStudy({
   project,
-  theme,
   sections = DEFAULT_SECTIONS,
   chrome = 1,
 }: {
   project: Project;
+  /** Still threaded from the desk, but the page no longer inverts with it. */
   theme: Theme;
   sections?: CaseStudySection[];
   /**
@@ -101,12 +101,13 @@ export function CaseStudy({
    */
   chrome?: number;
 }) {
-  // Figma dark is pure black (#07070a) with the same muted grey — the
-  // previous #2f2f2f was the desk surface, not the page.
-  const face = theme === "light" ? "#fdfeff" : "#07070a";
-  const ink = theme === "light" ? "#18191a" : "#f5f7fb";
+  // The case study page is a printed sheet: it keeps the same paper white in
+  // both themes rather than inverting with the desk around it, so the ink and
+  // rule that sit on it are fixed to match.
+  const face = "#fdfeff";
+  const ink = "#18191a";
   const muted = "#7c838b";
-  const divider = theme === "light" ? "#e3e5e8" : "#1e222b";
+  const divider = "#e3e5e8";
   const accent = "#0059ff";
 
   // Scroll-spy: whichever section the reader is in lights up on the rail.
