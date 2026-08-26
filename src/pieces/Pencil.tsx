@@ -18,15 +18,21 @@ export function Pencil({
   color,
   theme,
   className,
+  style,
+  onPointerDown,
 }: {
   color: PencilColor;
   theme: Theme;
   className?: string;
+  style?: React.CSSProperties;
+  onPointerDown?: (e: React.PointerEvent<HTMLImageElement>) => void;
 }) {
   return (
     <SvgPiece
       src={`/assets/pencil_${color}_${theme}.svg`}
       className={className}
+      style={style}
+      onPointerDown={onPointerDown}
       alt={`${color} pencil`}
     />
   );

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { CaseStudySection } from "./CaseStudy";
 import { PROJECTS } from "./projects";
+import { HacksvitSiteEmbed } from "./hacksvit-site";
+import stickerSheetRaw from "../assets/sticker-sheet.svg?raw";
 
 /**
  * The HackSVIT case study (Figma `Folder Back` 249:9810), authored as
@@ -897,6 +899,7 @@ function Figure({
   className = "",
   style,
   alt = "",
+  fallback,
 }: {
   src: string;
   ratio?: string;
@@ -904,12 +907,13 @@ function Figure({
   className?: string;
   style?: React.CSSProperties;
   alt?: string;
+  fallback?: React.ReactNode;
 }) {
   const [ok, setOk] = useState(true);
   return (
     <div
       className={`relative overflow-hidden ${className}`}
-      style={{ aspectRatio: ratio, borderRadius: radius, ...style }}
+      style={{ aspectRatio: ratio, borderRadius: radius, background: "#e9ecf0", ...style }}
     >
       {ok ? (
         <img
@@ -919,14 +923,10 @@ function Figure({
           onError={() => setOk(false)}
           className="absolute inset-0 h-full w-full select-none object-cover"
         />
+      ) : fallback ? (
+        fallback
       ) : (
-        <div
-          className="absolute inset-0 rounded-[10px]"
-          style={{
-            border: "2px dashed color-mix(in srgb, currentColor 25%, transparent)",
-            opacity: 0.4,
-          }}
-        />
+        <div className="absolute inset-0 bg-[#e9ecf0]" style={{ borderRadius: radius }} />
       )}
     </div>
   );
@@ -948,6 +948,99 @@ function MetaLabel({ children }: { children: ReactNode; }) {
   );
 }
 
+/**
+ * The identity grid, off `325-12091`: row one is the section lead in the
+ * left column with three cards beside it; row two flanks the body copy with
+ * the remaining two. Cards are the interactive MascotCard — same spring
+ * morph, eye tracking and typed role label as the standalone build.
+ */
+/** Matches the standard body size used everywhere else on the page
+ *  (`SectionBody`, 22.163/0.2216). */
+const IDENTITY_FONT = 22.163;
+const IDENTITY_TRACK = 0.2216;
+
+function IdentityShowcase() {
+  return (
+    <div className="flex flex-col gap-[30px]">
+      <div
+        className="grid items-start gap-[30px]"
+        style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
+      >
+        <div className="flex flex-col gap-[30px]">
+          {/* The section's own label — see `hideTitle` on this entry. */}
+          <p
+            className="uppercase"
+            style={{ fontFamily: MONO, fontSize: 22.922, color: MUTED }}
+          >
+            identity
+          </p>
+          <p
+            className="font-medium"
+            style={{ fontSize: IDENTITY_FONT, letterSpacing: IDENTITY_TRACK, lineHeight: "normal" }}
+          >
+            Online hackathons made tech events feel transactional.
+          </p>
+        </div>
+        <MascotCard m={MASCOTS[2]} />
+        <MascotCard m={MASCOTS[1]} />
+        <MascotCard m={MASCOTS[3]} />
+      </div>
+      <div
+        className="grid items-center gap-[30px]"
+        style={{ gridTemplateColumns: "247.24fr 524.48fr 247.24fr" }}
+      >
+        <MascotCard m={MASCOTS[4]} />
+        <div className="flex flex-col gap-[30px] p-[15.05px]">
+          <p style={{ fontSize: IDENTITY_FONT, letterSpacing: IDENTITY_TRACK, lineHeight: "normal", color: MUTED }}>
+            Instead of abstract tech jargon, the visual identity revolves around
+            five distinct mascot characters.
+          </p>
+          <p style={{ fontSize: IDENTITY_FONT, letterSpacing: IDENTITY_TRACK, lineHeight: "normal", color: MUTED }}>
+            Each character represents a different problem-solving mindset
+            brought to a hackathon.
+          </p>
+        </div>
+        <MascotCard m={MASCOTS[0]} />
+      </div>
+    </div>
+  );
+}
+
+function StickerSheet() {
+  return (
+    <div
+      className="sticker-sheet relative overflow-hidden"
+      style={{ borderRadius: 16, height: "100%", background: "#fff7e3" }}
+    >
+      <style>{`
+        .sticker-sheet svg { width: 100%; height: 100%; display: block; }
+        .sticker-sheet svg > g { transform-box: fill-box; transform-origin: center; }
+        .sticker-sheet svg > g:hover { animation: sticker-wiggle 0.42s ease-in-out; cursor: pointer; }
+        @keyframes sticker-wiggle {
+          0%, 100% { transform: rotate(0deg) translateY(0); }
+          25% { transform: rotate(-1.4deg) translateY(-2px); }
+          50% { transform: rotate(1.4deg) translateY(-1px); }
+          75% { transform: rotate(-0.9deg) translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .sticker-sheet svg > g:hover { animation: none; }
+        }
+      `}</style>
+      <div
+        className="absolute inset-0"
+        // The asset already contains the cream fill + border, so render it
+        // edge-to-edge and let the wrapper's radius clip it. The export ships
+        // with the default `xMidYMid meet`, which letterboxes the art inside
+        // the taller row the poster's aspect drives — `none` stretches it to
+        // fill the container exactly.
+        dangerouslySetInnerHTML={{
+          __html: stickerSheetRaw.replace("<svg ", '<svg preserveAspectRatio="none" '),
+        }}
+      />
+    </div>
+  );
+}
+
 export const HACKSVIT_SECTIONS: CaseStudySection[] = [
   {
     id: "intro",
@@ -962,7 +1055,6 @@ export const HACKSVIT_SECTIONS: CaseStudySection[] = [
         <div
           className="flex flex-col"
           style={{
-            // `TLDR Section Block` 67:13069.
             gap: 22.163,
             padding: 22.163,
             borderRadius: 11.082,
@@ -980,7 +1072,7 @@ export const HACKSVIT_SECTIONS: CaseStudySection[] = [
             participants.
           </SectionBody>
         </div>
-        <Figure src={`${ART}/posters.png`} ratio="1147 / 700" radius={16} />
+        <Figure src={`${ART}/posters.png`} ratio="1620 / 857" radius={16} />
       </div>
     ),
   },
@@ -988,11 +1080,16 @@ export const HACKSVIT_SECTIONS: CaseStudySection[] = [
     id: "challenge",
     title: "Challenge",
     children: (
+      // Figma centres the text against the poster's full height rather than
+      // pinning it to the top (`Frame 48096017` 337:662) — `items-center`
+      // reproduces that without hand-copying a vertical offset that would
+      // only hold for this exact copy length.
       <div
-        className="grid items-start gap-[56px]"
-        style={{ gridTemplateColumns: "1.1fr 0.9fr" }}
+        className="grid items-center gap-[60px]"
+        style={{ gridTemplateColumns: "459.51fr 560.03fr" }}
       >
-        <div className="flex flex-col gap-[14px] pt-[8px]">
+        <Figure src={`${ART}/challenge-poster.png`} ratio="690 / 961" radius={16} />
+        <div className="flex flex-col gap-[30px]">
           <SectionLead>
             Online hackathons made tech events feel transactional.
           </SectionLead>
@@ -1003,87 +1100,53 @@ export const HACKSVIT_SECTIONS: CaseStudySection[] = [
             to everyone, from first-time coders to experienced developers.
           </SectionBody>
         </div>
-        <Figure src={`${ART}/challenge-poster.png`} ratio="3 / 4" radius={16} />
       </div>
     ),
   },
   {
     id: "identity",
     title: "Identity",
-    children: (
-      <div className="flex flex-col gap-[32px]">
-        <SectionBody>
-          Instead of abstract tech jargon, the visual identity revolves around
-          five distinct mascot characters. Each character represents a different
-          problem-solving mindset brought to a hackathon.
-        </SectionBody>
-        <MascotRow />
-        <div
-          className="grid items-stretch gap-[20px]"
-          style={{ gridTemplateColumns: "0.85fr 1fr" }}
-        >
-          <Figure
-            src={`${ART}/identity-poster.png`}
-            radius={16}
-            className="h-[440px]"
-          />
-          <Figure
-            src={`${ART}/identity-stickers.png`}
-            radius={16}
-            className="h-[440px]"
-          />
-        </div>
-      </div>
-    ),
+    // Figma sets this section's own label inside the grid itself — smaller,
+    // muted, sitting beside the intro line rather than spanning full width
+    // above it (`Frame 48096014` 325:12092) — so the shared heading is
+    // switched off here and `IdentityShowcase` renders that label itself.
+    hideTitle: true,
+    children: <IdentityShowcase />,
   },
   {
     id: "collaterals",
     title: "Collaterals",
     children: (
-      <div className="flex flex-col gap-[28px]">
-        <SectionBody>
-          To create a unified physical experience, the mascots were adapted
-          across print and merchandise without needing separate asset pipelines.
-        </SectionBody>
-        <div className="grid grid-cols-2 gap-[20px]">
+      // Two separate frames in the file (`Frame 48096012` / `Frame
+      // 48096016`), 60 apart — the same rhythm as everything else on the
+      // page, not a tighter one just because they're both "Collaterals".
+      <div className="flex flex-col gap-[60px]">
+        <div
+          className="grid items-stretch gap-[30px]"
+          style={{ gridTemplateColumns: "438.52fr 611.01fr" }}
+        >
           <Figure
-            src={`${ART}/merch-bag.png`}
+            src={`${ART}/identity-poster.png`}
+            ratio="658 / 960"
             radius={16}
-            className="h-[480px]"
           />
-          <Figure
-            src={`${ART}/merch-tshirt.png`}
-            radius={16}
-            className="h-[480px]"
-          />
+          <StickerSheet />
+        </div>
+        <div className="grid grid-cols-2 gap-[30px]">
+          <Figure src={`${ART}/merch-bag.png`} ratio="782 / 948" radius={16} />
+          <Figure src={`${ART}/merch-tshirt.png`} ratio="782 / 948" radius={16} />
         </div>
       </div>
     ),
   },
   {
-    id: "experience",
-    title: "Experience",
-    children: (
-      <Figure src={`${ART}/experience.png`} ratio="1147 / 780" radius={16} />
-    ),
-  },
-  {
-    id: "reflection",
-    title: "Reflection",
-    children: (
-      <div className="flex flex-col gap-[14px]">
-        <SectionLead>
-          A friendly identity can carry an entire event's atmosphere.
-        </SectionLead>
-        <SectionBody>
-          HackSVIT taught me how far a cohesive mascot system can go — the same
-          five characters carried the posters, the swag, and the website, and
-          participants adopted them as the event's shared language. Given more
-          time, I would extend the system into motion and Discord stickers so
-          the identity lives as strongly online as it did on the walls.
-        </SectionBody>
-      </div>
-    ),
+    id: "website",
+    title: "Website",
+    // The replicated event site itself (Figma node 339-665) — live and
+    // navigable, but clipped into a frame that scrolls on its own so the
+    // section shows a preview instead of running the site's full 4800px
+    // down the case study.
+    children: <HacksvitSiteEmbed />,
   },
   {
     id: "also-checkout",
@@ -1092,29 +1155,41 @@ export const HACKSVIT_SECTIONS: CaseStudySection[] = [
     inRail: false,
     children: (
       <div className="flex flex-col gap-[24px]">
-        <p className="text-[18px] font-medium">Also checkout …</p>
+        <p
+          style={{
+            fontFamily: MONO,
+            fontSize: 13,
+            letterSpacing: "0.08em",
+            opacity: 0.45,
+          }}
+        >
+          Also checkout …
+        </p>
         <div className="grid grid-cols-2 gap-[20px]">
-          {[PROJECTS[0], PROJECTS[1]].map((p) => (
-            <div key={p.slug} className="flex flex-col gap-[14px]">
-              <Figure src={p.thumb} ratio="4 / 3" radius={12} />
+          {[0, 1].map((i) => (
+            <div key={i} className="flex flex-col gap-[14px]">
+              <div
+                className="w-full"
+                style={{
+                  aspectRatio: "4 / 2.6",
+                  borderRadius: 12,
+                  background: "#e9ecf0",
+                }}
+              />
               <div className="grid grid-cols-3 gap-[12px]">
                 <div>
                   <MetaLabel>Project name</MetaLabel>
-                  <div className="mt-[6px] text-[15px] font-semibold">
-                    {p.name}
+                  <div className="mt-[6px] text-[13px] font-medium opacity-60">
+                    Project title
                   </div>
                 </div>
                 <div>
                   <MetaLabel>Project type</MetaLabel>
-                  <div className="mt-[6px] text-[15px] font-semibold">
-                    {p.type ?? "—"}
-                  </div>
+                  <div className="mt-[6px] text-[13px] font-medium opacity-60">—</div>
                 </div>
                 <div>
                   <MetaLabel>Year</MetaLabel>
-                  <div className="mt-[6px] text-[15px] font-semibold">
-                    {p.year ?? "—"}
-                  </div>
+                  <div className="mt-[6px] text-[13px] font-medium opacity-60">—</div>
                 </div>
               </div>
             </div>

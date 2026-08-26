@@ -8,8 +8,7 @@ import { Draggable } from "./Draggable";
 import { FileFolder } from "./FileFolder";
 import { GoldenRatioMat } from "./GoldenRatioMat";
 import { IntroCard } from "./IntroCard";
-import { Pencil } from "./Pencil";
-import { PencilBox } from "./PencilBox";
+import { PencilTray } from "./PencilTray";
 import type { Theme } from "./Piece";
 import { Sticker } from "./Sticker";
 
@@ -20,15 +19,6 @@ export const CANVAS_H = 2713;
 /** Where Figma parks the window on that canvas at rest (`left:-1299; top:-240`). */
 export const CANVAS_ORIGIN_X = -1299;
 export const CANVAS_ORIGIN_Y = -240;
-
-/**
- * Pencils sitting in the box are shrunk by PencilBox's own useElementScale —
- * a stable 0.7804 of natural size (it derives from layout height, which the
- * canvas's `fit` transform doesn't affect, so it holds at every viewport).
- * Match it here so loose pencils on the desk read at the same scale as boxed
- * ones instead of a third larger.
- */
-const LOOSE_PENCIL = "h-[641.9px] w-[32.95px]";
 
 /**
  * The Scattered composition, node 69:8583. Every left/top/rotation below is
@@ -68,23 +58,10 @@ export function ScatteredScene({
         <DeskMat theme={theme} className="h-[1093px] w-[3044px]" />
       </div>
 
-      <div className="absolute left-[3019.78px] top-[2132.71px] z-[1]">
-        {drag(
-          <div className="rotate-[-72.02deg]">
-            <Pencil color="black" theme={theme} className={LOOSE_PENCIL} />
-          </div>,
-        )}
-      </div>
-      <div className="absolute left-[3022.64px] top-[1357.44px] z-[1]">
-        {drag(<Pencil color="darkgreen" theme={theme} className={LOOSE_PENCIL} />)}
-      </div>
-
-      <div className="absolute left-[3287px] top-[1477px] z-[1]">
-        {drag(
-          <div className="rotate-[5.19deg]">
-            <PencilBox theme={theme} />
-          </div>,
-        )}
+      {/* Box and loose pencils are one group: pencils move between the two, so
+          neither can own its own placement (see PencilTray). */}
+      <div className="absolute inset-0 z-[1]">
+        <PencilTray theme={theme} scale={scale} draggable={draggable} />
       </div>
 
       <div className="absolute left-[2748.9px] top-[428.9px] z-0 scale-y-[-1]">
@@ -147,20 +124,6 @@ export function ScatteredScene({
         {drag(<Sticker n={3} className="h-[169.02px] w-[191.17px]" />)}
       </div>
 
-      <div className="absolute left-[3522.75px] top-[872.26px] z-[1]">
-        {drag(
-          <div className="rotate-[-94.89deg]">
-            <Pencil color="darkblue" theme={theme} className={LOOSE_PENCIL} />
-          </div>,
-        )}
-      </div>
-      <div className="absolute left-[2750.61px] top-[1450.24px] z-[1]">
-        {drag(
-          <div className="rotate-[9.85deg]">
-            <Pencil color="yellow" theme={theme} className={LOOSE_PENCIL} />
-          </div>,
-        )}
-      </div>
     </div>
   );
 }

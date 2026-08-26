@@ -634,13 +634,16 @@ export function FileFolder({
   };
 
   // While a project fills the viewport the desk behind it must not scroll —
-  // the page carries its own scroller.
+  // the page carries its own scroller. Also set a data attribute so CSS can
+  // disable pointer-events on the background.
   useEffect(() => {
     if (expanded === null) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    document.body.dataset.projectOpen = "true";
     return () => {
       document.body.style.overflow = prev;
+      delete document.body.dataset.projectOpen;
     };
   }, [expanded]);
 
@@ -996,6 +999,18 @@ function ExpandedPage({
    *  it — by the time we shrink back, the folder has moved on. */
   const originRef = useRef<DOMRect | null>(null);
 
+  /**
+   * Scroll handoff: when the internal case-study scroller reaches its
+   * bottom and the user keeps scrolling down, the overlay "detaches" —
+   * it switches from `position: fixed` to `position: absolute` so the
+   * page scroll can carry it upward, revealing the footer underneath.
+   * Scrolling back to the top re-attaches it.
+   */
+  const [detached, setDetached] = useState(false);
+  const detachedRef = useRef(false);
+  const detachScrollTopRef = useRef(0);
+  const touchYRef = useRef(0);
+
   const viewportBox = () => ({
     left: EXPAND_INSET,
     top: EXPAND_INSET,
@@ -1046,14 +1061,133 @@ function ExpandedPage({
    * render and the shrink played out on a detached node: invisible, and the
    * page simply blinked out.
    */
+
+  /** Switch the overlay from fixed viewport-filling to absolute so the page
+   *  scroll can carry it upward, revealing the footer. */
+  const detach = useCallback(() => {
+    const el = pageRef.current;
+    if (!el || detachedRef.current) return;
+    // The overlay is fixed at EXPAND_INSET from viewport top. In document
+    // coordinates that's window.scrollY + EXPAND_INSET.
+    const docTop = window.scrollY + EXPAND_INSET;
+    detachedRef.current = true;
+    detachScrollTopRef.current = docTop;
+    setDetached(true);
+    el.style.position = "absolute";
+    el.style.top = `${docTop}px`;
+    document.body.style.overflow = "";
+  }, []);
+
+  /** Re-attach the overlay to the viewport after a downward scroll was
+   *  released. */
+  const attach = useCallback(() => {
+    const el = pageRef.current;
+    if (!el) return;
+    detachedRef.current = false;
+    setDetached(false);
+    el.style.position = "fixed";
+    el.style.top = `${EXPAND_INSET}px`;
+    document.body.style.overflow = "hidden";
+  }, []);
+
+  // Detach / attach listeners ------------------------------------------------
+
+  // Wheel: when the internal scroller has reached its bottom and the user
+  // keeps scrolling down, detach so the page scroll takes over.
+  useEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+    const getScroller = () => el.querySelector<HTMLElement>("[data-cs-scroller]");
+
+    const onWheel = (e: WheelEvent) => {
+      if (detachedRef.current || e.deltaY <= 0) return;
+      const s = getScroller();
+      if (!s) return;
+      if (s.scrollTop + s.clientHeight >= s.scrollHeight - 2) detach();
+    };
+    el.addEventListener("wheel", onWheel, { passive: true });
+
+    // Touch: mirror the wheel logic for trackpads / touch screens.
+    const onTouchStart = (e: TouchEvent) => {
+      touchYRef.current = e.touches[0].clientY;
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      if (detachedRef.current) return;
+      const y = e.touches[0].clientY;
+      const dy = touchYRef.current - y; // > 0 means scrolling down
+      touchYRef.current = y;
+      if (dy < 8) return;
+      const s = getScroller();
+      if (!s) return;
+      if (s.scrollTop + s.clientHeight >= s.scrollHeight - 2) detach();
+    };
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: true });
+
+    return () => {
+      el.removeEventListener("wheel", onWheel);
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+    };
+  }, [detach]);
+
+  // While detached, listen for the page scrolling back up far enough that
+  // the overlay's top edge reaches its fixed inset again — then re-attach.
+  useEffect(() => {
+    if (!detached) return;
+    const onScroll = () => {
+      // overlay viewport-top = detachDocTop − scrollY
+      if (window.scrollY <= detachScrollTopRef.current - EXPAND_INSET) attach();
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [detached, attach]);
+
+  // Keyboard: Space / PageDown / End at the bottom of the scroller should
+  // also trigger the handoff.
+  useEffect(() => {
+    const el = pageRef.current;
+    if (!el) return;
+    const getScroller = () => el.querySelector<HTMLElement>("[data-cs-scroller]");
+    const onKey = (e: KeyboardEvent) => {
+      if (detachedRef.current) return;
+      if (e.key === " " || e.key === "PageDown" || e.key === "End") {
+        const s = getScroller();
+        if (s && s.scrollTop + s.clientHeight >= s.scrollHeight - 2) {
+          // Prevent the default action (page scroll / caret scroll) so
+          // there is no double-jump, then detach.
+          e.preventDefault();
+          detach();
+        }
+      }
+    };
+    el.addEventListener("keydown", onKey);
+    return () => el.removeEventListener("keydown", onKey);
+  }, [detach]);
   const shrink = useCallback(() => {
     if (closingRef.current) return;
     closingRef.current = true;
     const el = pageRef.current;
     const r = originRef.current;
     if (!el || !r || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      // If reduced motion and detached, re-attach first so body overflow is restored.
+      if (detachedRef.current) {
+        detachedRef.current = false;
+        setDetached(false);
+        document.body.style.overflow = "hidden";
+      }
       onShrunk();
       return;
+    }
+    // If the overlay was detached (scrolled with the page), return it to its
+    // fixed pose first so the shrink animation plays in viewport coordinates.
+    if (detachedRef.current) {
+      el.style.position = "fixed";
+      el.style.top = `${EXPAND_INSET}px`;
+      window.scrollTo(0, detachScrollTopRef.current - EXPAND_INSET);
+      detachedRef.current = false;
+      setDetached(false);
+      document.body.style.overflow = "hidden";
     }
     /*
      * Sequential, and deliberately NOT a strict time-reversal of the grow.
@@ -1096,8 +1230,14 @@ function ExpandedPage({
       aria-modal="true"
       aria-label={`${project.name} case study`}
       data-no-track-drag
-      className="fixed z-[100] overflow-hidden"
+      data-project-overlay
+      className="z-[100] overflow-hidden"
       style={{
+        position: detached ? "absolute" : "fixed",
+        top: detached ? undefined : EXPAND_INSET,
+        left: EXPAND_INSET,
+        width: viewportBox().width,
+        height: viewportBox().height,
         background: face,
         border: `2px solid ${ink}`,
         borderRadius: SHEET_RADIUS,

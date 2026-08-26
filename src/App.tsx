@@ -231,6 +231,16 @@ function OrganizedStage({
 /* App                                                                */
 /* ------------------------------------------------------------------ */
 
+const DARK_QUERY = "(prefers-color-scheme: dark)";
+
+/** The OS preference right now. Guarded because `matchMedia` is missing in
+ *  non-browser environments and in some older test runners; light is the
+ *  same fallback the media query itself resolves to. */
+function systemTheme(): Theme {
+  if (typeof window === "undefined" || !window.matchMedia) return "light";
+  return window.matchMedia(DARK_QUERY).matches ? "dark" : "light";
+}
+
 function useBayClock() {
   const [clock, setClock] = useState("Bay Area, 12:17PM");
   useEffect(() => {
@@ -251,11 +261,34 @@ function useBayClock() {
 }
 
 export default function App() {
-  const [theme, setTheme] = useState<Theme>("light");
+  // The desk opens in whichever theme the OS is set to, and keeps following
+  // it — until the viewer works the toggle, at which point their choice wins
+  // for the rest of the session. Switching layouts never touches it.
+  const [theme, setTheme] = useState<Theme>(systemTheme);
+  const themeOverridden = useRef(false);
   const [mode, setMode] = useState<Mode>("scattered");
   const [bookOpen, setBookOpen] = useState(false);
   const [fileOpen, setFileOpen] = useState(false);
   const clock = useBayClock();
+
+  // Follow the OS while it's still the one deciding. Reading the query again
+  // on mount matters too: the preference can change between module eval and
+  // the first paint, and Safari < 14 only has the deprecated listener API.
+  useEffect(() => {
+    if (themeOverridden.current) return;
+    const mq = window.matchMedia(DARK_QUERY);
+    setTheme(mq.matches ? "dark" : "light");
+    const onChange = (e: MediaQueryListEvent) => {
+      if (themeOverridden.current) return;
+      setTheme(e.matches ? "dark" : "light");
+    };
+    if (mq.addEventListener) {
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    }
+    mq.addListener(onChange);
+    return () => mq.removeListener(onChange);
+  }, []);
 
   // Both layouts start from rest — hover takes over from there.
   useEffect(() => {
@@ -282,7 +315,12 @@ export default function App() {
         theme={theme}
         mode={mode}
         onMode={setMode}
-        onToggleTheme={() => setTheme((t) => (t === "light" ? "dark" : "light"))}
+        onToggleTheme={() => {
+          // An explicit choice takes the OS out of the loop — otherwise the
+          // system flipping at sunset would undo it mid-visit.
+          themeOverridden.current = true;
+          setTheme((t) => (t === "light" ? "dark" : "light"));
+        }}
       />
 
       {/* Both stages scroll away with the page rather than staying pinned —

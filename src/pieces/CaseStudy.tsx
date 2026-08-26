@@ -39,8 +39,13 @@ const BODY_PAD_X = 110.816;
 const BODY_W = 1079.536;
 /** Hero bottom to the header — `Frame 48096010`'s own top padding. */
 const BODY_PAD_TOP = 92.347;
-/** Header/section to the next block: 274.082 - 200.204, and 591.398 - 517.520. */
-const SECTION_GAP = 73.878;
+/** Header/section to the next block — every top-level block in the file sits
+ *  this far from the one before it, uniformly: 260.204 - 200.204,
+ *  563.642 - 503.642, 1194.362 - 1134.362, and so on down the page. */
+const SECTION_GAP = 60;
+/** A section's own heading to its first line of body copy — `TLDR Section
+ *  Block` 325:11704's own gap, which also separates its two paragraphs. */
+const HEAD_GAP = 22.163;
 /** `2ae66f10…-1920x1080` 67:13059 — 1301.168 x 731.907, i.e. 16:9. */
 const HERO_ASPECT = 731.907 / 1301.168;
 /** Type scale, all DM Mono Medium / DM Sans / Roboto Slab Regular. */
@@ -96,12 +101,12 @@ export function CaseStudy({
    */
   chrome?: number;
 }) {
-  // Light values are the Figma file's own (#18191a ink, #7c838b muted,
-  // #e3e5e8 rules, #0059ff accent); dark mirrors them against the desk's ink.
-  const face = theme === "light" ? "#fdfeff" : "#2f2f2f";
-  const ink = theme === "light" ? "#18191a" : "#fdfeff";
-  const muted = theme === "light" ? "#7c838b" : "#fdfeff99";
-  const divider = theme === "light" ? "#e3e5e8" : "#fdfeff14";
+  // Figma dark is pure black (#07070a) with the same muted grey — the
+  // previous #2f2f2f was the desk surface, not the page.
+  const face = theme === "light" ? "#fdfeff" : "#07070a";
+  const ink = theme === "light" ? "#18191a" : "#f5f7fb";
+  const muted = "#7c838b";
+  const divider = theme === "light" ? "#e3e5e8" : "#1e222b";
   const accent = "#0059ff";
 
   // Scroll-spy: whichever section the reader is in lights up on the rail.
@@ -256,6 +261,7 @@ export function CaseStudy({
       <div
         ref={bodyRef}
         className="min-w-px flex-1"
+        data-cs-scroller
         data-no-track-drag
         style={{
           // Locked while the page is still unfolding, so the body cannot be
@@ -284,14 +290,11 @@ export function CaseStudy({
         </div>
         <div
           style={{
-            // Left-aligned at `Project Header`'s own x (110.816) with a fixed
-            // 1079.536 measure — NOT centred. `mx-auto` drifted the column
-            // toward the middle as the page widened, which is why the header
-            // never lined up with the rail.
             maxWidth: BODY_W + BODY_PAD_X * 2,
-            paddingInline: BODY_PAD_X,
-            // Folds away with everything else, so at chrome 0 the hero is
-            // flush against the card's edges with nothing showing beneath it.
+            width: "100%",
+            boxSizing: "border-box",
+            marginInline: 0,
+            paddingInline: `clamp(24px, 6vw, ${BODY_PAD_X}px)`,
             paddingTop: BODY_PAD_TOP * chrome,
             paddingBottom: 120,
           }}
@@ -329,7 +332,12 @@ export function CaseStudy({
             </h1>
           </header>
 
-          {sections.map((s) => (
+          {sections.map((s) =>
+            // "intro" has no section of its own — the hero above already
+            // owns that anchor (`${project.slug}-intro`). Rendering a
+            // <section> here too gave the page a second element with the
+            // same id, and a bare "Intro" heading sitting in empty space.
+            s.id === "intro" ? null : (
             <section
               key={s.id}
               id={`${project.slug}-${s.id}`}
@@ -344,7 +352,7 @@ export function CaseStudy({
                     fontSize: META_FONT,
                     color: muted,
                     paddingBlock: META_PY,
-                    marginBottom: RAIL_GAP,
+                    marginBottom: HEAD_GAP,
                   }}
                 >
                   {s.title}

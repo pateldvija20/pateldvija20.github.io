@@ -8,6 +8,7 @@ type SvgPieceProps = {
   alt?: string;
   draggable?: boolean;
   style?: React.CSSProperties;
+  onPointerDown?: (e: React.PointerEvent<HTMLImageElement>) => void;
 };
 
 /**
@@ -17,7 +18,7 @@ type SvgPieceProps = {
  * footgun (see docs/05-components.md).
  */
 export const SvgPiece = forwardRef<HTMLImageElement, SvgPieceProps>(function SvgPiece(
-  { src, className, alt = "", draggable = false, style },
+  { src, className, alt = "", draggable = false, style, onPointerDown },
   ref,
 ) {
   return (
@@ -28,6 +29,7 @@ export const SvgPiece = forwardRef<HTMLImageElement, SvgPieceProps>(function Svg
       draggable={draggable}
       className={`pointer-events-auto block max-w-none select-none ${className ?? ""}`}
       style={style}
+      onPointerDown={onPointerDown}
     />
   );
 });
