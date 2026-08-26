@@ -45,6 +45,9 @@ export const PROJECTS: Project[] = [
     slug: "greenera",
     name: "Greenera",
     thumb: "/assets/projects/greenera.jpg",
+    type: "UI/UX Design",
+    year: "2025",
+    title: "Product research experience for informed Consumption",
   },
   {
     slug: "hacksvit",

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap">
+<style>
+  html, body { margin: 0; padding: 0; background: #fff; }
+  body { font-family: "DM Sans", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: #7a5200; text-decoration: none; }
+  a:hover { color: #000; }
+
+  /* ---- stage ---------------------------------------------------- */
+  .stage {
+    position: relative;
+    width: 1440px;
+    height: 400px;
+    margin: auto;
+    overflow: visible;
+    transform-origin: top center;
+    will-change: transform;
+  }
+
+  /* ---- draggable face ------------------------------------------- */
+  .person {
+    position: absolute;
+    cursor: grab;
+    touch-action: none;
+    will-change: transform;
+  }
+  .person.is-dragging { cursor: grabbing; }
+  .person:hover, .person.is-dragging, .person.is-active { z-index: 10; }
+
+  .person img,
+  .person svg {
+    display: block;
+    position: relative;
+    z-index: 2;
+    transform-origin: 50% 92%;
+    transition: transform .35s cubic-bezier(.18, 1.35, .32, 1), filter .35s ease;
+    width: 100%;
+    height: auto;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+  }
+
+  /* ---- speech pills --------------------------------------------- */
+  .pill {
+    position: absolute;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
+    padding: 12px;
+    height: 68.84px;
+    border-radius: 12px;
+    font: 700 16px/1.2 "DM Sans", sans-serif;
+    color: #000;
+    text-wrap: pretty;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(18px) scale(.88);
+    transition:
+      opacity .28s ease,
+      transform .45s cubic-bezier(.18, 1.35, .32, 1),
+      visibility 0s linear .45s;
+    will-change: transform, opacity;
+    pointer-events: none;
+  }
+
+  .person:hover .pill,
+  .person.is-dragging .pill,
+  .person.is-active .pill {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0) scale(1);
+    transition-delay: 0s;
+    animation: pop .5s cubic-bezier(.18, 1.35, .32, 1) forwards;
+  }
+  .person:hover .pill:nth-of-type(2),
+  .person.is-dragging .pill:nth-of-type(2),
+  .person.is-active .pill:nth-of-type(2) {
+    transition-delay: var(--stagger, 120ms);
+    animation-delay: var(--stagger, 120ms);
+  }
+
+  /* one-shot wiggle + settle at a slightly larger scale */
+  .person:hover img,
+  .person.is-active img {
+    animation: wiggle .6s cubic-bezier(.18, 1.35, .32, 1) 1;
+    transform: scale(1.08);
+    filter: drop-shadow(0 14px 18px rgba(0, 0, 0, .18));
+  }
+
+  @keyframes wiggle {
+    0%   { transform: scale(1) rotate(0deg); }
+    22%  { transform: scale(1.09) rotate(-3.2deg); }
+    45%  { transform: scale(1.09) rotate(2.6deg); }
+    68%  { transform: scale(1.085) rotate(-1.4deg); }
+    100% { transform: scale(1.08) rotate(0deg); }
+  }
+
+  @keyframes pop {
+    0%   { opacity: 0; transform: translateY(20px) scale(.85); }
+    60%  { opacity: 1; transform: translateY(-4px) scale(1.04); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* always-on preview mode (tweak) */
+  .show-pills .pill {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    animation: none;
+    pointer-events: auto;   /* click straight into the copy to edit it */
+    cursor: text;
+  }
+  .show-pills .person { cursor: default; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pill { transition: opacity .2s ease, visibility 0s linear .2s; transform: none; }
+    .person:hover .pill, .person.is-dragging .pill, .person.is-active .pill { animation: none; transform: none; }
+    .person:hover img, .person.is-active img { animation: none; transform: none; }
+  }
+</style>
+</helmet>
+<section ref="{{ rootRef }}" style="width: 100%; overflow: hidden; background: #fff; padding: 0; display: block;">
+  <div ref="{{ frameRef }}" style="position: relative; width: 100%; height: 400px;">
+    <div class="stage" ref="{{ stageRef }}">
+
+      <article class="person" data-person="1" style="left: 245px; top: 52.2px; width: 161.6px; height: 216.7px;">
+        <div class="pill" style="left: 59px; top: -12.1px; width: 263.1px; background: #FFC766; transform-origin: left center; z-index: 3;">I wish someone would just tell me what actually matters.</div>
+        <div class="pill" style="left: 139.4px; top: 72.74px; width: 192.8px; background: #FFC766; transform-origin: left center;">I don’t know which brands to trust.</div>
+        <img src="faces/person1.svg" width="161.6" height="216.7" alt="Illustrated portrait of a shopper with a top-knot and round glasses">
+      </article>
+
+      <article class="person" data-person="2" style="left: 940px; top: 193.9px; width: 183.9px; height: 173.9px;">
+        <div class="pill" style="left: -229px; top: 46.8px; width: 245px; background: #FFF0BA; transform-origin: right center;">If I have to research every product, I probably won’t.</div>
+        <div class="pill" style="left: -229px; top: 131.64px; width: 303.1px; background: #FFF0BA; transform-origin: right center;">I make my decision based on the front packaging, price and offers.</div>
+        <img src="faces/person2.svg" width="183.9" height="173.9" alt="Illustrated portrait of a shopper with a cap and round glasses">
+      </article>
+
+      <article class="person" data-person="3" style="left: 516.9px; top: 223.2px; width: 151.3px; height: 174px;">
+        <div class="pill" style="left: -191.9px; top: -30.9px; width: 284.3px; background: #E8CEFF; transform-origin: right center;">I only look something up if its expensive.</div>
+        <div class="pill" style="left: -191.9px; top: 53.94px; width: 222.7px; background: #E8CEFF; transform-origin: right center;">If some explained it simply, I’d care more</div>
+        <img src="faces/person3.svg" width="151.3" height="174" alt="Illustrated portrait of a bearded shopper">
+      </article>
+
+      <article class="person" data-person="4" style="left: 706.8px; top: 44.3px; width: 167.5px; height: 170.2px;">
+        <div class="pill" style="left: -285.5px; top: -0.2px; width: 323px; background: #A4D7FF; transform-origin: right center;">I want to buy sustainable products, but I don’t know which claims to trust.</div>
+        <div class="pill" style="left: -261.9px; top: 84.64px; width: 284.3px; background: #A4D7FF; transform-origin: right center;">Reading ingredient lists feels overwhelming.</div>
+        <img src="faces/person4.svg" width="167.5" height="170.2" alt="Illustrated portrait of a shopper with long hair and square glasses">
+      </article>
+
+    </div>
+  </div>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1440,&quot;height&quot;:420},&quot;autoplay&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;},&quot;autoplayInterval&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:2400,&quot;min&quot;:800,&quot;max&quot;:6000,&quot;step&quot;:200,&quot;unit&quot;:&quot;ms&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Motion&quot;},&quot;stagger&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:120,&quot;min&quot;:0,&quot;max&quot;:400,&quot;step&quot;:20,&quot;unit&quot;:&quot;ms&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Motion&quot;},&quot;alwaysShowPills&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Motion&quot;},&quot;draggable&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Behaviour&quot;},&quot;background&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#ffffff&quot;,&quot;options&quot;:[&quot;#ffffff&quot;,&quot;#FAF7F0&quot;,&quot;#F4F6F8&quot;,&quot;#111111&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Behaviour&quot;}}">
+const DESIGN_W = 1440, DESIGN_H = 400;
+
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.rootRef = React.createRef();
+    this.frameRef = React.createRef();
+    this.stageRef = React.createRef();
+    this.scale = 1;
+    this.people = [];
+  }
+
+  renderVals() {
+    return { rootRef: this.rootRef, frameRef: this.frameRef, stageRef: this.stageRef };
+  }
+
+  componentDidMount() {
+    this.collect();
+    this.applyProps();
+    this.fit();
+    this.startLoop();
+    this.ro = new ResizeObserver(() => this.fit());
+    if (this.rootRef.current) this.ro.observe(this.rootRef.current);
+  }
+
+  componentDidUpdate() { this.collect(); this.applyProps(); this.startLoop(); }
+
+  componentWillUnmount() {
+    if (this.ro) this.ro.disconnect();
+    this.stopLoop();
+    this.unbind();
+  }
+
+  unbind() {
+    this.people.forEach(p => {
+      p.el.removeEventListener('pointerdown', p.onDown);
+      p.el.removeEventListener('pointerenter', p.onEnter);
+      p.el.removeEventListener('pointerleave', p.onLeave);
+    });
+  }
+
+  /* ---- idle showcase loop --------------------------------------
+     Cycles one persona at a time whenever nobody is hovering. */
+  clearActive() {
+    this.people.forEach(p => p.el.classList.remove('is-active'));
+  }
+
+  stopLoop() {
+    clearTimeout(this.timer);
+    this.timer = null;
+  }
+
+  pauseLoop() {
+    this.hovering = true;
+    this.stopLoop();
+    this.clearActive();
+  }
+
+  resumeLoop() {
+    this.hovering = false;
+    this.startLoop(600);
+  }
+
+  startLoop(delay) {
+    this.stopLoop();
+    if (this.props.autoplay === false || this.props.alwaysShowPills) return;
+    if (this.hovering || this.dragging) return;
+    if (!this.people.length) return;
+    const hold = Math.max(600, this.props.autoplayInterval ?? 2400);
+    const step = () => {
+      this.clearActive();
+      // one frame gap so the pop animation restarts cleanly
+      this.timer = setTimeout(() => {
+        this.index = ((this.index ?? -1) + 1) % this.people.length;
+        this.people[this.index].el.classList.add('is-active');
+        this.timer = setTimeout(step, hold);
+      }, 220);
+    };
+    this.timer = setTimeout(step, delay ?? 300);
+  }
+
+  applyProps() {
+    const root = this.rootRef.current;
+    if (!root) return;
+    root.style.setProperty('--stagger', (this.props.stagger ?? 120) + 'ms');
+    root.style.background = this.props.background ?? '#ffffff';
+    root.classList.toggle('show-pills', !!this.props.alwaysShowPills);
+  }
+
+  /* Cache each face plus the union bounds of its pills, so dragging can be
+     clamped to keep both the face and its speech pills inside the stage. */
+  collect() {
+    const stage = this.stageRef.current;
+    if (!stage) return;
+    this.unbind();
+    this.people = [...stage.querySelectorAll('.person')].map(el => {
+      const w = el.offsetWidth, h = el.offsetHeight;
+      let minX = 0, minY = 0, maxX = w, maxY = h;
+      el.querySelectorAll('.pill').forEach(pill => {
+        minX = Math.min(minX, pill.offsetLeft);
+        minY = Math.min(minY, pill.offsetTop);
+        maxX = Math.max(maxX, pill.offsetLeft + pill.offsetWidth);
+        maxY = Math.max(maxY, pill.offsetTop + pill.offsetHeight);
+      });
+      const p = {
+        el,
+        home: { x: el.offsetLeft, y: el.offsetTop },
+        pad: { minX, minY, maxX, maxY },
+        tx: 0, ty: 0
+      };
+      p.onDown = e => this.startDrag(e, p);
+      p.onEnter = () => this.pauseLoop();
+      p.onLeave = () => this.resumeLoop();
+      el.addEventListener('pointerdown', p.onDown);
+      el.addEventListener('pointerenter', p.onEnter);
+      el.addEventListener('pointerleave', p.onLeave);
+      return p;
+    });
+  }
+
+  fit() {
+    const root = this.rootRef.current, frame = this.frameRef.current, stage = this.stageRef.current;
+    if (!root || !frame || !stage) return;
+    const w = root.clientWidth || DESIGN_W;
+    const s = Math.max(0.2, Math.min(1.2, w / DESIGN_W));
+    this.scale = s;
+    stage.style.position = 'absolute';
+    stage.style.transform = `scale(${s})`;
+    stage.style.left = '50%';
+    stage.style.marginLeft = `${-DESIGN_W / 2}px`;
+    frame.style.height = `${DESIGN_H * s}px`;
+  }
+
+  startDrag(e, p) {
+    if (this.props.draggable === false || e.button !== 0) return;
+    e.preventDefault();
+    this.dragging = true;
+    this.pauseLoop();
+    const startX = e.clientX, startY = e.clientY, ox = p.tx, oy = p.ty;
+    p.el.classList.add('is-dragging');
+    p.el.setPointerCapture(e.pointerId);
+
+    const move = ev => {
+      const s = this.scale || 1;
+      let tx = ox + (ev.clientX - startX) / s;
+      let ty = oy + (ev.clientY - startY) / s;
+      // clamp so neither the face nor its pills leave the 1440x400 stage
+      const { pad, home } = p;
+      tx = Math.min(Math.max(tx, -(home.x + pad.minX)), DESIGN_W - (home.x + pad.maxX));
+      ty = Math.min(Math.max(ty, -(home.y + pad.minY)), DESIGN_H - (home.y + pad.maxY));
+      p.tx = tx; p.ty = ty;
+      p.el.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
+    };
+    const up = ev => {
+      this.dragging = false;
+      p.el.classList.remove('is-dragging');
+      try { p.el.releasePointerCapture(ev.pointerId); } catch (_) {}
+      p.el.removeEventListener('pointermove', move);
+      p.el.removeEventListener('pointerup', up);
+      p.el.removeEventListener('pointercancel', up);
+    };
+    p.el.addEventListener('pointermove', move);
+    p.el.addEventListener('pointerup', up);
+    p.el.addEventListener('pointercancel', up);
+  }
+}
+
+</script>
+</body>
+</html>

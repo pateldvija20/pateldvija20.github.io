@@ -50,6 +50,8 @@ type SlideProps = {
   onBookOpenChange: (open: boolean) => void;
   fileOpen: boolean;
   onFileOpenChange: (open: boolean) => void;
+  /** Project to mount already expanded (deep link); only the file slide uses it. */
+  deepLinkProject?: number | null;
 };
 
 type Slide = {
@@ -119,9 +121,14 @@ const SLIDES: Slide[] = [
       name: "Case Studies",
       description: "Selected product work, from the messy middle through to what shipped.",
     },
-    render: ({ theme, fileOpen, onFileOpenChange }) => (
+    render: ({ theme, fileOpen, onFileOpenChange, deepLinkProject }) => (
       <div className="flex items-center justify-center" style={{ width: 1070, height: boxed(739.28) }}>
-        <FileFolder theme={theme} open={fileOpen} onOpenChange={onFileOpenChange} />
+        <FileFolder
+          theme={theme}
+          open={fileOpen}
+          onOpenChange={onFileOpenChange}
+          deepLinkProject={deepLinkProject}
+        />
       </div>
     ),
   },
@@ -263,13 +270,20 @@ export function OrganizedScene({
   fileOpen,
   onFileOpenChange,
   scale,
+  deepLinkProject = null,
+  landOnFile = false,
 }: SlideProps & {
   /** Stage `fit` scale, so pointer deltas convert back to scene units. */
   scale: number;
+  /** Land centred on the folder slide, open (/projects and deep links). */
+  landOnFile?: boolean;
 }) {
-  const [active, setActive] = useState(0);
+  // A deep link or /projects lands directly on the file slide, folder open —
+  // no intro card, no first swipe needed.
+  const startOnFile = deepLinkProject != null || landOnFile;
+  const [active, setActive] = useState(startOnFile ? FILE_SLIDE : 0);
   /** False until the first gesture, while the card still reads as the intro. */
-  const [swiped, setSwiped] = useState(false);
+  const [swiped, setSwiped] = useState(startOnFile);
 
   // Swiping *is* the trigger in this mode: the folder opens when it lands in
   // the active position and closes again as soon as it is swiped past, so only
@@ -284,7 +298,7 @@ export function OrganizedScene({
   // Mirrors `swiped` so `step` can branch on it without nesting one setState
   // inside another updater — those run twice under StrictMode and would count
   // the gesture twice.
-  const swipedRef = useRef(false);
+  const swipedRef = useRef(startOnFile);
 
   // The first gesture spends itself on clearing the intro: the card leaves for
   // the corner and the track slides its own slot's worth, which brings slide 0

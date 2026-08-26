@@ -34,6 +34,7 @@ export function ScatteredScene({
   onFileOpenChange,
   draggable,
   scale,
+  deepLinkProject = null,
 }: {
   theme: Theme;
   bookOpen: boolean;
@@ -43,6 +44,8 @@ export function ScatteredScene({
   draggable: boolean;
   /** Canvas `fit` scale, so pointer deltas convert to canvas units. */
   scale: number;
+  /** Project to mount already expanded (deep link from /projects/<slug>). */
+  deepLinkProject?: number | null;
 }) {
   const drag = (children: React.ReactNode) => (
     <Draggable enabled={draggable} scale={scale}>
@@ -84,7 +87,14 @@ export function ScatteredScene({
           (state1) and straightens itself on open, so a wrapper rotation would
           compound with it and leave the opened folder off-square. */}
       <div className="absolute left-[1257.67px] top-[1218.83px] z-[1]">
-        {drag(<FileFolder theme={theme} open={fileOpen} onOpenChange={onFileOpenChange} />)}
+        {drag(
+          <FileFolder
+            theme={theme}
+            open={fileOpen}
+            onOpenChange={onFileOpenChange}
+            deepLinkProject={deepLinkProject}
+          />
+        )}
       </div>
 
       <div className="absolute left-[273px] top-[1214px] z-[1]">
