@@ -11,6 +11,9 @@ export type Project = {
   /** Shown in the tab pill on the sheet. */
   name: string;
   thumb: string;
+  /** Case study not published yet: clicking says "coming soon" instead of
+   *  opening, and the card shows the shared Coming Soon art. */
+  wip?: boolean;
   /** Case-study copy. Only the header is authored so far — the body sections
    *  arrive per project, so everything below is optional. */
   type?: string;
@@ -24,22 +27,26 @@ export const PROJECTS: Project[] = [
   {
     slug: "burnout",
     name: "Burnout",
-    thumb: "/assets/projects/burnout.png",
+    thumb: "/assets/projects/coming-soon.png",
+    wip: true,
   },
   {
     slug: "nearby",
     name: "Nearby",
-    thumb: "/assets/projects/nearby.png",
+    thumb: "/assets/projects/coming-soon.png",
+    wip: true,
   },
   {
     slug: "billy-and-buddy",
     name: "Billy & Buddy",
-    thumb: "/assets/projects/billy-and-buddy.jpg",
+    thumb: "/assets/projects/coming-soon.png",
+    wip: true,
   },
   {
     slug: "the-family-table",
     name: "The Family Table",
-    thumb: "/assets/projects/the-family-table.jpg",
+    thumb: "/assets/projects/coming-soon.png",
+    wip: true,
   },
   {
     slug: "greenera",

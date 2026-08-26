@@ -309,6 +309,15 @@ export function FileFolder({
   const centerOnPiece = useCenterOnPiece();
   const shown = cardOut || open || (hovered && !dismissed);
 
+  /** Unpublished project: clicking its sheet says so instead of pulling. */
+  const [wipNotice, setWipNotice] = useState<string | null>(null);
+  const wipTimer = useRef<number | undefined>(undefined);
+  const showWipNotice = useCallback((name: string) => {
+    setWipNotice(name);
+    window.clearTimeout(wipTimer.current);
+    wipTimer.current = window.setTimeout(() => setWipNotice(null), 2400);
+  }, []);
+
   const buttonRef = useRef<HTMLButtonElement>(null);
   const closedRef = useRef<HTMLImageElement>(null);
   const coverFrontRef = useRef<HTMLImageElement>(null);
@@ -418,12 +427,24 @@ export function FileFolder({
   useLayoutEffect(() => {
     if (deepLinkProject == null && !open) return;
     if (deepLinkProject != null) {
-      instantPullRef.current = true;
-      openness.current.t = 1;
-      paint(1);
-      pulledRef.current = deepLinkProject;
-      setCardOut(true);
-      setPulled(deepLinkProject);
+      const wip = PROJECTS[deepLinkProject].wip;
+      if (!wip) {
+        instantPullRef.current = true;
+        openness.current.t = 1;
+        paint(1);
+        pulledRef.current = deepLinkProject;
+        setCardOut(true);
+        setPulled(deepLinkProject);
+      } else {
+        // Unpublished: land on the open folder and say so. The URL hands
+        // itself back to the folder since there is no page to own it.
+        openness.current.t = 1;
+        paint(1);
+        if (window.location.pathname !== "/projects") {
+          history.replaceState(null, "", "/projects");
+        }
+        showWipNotice(PROJECTS[deepLinkProject].name);
+      }
     }
     // Deferred past the stage's own mount: the scattered canvas scrolls to
     // its Figma resting origin in a layout effect that runs after this one
@@ -653,6 +674,11 @@ export function FileFolder({
 
   const pullOut = async (i: number) => {
     if (pulledRef.current !== null) return;
+    // Unpublished case study: lift nothing, just say so.
+    if (PROJECTS[i].wip) {
+      showWipNotice(PROJECTS[i].name);
+      return;
+    }
     // Claimed synchronously, before the await, so a second click during the
     // pan is ignored rather than starting a second pull.
     pulledRef.current = i;
@@ -849,7 +875,9 @@ export function FileFolder({
                 onBlur={() => setLiftedSheet((cur) => (cur === i ? null : cur))}
                 onClick={() => pullOut(i)}
                 data-no-track-drag
-                aria-label={`Open ${p.name} case study`}
+                aria-label={
+                  p.wip ? `${p.name} — coming soon` : `Open ${p.name} case study`
+                }
                 className="block border-0"
                 style={{
                   ...sheetStyle,
@@ -998,6 +1026,28 @@ export function FileFolder({
           from={pullCardRef.current}
           onShrunk={onShrunk}
         />
+      ) : null}
+
+      {/* "Coming soon" for unpublished projects — a transient pill floating
+          above the folder, clear of the sheets and the hit area. */}
+      {wipNotice ? (
+        <div
+          role="status"
+          className="absolute left-1/2 z-[60] -translate-x-1/2 whitespace-nowrap capitalize"
+          style={{
+            top: -14 * scale,
+            background: "#2f2f2f",
+            color: "#fdfeff",
+            fontFamily: "'DM Mono', monospace",
+            fontWeight: 500,
+            fontSize: 14,
+            padding: "10px 18px",
+            borderRadius: 999,
+            boxShadow: "0 10px 24px rgba(0,0,0,0.18)",
+          }}
+        >
+          {wipNotice} — coming soon
+        </div>
       ) : null}
     </div>
   );
