@@ -25,9 +25,16 @@ import type { Theme } from "./Piece";
  * frame. Everything below is that file's own number rather than a rounded
  * approximation, so the odd decimals are deliberate.
  */
-/** `Sidebar` 67:13037, and the inset its `Sections Container` sits at. */
-const SIDEBAR_W = 207.012;
-const SIDEBAR_PAD = 48.506;
+/**
+ * Layout read off the Greenera case study itself (`Container` 67:12759):
+ * `Sidebar` 67:12760 is 253 wide with its `Sections Container` inset 40 —
+ * the numbers the rail actually has to fit, longest label included. (An
+ * earlier read off a scaled-down frame gave 207/48.5, which poured
+ * "INITIAL FINDINGS" over the divider.)
+ */
+/** `Sidebar` 67:12760, and the inset its `Sections Container` sits at. */
+const SIDEBAR_W = 253;
+const SIDEBAR_PAD = 40;
 /** `Section Link` 67:13042 — padding, the gap between links, and the accent
  *  bar the active one carries. */
 const RAIL_PY = 11.082;

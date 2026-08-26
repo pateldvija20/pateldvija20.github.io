@@ -13,12 +13,28 @@ import {
   ScatteredScene,
   type Theme,
 } from "./pieces";
+import { PROJECTS } from "./pieces/projects";
 
 const SCENE_W = 1729;
 const DESK_H = 1117;
 const FOOTER_H = 552;
 /** How long the canvas takes to bring a clicked piece to centre. */
 const PAN_DURATION = 0.5;
+
+/* ------------------------------------------------------------------ */
+/* Routing: /projects opens the folder, /projects/<slug> opens a case   */
+/* ------------------------------------------------------------------ */
+
+/** Read the current path. Anything unrecognised is just home. */
+function parseProjectRoute(): { folder: boolean; slug: string | null } {
+  if (typeof window === "undefined") return { folder: false, slug: null };
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  if (parts[0] !== "projects") return { folder: false, slug: null };
+  if (parts.length === 1) return { folder: true, slug: null };
+  const slug = parts[1];
+  if (!PROJECTS.some((p) => p.slug === slug)) return { folder: true, slug: null };
+  return { folder: true, slug };
+}
 
 /* ------------------------------------------------------------------ */
 /* Shared: measure the viewport and scale the 1729-wide scene to fit    */
@@ -51,12 +67,14 @@ function ScatteredStage({
   onBookOpenChange,
   fileOpen,
   onFileOpenChange,
+  deepLinkProject,
 }: {
   theme: Theme;
   bookOpen: boolean;
   onBookOpenChange: (open: boolean) => void;
   fileOpen: boolean;
   onFileOpenChange: (open: boolean) => void;
+  deepLinkProject: number | null;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const fit = useFit(viewportRef);
@@ -173,6 +191,7 @@ function ScatteredStage({
               onBookOpenChange={onBookOpenChange}
               fileOpen={fileOpen}
               onFileOpenChange={onFileOpenChange}
+              deepLinkProject={deepLinkProject}
               draggable
               scale={fit}
             />
@@ -193,12 +212,16 @@ function OrganizedStage({
   onBookOpenChange,
   fileOpen,
   onFileOpenChange,
+  deepLinkProject,
+  landOnFile = false,
 }: {
   theme: Theme;
   bookOpen: boolean;
   onBookOpenChange: (open: boolean) => void;
   fileOpen: boolean;
   onFileOpenChange: (open: boolean) => void;
+  deepLinkProject: number | null;
+  landOnFile?: boolean;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const fit = useFit(viewportRef);
@@ -220,6 +243,8 @@ function OrganizedStage({
           onBookOpenChange={onBookOpenChange}
           fileOpen={fileOpen}
           onFileOpenChange={onFileOpenChange}
+          deepLinkProject={deepLinkProject}
+          landOnFile={landOnFile}
           scale={fit}
         />
       </div>
@@ -266,10 +291,33 @@ export default function App() {
   // for the rest of the session. Switching layouts never touches it.
   const [theme, setTheme] = useState<Theme>(systemTheme);
   const themeOverridden = useRef(false);
-  const [mode, setMode] = useState<Mode>("scattered");
+  // The URL decides the starting state: /projects lands on the open folder,
+  // /projects/<slug> lands inside that case study.
+  const initialRoute = useRef(parseProjectRoute()).current;
+  // The project routes land in Organized mode, on the folder slide — the
+  // desk's default is scattered only for a plain visit.
+  const [mode, setMode] = useState<Mode>(initialRoute.folder ? "organized" : "scattered");
   const [bookOpen, setBookOpen] = useState(false);
-  const [fileOpen, setFileOpen] = useState(false);
+  const [fileOpen, setFileOpen] = useState(initialRoute.folder);
+  const deepLinkIndex = initialRoute.slug
+    ? PROJECTS.findIndex((p) => p.slug === initialRoute.slug)
+    : -1;
+  const deepLinkProject = deepLinkIndex >= 0 ? deepLinkIndex : null;
   const clock = useBayClock();
+
+  // Folder open/close mirrors into the path (replaceState — the case study
+  // owns the pushed history entries). Back/Forward re-derive the folder.
+  const handleFileOpenChange = useCallback((next: boolean) => {
+    setFileOpen(next);
+    const path = window.location.pathname;
+    if (next && path === "/") history.replaceState(null, "", "/projects");
+    if (!next && path === "/projects") history.replaceState(null, "", "/");
+  }, []);
+  useEffect(() => {
+    const onPop = () => setFileOpen(parseProjectRoute().folder);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   // Follow the OS while it's still the one deciding. Reading the query again
   // on mount matters too: the preference can change between module eval and
@@ -290,8 +338,15 @@ export default function App() {
     return () => mq.removeListener(onChange);
   }, []);
 
-  // Both layouts start from rest — hover takes over from there.
+  // Both layouts start from rest — hover takes over from there. Skipped on
+  // mount: the URL may have just opened the folder (/projects, deep links),
+  // and that state must survive until the viewer actually switches layouts.
+  const firstMode = useRef(true);
   useEffect(() => {
+    if (firstMode.current) {
+      firstMode.current = false;
+      return;
+    }
     setBookOpen(false);
     setFileOpen(false);
   }, [mode]);
@@ -302,7 +357,9 @@ export default function App() {
     bookOpen,
     onBookOpenChange: setBookOpen,
     fileOpen,
-    onFileOpenChange: setFileOpen,
+    onFileOpenChange: handleFileOpenChange,
+    deepLinkProject,
+    landOnFile: initialRoute.folder,
   };
 
   return (

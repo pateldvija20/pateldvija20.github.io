@@ -8,6 +8,7 @@ import { useCenterOnPiece } from "./ScatteredFocus";
 import { PROJECTS, cardImage, type Project } from "./projects";
 import { CaseStudy } from "./CaseStudy";
 import { HACKSVIT_SECTIONS } from "./hacksvit";
+import { GREENERA_SECTIONS } from "./greenera";
 
 /**
  * The case-studies folder.
@@ -259,11 +260,15 @@ export function FileFolder({
   open,
   onOpenChange,
   className,
+  deepLinkProject = null,
 }: {
   theme: Theme;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   className?: string;
+  /** Index of the project to mount already expanded (deep link from
+   *  /projects/<slug>). Consumed once, on mount. */
+  deepLinkProject?: number | null;
 }) {
   const isTouch = useIsTouch();
   const [hovered, setHovered] = useState(false);
@@ -405,6 +410,35 @@ export function FileFolder({
     });
   }, [shown, paint]);
 
+  // Deep link / /projects landing: the folder is wanted open and centred.
+  // A deep link additionally pre-pulls its project's card so the case study
+  // is simply there when the page first renders (the pull effect below takes
+  // its instant path from here).
+  const instantPullRef = useRef(false);
+  useLayoutEffect(() => {
+    if (deepLinkProject == null && !open) return;
+    if (deepLinkProject != null) {
+      instantPullRef.current = true;
+      openness.current.t = 1;
+      paint(1);
+      pulledRef.current = deepLinkProject;
+      setCardOut(true);
+      setPulled(deepLinkProject);
+    }
+    // Deferred past the stage's own mount: the scattered canvas scrolls to
+    // its Figma resting origin in a layout effect that runs after this one
+    // (child-first), and centring measured against the pre-origin scroll
+    // would land the folder in the wrong place.
+    const t = window.setTimeout(() => {
+      if (centerOnPiece && buttonRef.current) {
+        void centerOnPiece(buttonRef.current);
+      }
+    }, 150);
+    return () => window.clearTimeout(t);
+    // Runs once on mount: the landing state is read from the URL exactly once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Per-sheet hover (14785 -> 14786…14787 and back). MOUSE_ENTER raises just
   // the hovered sheet out of the stack to its full card height; MOUSE_LEAVE
   // drops it back. Only one sheet moves at a time.
@@ -485,7 +519,9 @@ export function FileFolder({
     const sheet = sheetRefs.current[i];
     const card = pullCardRef.current;
     if (!sheet || !card) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce =
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      instantPullRef.current;
     const clearPose = { ...PULL_FRONT[i], rotate: 0, transformOrigin: "0 0" };
     gsap.killTweensOf(sheet);
     if (reduce) {
@@ -552,6 +588,11 @@ export function FileFolder({
     // Unmounting the page is this callback's job, not the click handler's —
     // see `shrink` in ExpandedPage.
     setExpanded(null);
+    // Hand the address bar back to the folder. replaceState, so Back from the
+    // case study returns to wherever the visit was before it opened.
+    if (window.location.pathname.startsWith("/projects")) {
+      history.replaceState(null, "", "/projects");
+    }
     const i = pulledRef.current;
     if (i === null) {
       setCardOut(false);
@@ -645,6 +686,16 @@ export function FileFolder({
       document.body.style.overflow = prev;
       delete document.body.dataset.projectOpen;
     };
+  }, [expanded]);
+
+  // The expanded page owns /projects/<slug> in the address bar. On a deep
+  // link the URL is already right, so this only fires for clicks.
+  useEffect(() => {
+    if (expanded === null) return;
+    const target = `/projects/${PROJECTS[expanded].slug}`;
+    if (window.location.pathname !== target) {
+      history.pushState(null, "", target);
+    }
   }, [expanded]);
 
   // Sheets invert with the theme, matching the folder art's own fill/stroke.
@@ -1095,6 +1146,23 @@ function ExpandedPage({
     return () => window.removeEventListener("keydown", onKey);
   }, [shrink]);
 
+  // Browser Back while the page is open closes it — the expand pushed
+  // /projects/<slug>, so a popstate that takes the URL away from this
+  // project reads as the same intent as Escape.
+  const popShrinkRef = useRef(shrink);
+  useEffect(() => {
+    popShrinkRef.current = shrink;
+  }, [shrink]);
+  useEffect(() => {
+    const onPop = () => {
+      if (window.location.pathname !== `/projects/${project.slug}`) {
+        popShrinkRef.current();
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [project.slug]);
+
   return createPortal(
     <div
       ref={pageRef}
@@ -1124,7 +1192,13 @@ function ExpandedPage({
           project={project}
           theme={theme}
           chrome={chrome}
-          sections={project.slug === "hacksvit" ? HACKSVIT_SECTIONS : undefined}
+          sections={
+            project.slug === "hacksvit"
+              ? HACKSVIT_SECTIONS
+              : project.slug === "greenera"
+                ? GREENERA_SECTIONS
+                : undefined
+          }
         />
       </div>
 
