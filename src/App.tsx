@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import gsap from "gsap";
 import { SmallScreenBlock } from "./pieces/SmallScreenBlock";
 import { ControlBar, type Mode } from "./pieces/ControlBar";
+import { Preloader } from "./pieces/Preloader";
 import { ScatteredFocusContext } from "./pieces/ScatteredFocus";
 import {
   CANVAS_H,
@@ -303,6 +304,7 @@ export default function App() {
     ? PROJECTS.findIndex((p) => p.slug === initialRoute.slug)
     : -1;
   const deepLinkProject = deepLinkIndex >= 0 ? deepLinkIndex : null;
+  const [loading, setLoading] = useState(true);
   const clock = useBayClock();
 
   // Folder open/close mirrors into the path (replaceState — the case study
@@ -368,6 +370,7 @@ export default function App() {
           layout is needed yet. Remove when those designs are signed off
           (flip WIP_BREAKPOINTS in src/responsive.ts). */}
       <SmallScreenBlock />
+      {loading ? <Preloader theme={theme} onDone={() => setLoading(false)} /> : null}
       <ControlBar
         theme={theme}
         mode={mode}
