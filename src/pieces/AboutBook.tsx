@@ -15,11 +15,12 @@ const CLOSED_SHIFT_X = -PAGE_WIDTH / 2;
 /** How far a corner hover lifts the page before the click commits (book px). */
 const CORNER_ZONE = 170;
 
-/** The three designed spreads, one file per two-page view. */
+/** The three designed spreads, one file per two-page view, in reading order:
+ *  intro + photo grid → work experience + education → how I see things. */
 const SPREADS = [
-  "/assets/aboutme/aboutme_book-1.svg",
-  "/assets/aboutme/aboutme_book-2.svg",
-  "/assets/aboutme/aboutme_book-3.svg",
+  "/assets/aboutme/spread-1.svg",
+  "/assets/aboutme/spread-2.svg",
+  "/assets/aboutme/spread-3.svg",
 ];
 const LAST_SPREAD = SPREADS.length;
 
@@ -136,6 +137,52 @@ type FlipState = {
   mode: "peek" | "turn" | "retract";
 };
 
+/**
+ * The corner peek, per the reference: a clean dog-ear. The crease runs
+ * corner-box diagonal, the page corner folds inward as a white triangle
+ * with a rounded tip and a thin ink edge, and the corner region under the
+ * fold reads as the plain paper behind. Canonical form is the bottom-left
+ * corner; the other three are mirrors of it.
+ */
+function DogEar({ corner, size, fading }: { corner: Corner; size: number; fading: boolean }) {
+  const s = size;
+  const r = 16;
+  const transform =
+    corner === "bl"
+      ? undefined
+      : corner === "br"
+        ? `translate(${s},0) scale(-1,1)`
+        : corner === "tl"
+          ? `rotate(180 ${s / 2} ${s / 2})`
+          : `translate(0,${s}) scale(1,-1)`;
+  return (
+    <svg
+      width={s}
+      height={s}
+      viewBox={`0 0 ${s} ${s}`}
+      className="absolute transition-opacity duration-150"
+      style={{
+        opacity: fading ? 0 : 1,
+        transitionProperty: "opacity",
+        filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.14))",
+      }}
+    >
+      <g transform={transform}>
+        {/* The corner region under the fold — plain paper behind. */}
+        <path d={`M0 0 L0 ${s} L${s} ${s} Z`} fill="#FDFEFF" />
+        {/* The folded flap, tip rounded, pointing into the page. */}
+        <path
+          d={`M0 0 L${s} ${s} L${s} ${r} Q${s} 0 ${s - r} 0 Z`}
+          fill="#FDFEFF"
+          stroke="#2F2F2F"
+          strokeWidth={2}
+          strokeLinejoin="round"
+        />
+      </g>
+    </svg>
+  );
+}
+
 export function AboutBook({
   theme,
   open,
@@ -162,7 +209,6 @@ export function AboutBook({
   const rightPageRef = useRef<HTMLDivElement>(null);
   const foldTRef = useRef(0);
   const isFlippingRef = useRef(false);
-  const PEEK_T = 0.12;
 
   // 1. Keep a persistent reference to the GSAP context
   const ctx = useRef<gsap.Context | undefined>(undefined);
@@ -331,14 +377,24 @@ export function AboutBook({
     setFlip({ from: spread, to: cornerTarget(corner), corner, mode: "turn" });
   };
 
-  // Drive the fold once the overlay layers exist in the DOM. CSS custom
-  // properties on the scene carry the per-frame geometry, so React
-  // re-renders can never clobber the live tween.
+  // Drive the fold. Peek/retract are pure CSS fades on the dog-ear; only the
+  // committed turn runs the crease-fold tween. CSS custom properties on the
+  // scene carry the per-frame geometry, so React re-renders can never clobber
+  // the live tween.
   useEffect(() => {
     if (!flip) return;
     const { to, corner, mode } = flip;
     const container = sceneRef.current;
     if (!container) return;
+
+    if (mode !== "turn") {
+      // Retract: let the dog-ear fade, then drop the overlay.
+      if (mode === "retract") {
+        const t = window.setTimeout(() => setFlip(null), 180);
+        return () => window.clearTimeout(t);
+      }
+      return;
+    }
 
     const apply = (t: number) => {
       const f = computeCornerFold(t, corner, PAGE_WIDTH, PAGE_HEIGHT);
@@ -348,44 +404,27 @@ export function AboutBook({
       container.style.setProperty("--fold-flap-shadow-bg", f.flapShadow);
       foldTRef.current = t;
     };
-    apply(foldTRef.current);
 
-    const obj = { t: foldTRef.current };
-    let tween: gsap.core.Tween;
-    if (mode === "peek") {
-      tween = gsap.to(obj, { t: PEEK_T, duration: 0.22, ease: "power2.out", onUpdate: () => apply(obj.t) });
-    } else if (mode === "retract") {
-      tween = gsap.to(obj, {
-        t: 0,
-        duration: 0.18,
-        ease: "power2.in",
-        onUpdate: () => apply(obj.t),
-        onComplete: () => {
-          foldTRef.current = 0;
-          setFlip(null);
-        },
-      });
-    } else {
-      let swapped = false;
-      tween = gsap.to(obj, {
-        t: 1,
-        duration: 0.7,
-        ease: "power2.inOut",
-        onUpdate: () => {
-          apply(obj.t);
-          // Swap the live spread once the flap has swept past the crease.
-          if (!swapped && obj.t >= 0.55) {
-            swapped = true;
-            setSpread(to);
-          }
-        },
-        onComplete: () => {
-          foldTRef.current = 0;
-          setFlip(null);
-          isFlippingRef.current = false;
-        },
-      });
-    }
+    const obj = { t: 0 };
+    let swapped = false;
+    const tween = gsap.to(obj, {
+      t: 1,
+      duration: 0.7,
+      ease: "power2.inOut",
+      onUpdate: () => {
+        apply(obj.t);
+        // Swap the live spread once the flap has swept past the crease.
+        if (!swapped && obj.t >= 0.55) {
+          swapped = true;
+          setSpread(to);
+        }
+      },
+      onComplete: () => {
+        foldTRef.current = 0;
+        setFlip(null);
+        isFlippingRef.current = false;
+      },
+    });
     return () => {
       tween.kill();
     };
@@ -402,9 +441,13 @@ export function AboutBook({
 
   const cornerZones: { corner: Corner; left: number; top: number }[] = [
     { corner: "tl", left: 0, top: 0 },
-    { corner: "tr", left: SPINE_X, top: 0 },
+    { corner: "tr", left: SPINE_X + PAGE_WIDTH - CORNER_ZONE, top: 0 },
     { corner: "bl", left: 0, top: PAGE_HEIGHT - CORNER_ZONE },
-    { corner: "br", left: SPINE_X, top: PAGE_HEIGHT - CORNER_ZONE },
+    {
+      corner: "br",
+      left: SPINE_X + PAGE_WIDTH - CORNER_ZONE,
+      top: PAGE_HEIGHT - CORNER_ZONE,
+    },
   ];
 
   return (
@@ -494,9 +537,33 @@ export function AboutBook({
             />
           </div>
 
-          {/* ── Corner fold overlay (incoming reveal + reflected paper flap) ── */}
-          {flip && open
-            ? (() => {
+          {/* ── Corner fold overlay ──
+              Hover: the reference dog-ear at the grabbed corner.
+              Turn: the incoming reveal + reflected paper flap. */}
+          {flip && open ? (
+            flip.mode !== "turn" ? (
+              <div
+                className="absolute"
+                style={{
+                  left:
+                    flip.corner === "tl" || flip.corner === "bl"
+                      ? 0
+                      : SPINE_X + PAGE_WIDTH - CORNER_ZONE,
+                  top:
+                    flip.corner === "tl" || flip.corner === "tr"
+                      ? 0
+                      : PAGE_HEIGHT - CORNER_ZONE,
+                  zIndex: 55,
+                  pointerEvents: "none",
+                }}
+              >
+                <DogEar
+                  corner={flip.corner}
+                  size={CORNER_ZONE}
+                  fading={flip.mode === "retract"}
+                />
+              </div>
+            ) : (() => {
                 const pageLeft = flipTurningRight ? SPINE_X : 0;
                 return (
                   <>
@@ -557,7 +624,7 @@ export function AboutBook({
                   </>
                 );
               })()
-            : null}
+          ) : null}
 
           {/* ── Page-turn zones. The whole page turns the book — right half
               goes forward, left half goes back, and clicking past the last
