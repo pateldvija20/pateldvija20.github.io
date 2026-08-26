@@ -5,6 +5,11 @@
       "type": "remote",
       "url": "https://mcp.figma.com/mcp",
       "enabled": true
+    },
+    "browsermcp": {
+      "type": "local",
+      "command": ["npx", "-y", "@browsermcp/mcp@latest"],
+      "enabled": true
     }
   }
 }
