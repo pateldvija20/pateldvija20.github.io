@@ -2,12 +2,10 @@ import { useEffect, useState } from "react";
 import type { Theme } from "./Piece";
 
 /**
- * The preloader: a quiet sheet with a counting percentage and a processing
- * strip, lifted straight from the reference frame. It owns the screen while
- * the desk warms up, counts to 100, then fades and hands over.
- *
- * Colours follow the site's two-tone rule — dark mode runs a #2f2f2f ground
- * with #fdfeff content, light mode the reverse.
+ * The preloader, per the reference frames: a flat ground in the theme's
+ * background colour, the count dead-centre in bold Roboto Slab, and a
+ * progress strip growing along the bottom edge from the left. Content runs
+ * in the theme's ink — #2f2f2f on #fdfeff, or the reverse.
  */
 export function Preloader({ theme, onDone }: { theme: Theme; onDone: () => void }) {
   const [pct, setPct] = useState(0);
@@ -19,7 +17,7 @@ export function Preloader({ theme, onDone }: { theme: Theme; onDone: () => void 
     let raf = 0;
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / DURATION);
-      // Ease-out: fast to ~60, then a slower crawl to 100.
+      // Ease-out: quick to ~60, then a slower crawl to 100.
       const eased = 1 - Math.pow(1 - t, 2.2);
       setPct(Math.round(eased * 100));
       if (t < 1) {
@@ -39,49 +37,28 @@ export function Preloader({ theme, onDone }: { theme: Theme; onDone: () => void 
   return (
     <div
       aria-hidden
-      className="fixed inset-0 z-[999] flex items-center justify-center transition-opacity duration-500"
+      className="fixed inset-0 z-[999] transition-opacity duration-500"
       style={{ background: bg, opacity: leaving ? 0 : 1 }}
     >
-      {/* The sheet — the ground colour lifted one step toward the content
-          colour, so it reads as a card without introducing a third tone. */}
       <div
-        className="relative"
+        className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{
-          width: "min(78vw, 78vh * 1.45)",
-          aspectRatio: "1.45 / 1",
-          background: content,
-          opacity: 0.05,
-        }}
-      >
-        {/* Processing strip, flush with the sheet's bottom-left corner. */}
-        <div
-          className="absolute flex items-center"
-          style={{ left: 0, bottom: 0, width: "29%", height: 12, background: content }}
-        >
-          <span
-            className="whitespace-nowrap"
-            style={{ color: bg, fontSize: 8, lineHeight: 1, paddingLeft: 2 }}
-          >
-            Processing request…
-          </span>
-        </div>
-      </div>
-
-      {/* The count — sitting just below the sheet's centre, as framed. */}
-      <div
-        className="absolute left-1/2 -translate-x-1/2"
-        style={{
-          top: "56%",
           color: content,
-          fontFamily: "'DM Sans', sans-serif",
-          fontWeight: 300,
-          fontSize: "clamp(80px, 9.5vw, 150px)",
+          fontFamily: "'Roboto Slab', serif",
+          fontWeight: 700,
+          fontSize: "clamp(72px, 8vw, 160px)",
           lineHeight: 1,
-          letterSpacing: "0.01em",
+          letterSpacing: "-0.01em",
         }}
       >
         {pct}%
       </div>
+      {/* The strip hugs the bottom-left corner and fills across as the count
+          climbs, hitting the full width exactly at 100%. */}
+      <div
+        className="absolute bottom-0 left-0"
+        style={{ height: "clamp(14px, 1.5vw, 28px)", width: `${pct}%`, background: content }}
+      />
     </div>
   );
 }
