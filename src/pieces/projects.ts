@@ -21,6 +21,12 @@ export type Project = {
   title?: string;
   /** Full-width art shown above the header (Figma `Project Main Image`). */
   hero?: string;
+  /**
+   * The hero's own height/width, when the art is not the template's default
+   * 16:9. Greenera's `Project Main Image` is 1212x600, so cropping it to 16:9
+   * would scale it up and clip the outer two phones off the lineup.
+   */
+  heroAspect?: number;
 };
 
 export const PROJECTS: Project[] = [
@@ -45,8 +51,11 @@ export const PROJECTS: Project[] = [
   {
     slug: "the-family-table",
     name: "The Family Table",
-    thumb: "/assets/projects/coming-soon.png",
-    wip: true,
+    thumb: "/assets/projects/the-family-table/hero.png",
+    type: "UI/UX Design",
+    year: "2025",
+    title: "A weekly family meal everyone wants to be part of",
+    hero: "/assets/projects/the-family-table/hero.png",
   },
   {
     slug: "greenera",
@@ -54,7 +63,9 @@ export const PROJECTS: Project[] = [
     thumb: "/assets/projects/greenera.jpg",
     type: "UI/UX Design",
     year: "2025",
-    title: "Product research experience for informed Consumption",
+    title: "A Product Page That Tells You Which Sustainability Claims To Trust",
+    hero: "/assets/projects/greenera/hero-lineup.png",
+    heroAspect: 600 / 1212,
   },
   {
     slug: "hacksvit",

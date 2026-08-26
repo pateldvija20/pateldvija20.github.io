@@ -35,6 +35,7 @@ export function ScatteredScene({
   draggable,
   scale,
   deepLinkProject = null,
+  deepLinkSpread = null,
 }: {
   theme: Theme;
   bookOpen: boolean;
@@ -46,6 +47,8 @@ export function ScatteredScene({
   scale: number;
   /** Project to mount already expanded (deep link from /projects/<slug>). */
   deepLinkProject?: number | null;
+  /** Spread to open the about book to (deep link from /work-experience). */
+  deepLinkSpread?: number | null;
 }) {
   const drag = (children: React.ReactNode) => (
     <Draggable enabled={draggable} scale={scale}>
@@ -77,9 +80,9 @@ export function ScatteredScene({
 
       <div className="absolute left-[679px] top-[134px] z-[1]">
         {drag(
-          <div className="rotate-[-4.73deg]">
-            <AboutBook theme={theme} open={bookOpen} onOpenChange={onBookOpenChange} />
-          </div>
+          // Rest tilt lives inside AboutBook (GSAP-owned) so it can straighten
+          // to 0 while the book is open.
+          <AboutBook theme={theme} open={bookOpen} onOpenChange={onBookOpenChange} deepLinkSpread={deepLinkSpread} />
         )}
       </div>
 

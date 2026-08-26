@@ -9,6 +9,7 @@ import { PROJECTS, cardImage, type Project } from "./projects";
 import { CaseStudy } from "./CaseStudy";
 import { HACKSVIT_SECTIONS } from "./hacksvit";
 import { GREENERA_SECTIONS } from "./greenera";
+import { THE_FAMILY_TABLE_SECTIONS } from "./theFamilyTable";
 
 /**
  * The case-studies folder.
@@ -1247,7 +1248,9 @@ function ExpandedPage({
               ? HACKSVIT_SECTIONS
               : project.slug === "greenera"
                 ? GREENERA_SECTIONS
-                : undefined
+                : project.slug === "the-family-table"
+                  ? THE_FAMILY_TABLE_SECTIONS
+                  : undefined
           }
         />
       </div>

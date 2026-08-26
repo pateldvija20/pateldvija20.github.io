@@ -1,5 +1,5 @@
 import gsap from "gsap";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { SvgPiece, type Theme } from "./Piece";
 import { useIsTouch } from "./useIsTouch";
 import { useElementScale } from "./useElementScale";
@@ -14,6 +14,14 @@ const SPINE_X = PAGE_WIDTH;
 const CLOSED_SHIFT_X = -PAGE_WIDTH / 2;
 /** How far a corner hover lifts the page before the click commits (book px). */
 const CORNER_ZONE = 170;
+
+/* The designed paper sits inset inside the 1342×900 spread canvas — the
+ * remaining margin is the yellow cover border. Corner affordances must track
+ * the paper rect (rounded ~37px at the outer corners), not the canvas. */
+const PAPER = { x0: 18, y0: 20, x1: 1324, y1: 879 };
+const PAPER_CORNER_RADIUS = 36;
+/** Rest tilt of the book on the desk; straightens to 0 while the book is open. */
+const REST_TILT = -4.73;
 
 /** The three designed spreads, one file per two-page view, in reading order:
  *  intro + photo grid → work experience + education → how I see things. */
@@ -134,7 +142,7 @@ type FlipState = {
   from: number;
   to: number;
   corner: Corner;
-  mode: "peek" | "turn" | "retract";
+  mode: "peek" | "turn";
 };
 
 /**
@@ -144,7 +152,7 @@ type FlipState = {
  * fold reads as the plain paper behind. Canonical form is the bottom-left
  * corner; the other three are mirrors of it.
  */
-function DogEar({ corner, size, fading }: { corner: Corner; size: number; fading: boolean }) {
+function DogEar({ corner, size, active }: { corner: Corner; size: number; active: boolean }) {
   const s = size;
   const r = 16;
   const transform =
@@ -152,34 +160,105 @@ function DogEar({ corner, size, fading }: { corner: Corner; size: number; fading
       ? undefined
       : corner === "br"
         ? `translate(${s},0) scale(-1,1)`
-        : corner === "tl"
+        : corner === "tr"
+          // 180° about the box centre sends the canonical shape's touch
+          // point (box-local bottom-left) to the diagonally opposite
+          // corner — top-right — which is what this branch is for.
           ? `rotate(180 ${s / 2} ${s / 2})`
+          // tl: a vertical mirror sends bottom-left to top-left instead.
           : `translate(0,${s}) scale(1,-1)`;
+  // The fold is part of the page, so it must never poke past the paper's
+  // rounded outer corner — clip the box to the page shape at this corner.
+  const clip =
+    corner === "tl"
+      ? `${PAPER_CORNER_RADIUS}px 0 0 0`
+      : corner === "tr"
+        ? `0 ${PAPER_CORNER_RADIUS}px 0 0`
+        : corner === "bl"
+          ? `0 0 0 ${PAPER_CORNER_RADIUS}px`
+          : `0 0 ${PAPER_CORNER_RADIUS}px 0`;
+  // The box scales from nothing up to its full size anchored at the true
+  // page corner — the Figma reference's own hover affordance grows the
+  // fold out of the corner point rather than fading in a fixed shape.
+  const origin =
+    corner === "tl" ? "0% 0%" : corner === "tr" ? "100% 0%" : corner === "bl" ? "0% 100%" : "100% 100%";
   return (
-    <svg
-      width={s}
-      height={s}
-      viewBox={`0 0 ${s} ${s}`}
-      className="absolute transition-opacity duration-150"
+    <div
+      className="absolute overflow-hidden"
       style={{
-        opacity: fading ? 0 : 1,
-        transitionProperty: "opacity",
-        filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.14))",
+        width: s,
+        height: s,
+        borderRadius: clip,
+        transform: `scale(${active ? 1 : 0})`,
+        transformOrigin: origin,
+        transition: "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >
-      <g transform={transform}>
-        {/* The corner region under the fold — plain paper behind. */}
-        <path d={`M0 0 L0 ${s} L${s} ${s} Z`} fill="#FDFEFF" />
-        {/* The folded flap, tip rounded, pointing into the page. */}
-        <path
-          d={`M0 0 L${s} ${s} L${s} ${r} Q${s} 0 ${s - r} 0 Z`}
-          fill="#FDFEFF"
-          stroke="#2F2F2F"
-          strokeWidth={2}
-          strokeLinejoin="round"
-        />
-      </g>
-    </svg>
+      <svg
+        width={s}
+        height={s}
+        viewBox={`0 0 ${s} ${s}`}
+        style={{ display: "block", filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.14))" }}
+        >
+        <g transform={transform}>
+          {/* The corner region under the fold — plain paper behind. */}
+          <path d={`M0 0 L0 ${s} L${s} ${s} Z`} fill="#FDFEFF" />
+          {/* The folded flap, tip rounded, pointing into the page. */}
+          <path
+            d={`M0 0 L${s} ${s} L${s} ${r} Q${s} 0 ${s - r} 0 Z`}
+            fill="#FDFEFF"
+            stroke="#2F2F2F"
+            strokeWidth={2}
+            strokeLinejoin="round"
+          />
+        </g>
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * A spread's paper only — never its export's own baked-in yellow cover
+ * margin. Every `spread-N.svg` flattens both into one image, at a fixed
+ * position that's identical across spreads, which reads as a normal border
+ * while the page sits still. During a turn, the flap and incoming-page
+ * overlays reflect/clip that same image, and dragging the margin along with
+ * a transform meant for paper sends it somewhere no real edge is — the bug
+ * this crops away. The resting page underneath is never unmounted mid-turn,
+ * so once the moving pieces stop carrying their own copy of the margin, its
+ * one correctly-fixed copy just shows through.
+ */
+function PaperPage({ src, onRight }: { src: string; onRight: boolean }) {
+  const marginOuter = PAGE_WIDTH - (PAPER.x1 - SPINE_X); // == PAPER.x0
+  const marginTop = PAPER.y0;
+  const marginBottom = PAGE_HEIGHT - PAPER.y1;
+  return (
+    <div
+      className="absolute overflow-hidden"
+      style={{
+        top: marginTop,
+        bottom: marginBottom,
+        left: onRight ? 0 : marginOuter,
+        right: onRight ? marginOuter : 0,
+        borderRadius: onRight
+          ? `0 ${PAPER_CORNER_RADIUS}px ${PAPER_CORNER_RADIUS}px 0`
+          : `${PAPER_CORNER_RADIUS}px 0 0 ${PAPER_CORNER_RADIUS}px`,
+      }}
+    >
+      <SvgPiece
+        src={src}
+        alt=""
+        aria-hidden="true"
+        className="absolute"
+        style={{
+          width: BOOK_WIDTH,
+          height: PAGE_HEIGHT,
+          maxWidth: "none",
+          top: -marginTop,
+          left: (onRight ? -PAGE_WIDTH : 0) - (onRight ? 0 : marginOuter),
+        }}
+      />
+    </div>
   );
 }
 
@@ -187,21 +266,55 @@ export function AboutBook({
   theme,
   open,
   onOpenChange,
+  restTilt = REST_TILT,
   className,
+  deepLinkSpread = null,
 }: {
   theme: Theme;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Desk tilt while closed (ScatteredScene). Straightens to 0 while open. */
+  restTilt?: number;
   className?: string;
+  /** Spread to land on already open, no animation (deep link from
+   *  /work-experience). Consumed once, on mount. */
+  deepLinkSpread?: number | null;
 }) {
   const isTouch = useIsTouch();
   const [hovered, setHovered] = useState(false);
   /** Which spread (1-based) is currently lying open. */
-  const [spread, setSpread] = useState(1);
+  const [spread, setSpread] = useState(deepLinkSpread ?? 1);
   /** Live corner fold — peek (hover), turn (commit), retract (hover out). */
   const [flip, setFlip] = useState<FlipState | null>(null);
+  /**
+   * True once the *opening* tween has actually finished — distinct from
+   * `open`, which flips the instant the click happens. Page-turn and corner
+   * hover zones wait for this: the corner zones now cover half the page
+   * (see cornerHitZones), so a mouse anywhere near the still-animating
+   * cover would otherwise land inside one and peek a page that visually
+   * hasn't opened yet. Closing drops it immediately, no tween to wait for.
+   */
+  const [settled, setSettled] = useState(false);
   const centerOnPiece = useCenterOnPiece();
   const buttonRef = useRef<HTMLButtonElement>(null);
+  /** True only through the very first open — a deep link lands already
+   *  open, so that first transition skips its tween and snaps straight to
+   *  the end state instead of animating in from closed. */
+  const instantOpenRef = useRef(deepLinkSpread != null);
+
+  // Deep-link landing: bring the book to the middle of the viewport the
+  // same way a click would, on the off chance it's reached in Scattered
+  // mode. In Organised mode centerOnPiece is null (the carousel already
+  // owns centring the active slide), so this is a safe no-op there.
+  useLayoutEffect(() => {
+    if (deepLinkSpread == null) return;
+    const t = window.setTimeout(() => {
+      if (centerOnPiece && buttonRef.current) void centerOnPiece(buttonRef.current);
+    }, 150);
+    return () => window.clearTimeout(t);
+    // Runs once on mount: deepLinkSpread is read once, same as FileFolder's.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sceneRef = useRef<HTMLDivElement>(null);
   const closedRef = useRef<HTMLImageElement>(null);
@@ -228,6 +341,7 @@ export function AboutBook({
       gsap.set(scene, {
         perspective: 2000,
         x: open ? 0 : CLOSED_SHIFT_X,
+        rotation: open ? 0 : restTilt,
         willChange: "transform",
       });
 
@@ -285,17 +399,31 @@ export function AboutBook({
 
     if (!open) {
       // Closing abandons any mid-turn page: the fold overlay drops and the
-      // book is back on its first spread next time it opens.
+      // book is back on its first spread next time it opens. Nothing to
+      // wait for here — the corner/turn zones go dead immediately.
       setFlip(null);
       isFlippingRef.current = false;
       foldTRef.current = 0;
       setSpread(1);
+      setSettled(false);
     }
 
     // By adding to the existing context, we safely update tweens without wiping inline styles
     ctx.current.add(() => {
       // Kill any in-progress tweens so rapid toggling is buttery smooth
       gsap.killTweensOf([scene, closed, leftPage, rightPage]);
+
+      // Deep-link landing: already open on mount, so there is nothing to
+      // play — jump straight to the open end-state instead of animating in
+      // from closed. Only ever true for this first run.
+      if (open && instantOpenRef.current) {
+        instantOpenRef.current = false;
+        gsap.set(scene, { x: 0, rotation: 0 });
+        gsap.set(closed, { rotateY: -180, opacity: 0 });
+        gsap.set([leftPage, rightPage], { opacity: 1, scaleX: 1 });
+        setSettled(true);
+        return;
+      }
 
       const tl = gsap.timeline();
 
@@ -304,13 +432,14 @@ export function AboutBook({
         // on the spine hinge together. The cover fades out as it approaches
         // edge-on — backfaceVisibility alone would cut it off in a single
         // frame at 90deg, which reads as a pop, not a turn.
-        tl.to(scene, { x: 0, duration: 0.55, ease: "power2.inOut" }, 0);
+        tl.to(scene, { x: 0, rotation: 0, duration: 0.55, ease: "power2.inOut" }, 0);
         tl.to(closed, { rotateY: -180, duration: 0.7, ease: "power2.inOut" }, 0);
         tl.to(closed, { opacity: 0, duration: 0.14, ease: "power1.in" }, 0.21);
         // Pages unfurl at full opacity once the cover has passed — growing
         // out of the hinge as ghosts (opacity + scale together) reads cheap.
         tl.set([leftPage, rightPage], { opacity: 1 }, 0.42);
         tl.to([leftPage, rightPage], { scaleX: 1, duration: 0.4, ease: "power2.out" }, 0.42);
+        tl.call(() => setSettled(true));
       } else {
         // The cover materialises just before it swings back past edge-on
         // (it is a near-invisible sliver at 90deg, so the fade-in is
@@ -319,7 +448,7 @@ export function AboutBook({
         tl.set([leftPage, rightPage], { opacity: 0 }, 0.3);
         tl.to(closed, { rotateY: 0, duration: 0.6, ease: "power2.inOut" }, 0);
         tl.set(closed, { opacity: 1 }, 0.26);
-        tl.to(scene, { x: CLOSED_SHIFT_X, duration: 0.6, ease: "power2.inOut" }, 0);
+        tl.to(scene, { x: CLOSED_SHIFT_X, rotation: restTilt, duration: 0.6, ease: "power2.inOut" }, 0);
       }
     });
   }, [open]);
@@ -359,15 +488,15 @@ export function AboutBook({
     return onRight ? spread < LAST_SPREAD : spread > 1;
   };
 
-  // Hover in: lift the corner a little (peek). Hover out: retract it.
+  // Hover in: grow the corner's dog-ear (peek). Hover out: shrink it away —
+  // the DogEar below is always mounted and purely CSS-transitions its own
+  // scale, so there is no fade-out mount lifetime to coordinate here.
   const peekCorner = (corner: Corner) => {
     if (isFlippingRef.current || !cornerEnabled(corner)) return;
     setFlip({ from: spread, to: cornerTarget(corner), corner, mode: "peek" });
   };
   const unpeekCorner = (corner: Corner) => {
-    setFlip((f) =>
-      f && f.mode === "peek" && f.corner === corner ? { ...f, mode: "retract" } : f,
-    );
+    setFlip((f) => (f && f.mode === "peek" && f.corner === corner ? null : f));
   };
   // Click: run the full turn (continuing from wherever the peek left off).
   const turnCorner = (corner: Corner, e?: React.MouseEvent) => {
@@ -377,24 +506,15 @@ export function AboutBook({
     setFlip({ from: spread, to: cornerTarget(corner), corner, mode: "turn" });
   };
 
-  // Drive the fold. Peek/retract are pure CSS fades on the dog-ear; only the
-  // committed turn runs the crease-fold tween. CSS custom properties on the
-  // scene carry the per-frame geometry, so React re-renders can never clobber
-  // the live tween.
+  // Drive the fold. Peek is a pure CSS scale transition on the dog-ear
+  // itself (see DogEar); only the committed turn runs the crease-fold tween
+  // here. CSS custom properties on the scene carry the per-frame geometry,
+  // so React re-renders can never clobber the live tween.
   useEffect(() => {
-    if (!flip) return;
-    const { to, corner, mode } = flip;
+    if (!flip || flip.mode !== "turn") return;
+    const { to, corner } = flip;
     const container = sceneRef.current;
     if (!container) return;
-
-    if (mode !== "turn") {
-      // Retract: let the dog-ear fade, then drop the overlay.
-      if (mode === "retract") {
-        const t = window.setTimeout(() => setFlip(null), 180);
-        return () => window.clearTimeout(t);
-      }
-      return;
-    }
 
     const apply = (t: number) => {
       const f = computeCornerFold(t, corner, PAGE_WIDTH, PAGE_HEIGHT);
@@ -439,15 +559,27 @@ export function AboutBook({
   /** The turning page's half of the target spread, clipped to the fold. */
   const flipTurningRight = flip ? flip.corner === "tr" || flip.corner === "br" : false;
 
-  const cornerZones: { corner: Corner; left: number; top: number }[] = [
-    { corner: "tl", left: 0, top: 0 },
-    { corner: "tr", left: SPINE_X + PAGE_WIDTH - CORNER_ZONE, top: 0 },
-    { corner: "bl", left: 0, top: PAGE_HEIGHT - CORNER_ZONE },
-    {
-      corner: "br",
-      left: SPINE_X + PAGE_WIDTH - CORNER_ZONE,
-      top: PAGE_HEIGHT - CORNER_ZONE,
-    },
+  const CORNERS: Corner[] = ["tl", "tr", "bl", "br"];
+
+  // The dog-ear's own box: fixed at CORNER_ZONE, pinned to the true paper
+  // corner. Its size never changes — growth is a CSS scale transition on
+  // this box (see DogEar), not a resize of it.
+  const foldBox = (corner: Corner) => ({
+    left: corner === "tl" || corner === "bl" ? PAPER.x0 : PAPER.x1 - CORNER_ZONE,
+    top: corner === "tl" || corner === "tr" ? PAPER.y0 : PAPER.y1 - CORNER_ZONE,
+  });
+
+  // The hover/click hit-zone, per the Figma reference: a strip the full
+  // CORNER_ZONE wide but running the full half-page tall, so grabbing
+  // anywhere in the top half of the page peeks the top corner (and the
+  // bottom half peeks the bottom corner) rather than only the tight square
+  // actually sitting in the corner.
+  const halfPageH = (PAPER.y1 - PAPER.y0) / 2;
+  const cornerHitZones: { corner: Corner; left: number; top: number; height: number }[] = [
+    { corner: "tl", left: PAPER.x0, top: PAPER.y0, height: halfPageH },
+    { corner: "tr", left: PAPER.x1 - CORNER_ZONE, top: PAPER.y0, height: halfPageH },
+    { corner: "bl", left: PAPER.x0, top: PAPER.y0 + halfPageH, height: halfPageH },
+    { corner: "br", left: PAPER.x1 - CORNER_ZONE, top: PAPER.y0 + halfPageH, height: halfPageH },
   ];
 
   return (
@@ -538,37 +670,36 @@ export function AboutBook({
           </div>
 
           {/* ── Corner fold overlay ──
-              Hover: the reference dog-ear at the grabbed corner.
-              Turn: the incoming reveal + reflected paper flap. */}
-          {flip && open ? (
-            flip.mode !== "turn" ? (
-              <div
-                className="absolute"
-                style={{
-                  left:
-                    flip.corner === "tl" || flip.corner === "bl"
-                      ? 0
-                      : SPINE_X + PAGE_WIDTH - CORNER_ZONE,
-                  top:
-                    flip.corner === "tl" || flip.corner === "tr"
-                      ? 0
-                      : PAGE_HEIGHT - CORNER_ZONE,
-                  zIndex: 55,
-                  pointerEvents: "none",
-                }}
-              >
-                <DogEar
-                  corner={flip.corner}
-                  size={CORNER_ZONE}
-                  fading={flip.mode === "retract"}
-                />
-              </div>
-            ) : (() => {
+              Hover: the reference dog-ear at each corner, always mounted so
+              its scale-up is a real CSS transition rather than a pop-in —
+              only the peeked corner's box is actually scaled to 1.
+              Turn: the incoming reveal + reflected paper flap replaces it.
+              Waits for `settled`, not `open` — see its own comment. */}
+          {settled
+            ? CORNERS.map((corner) => (
+                <div
+                  key={corner}
+                  className="absolute"
+                  style={{ ...foldBox(corner), zIndex: 55, pointerEvents: "none" }}
+                >
+                  <DogEar
+                    corner={corner}
+                    size={CORNER_ZONE}
+                    active={flip?.mode === "peek" && flip.corner === corner}
+                  />
+                </div>
+              ))
+            : null}
+
+          {flip && open && flip.mode === "turn"
+            ? (() => {
                 const pageLeft = flipTurningRight ? SPINE_X : 0;
                 return (
                   <>
                     {/* Incoming page — the target spread's turning half,
-                        revealed inside the shrinking folded footprint. */}
+                        revealed inside the shrinking folded footprint. Only
+                        the paper (see PaperPage) — the cover margin comes
+                        from the still-mounted resting page beneath this. */}
                     <div
                       className="absolute top-0 overflow-hidden"
                       style={{
@@ -580,30 +711,20 @@ export function AboutBook({
                         zIndex: 55,
                       }}
                     >
-                      <SvgPiece
-                        src={SPREADS[flip.to - 1]}
-                        alt=""
-                        aria-hidden="true"
-                        className="absolute top-0"
-                        style={{
-                          width: BOOK_WIDTH,
-                          height: PAGE_HEIGHT,
-                          maxWidth: "none",
-                          left: flipTurningRight ? -PAGE_WIDTH : 0,
-                        }}
-                      />
+                      <PaperPage src={SPREADS[flip.to - 1]} onRight={flipTurningRight} />
                     </div>
 
-                    {/* Flap — paper back of the turning page, reflected
-                        across the crease. Plain paper: a real page's back. */}
+                    {/* Flap — the outgoing page's own corner, reflected
+                        across the crease. Real content and paper shape
+                        bleed onto it for free; the cover margin is
+                        deliberately excluded (PaperPage) so it stays put
+                        rather than travelling with the reflection. */}
                     <div
                       className="absolute top-0 overflow-hidden"
                       style={{
                         left: pageLeft,
                         width: PAGE_WIDTH,
                         height: PAGE_HEIGHT,
-                        backgroundColor: "#FDFEFF",
-                        border: "1px solid rgba(0,0,0,0.08)",
                         transformOrigin: "0px 0px", // matrix maps page-local coords directly
                         transform: "var(--fold-flap-mat, none)",
                         clipPath: "var(--fold-flap-clip, polygon(0 0, 0 0, 0 0))",
@@ -612,6 +733,7 @@ export function AboutBook({
                         zIndex: 60,
                       }}
                     >
+                      <PaperPage src={SPREADS[flip.from - 1]} onRight={flipTurningRight} />
                       <div
                         className="absolute inset-0"
                         style={{
@@ -624,13 +746,14 @@ export function AboutBook({
                   </>
                 );
               })()
-          ) : null}
+            : null}
 
           {/* ── Page-turn zones. The whole page turns the book — right half
               goes forward, left half goes back, and clicking past the last
               spread closes the book (the reference flow). Corner zones above
-              keep the hover peek affordance. */}
-          {open ? (
+              keep the hover peek affordance. Waits for `settled`, same
+              reason as the corner zones below. */}
+          {settled ? (
             <>
               <div
                 data-no-track-drag
@@ -672,10 +795,15 @@ export function AboutBook({
             </>
           ) : null}
 
-          {/* Corner peek zones — hover lifts the corner; click turns from the
-              corner exactly like the full-page zones below. */}
-          {open
-            ? cornerZones.map(({ corner, left, top }) => {
+          {/* Corner peek zones — hover anywhere in the corner's half of the
+              page grows that corner's dog-ear; click turns from it exactly
+              like the full-page zones below. Gated on `settled`: these now
+              cover half the page (not a tight corner square), so without
+              this a mouse anywhere near the cover mid-open-tween would
+              already be inside one and peek a page that isn't visually
+              open yet. */}
+          {settled
+            ? cornerHitZones.map(({ corner, left, top, height }) => {
                 const enabled = cornerEnabled(corner);
                 return (
                   <div
@@ -690,7 +818,7 @@ export function AboutBook({
                       left,
                       top,
                       width: CORNER_ZONE,
-                      height: CORNER_ZONE,
+                      height,
                       zIndex: 70,
                       pointerEvents: enabled ? "auto" : "none",
                       cursor: enabled ? "pointer" : "default",

@@ -49,7 +49,7 @@ const BODY_PAD_TOP = 92.347;
 /** Header/section to the next block — every top-level block in the file sits
  *  this far from the one before it, uniformly: 260.204 - 200.204,
  *  563.642 - 503.642, 1194.362 - 1134.362, and so on down the page. */
-const SECTION_GAP = 60;
+const SECTION_GAP = 80;
 /** A section's own heading to its first line of body copy — `TLDR Section
  *  Block` 325:11704's own gap, which also separates its two paragraphs. */
 const HEAD_GAP = 22.163;
@@ -193,9 +193,13 @@ export function CaseStudy({
   // the asset's own proportions decide, so the header always lands in the
   // same place. `heroAspect` is still measured — it is the fallback for an
   // image that has not loaded yet.
+  // A project can override the crop when its art is not 16:9 — Greenera's
+  // three-screen lineup is 1212x600, and forcing it taller clips the outer
+  // two phones.
+  const cropAspect = project.heroAspect ?? HERO_ASPECT;
   const heroH =
     box.w && box.h
-      ? lerp(box.h, box.w * (HERO_ASPECT || heroAspect), chrome)
+      ? lerp(box.h, box.w * (cropAspect || heroAspect), chrome)
       : undefined;
 
   return (
