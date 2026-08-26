@@ -292,6 +292,16 @@ export function AboutBook({
     });
   }, [hovered, open]);
 
+  // Escape closes the book from any spread.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onOpenChange(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onOpenChange]);
+
   /* ───────────────────────── page turning ───────────────────────── */
 
   const cornerTarget = (corner: Corner) => {
@@ -549,8 +559,54 @@ export function AboutBook({
               })()
             : null}
 
-          {/* ── Corner flip zones. Hover peels the corner (peek); click
-              turns the page. Only the enabled corners take the pointer. */}
+          {/* ── Page-turn zones. The whole page turns the book — right half
+              goes forward, left half goes back, and clicking past the last
+              spread closes the book (the reference flow). Corner zones above
+              keep the hover peek affordance. */}
+          {open ? (
+            <>
+              <div
+                data-no-track-drag
+                aria-label={spread < LAST_SPREAD ? "Turn to next page" : "Close book"}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isFlippingRef.current) return;
+                  if (spread < LAST_SPREAD) turnCorner("br", e);
+                  else onOpenChange(false);
+                }}
+                className="absolute top-0"
+                style={{
+                  left: SPINE_X,
+                  width: PAGE_WIDTH,
+                  height: PAGE_HEIGHT,
+                  zIndex: 40,
+                  pointerEvents: "auto",
+                  cursor: "pointer",
+                }}
+              />
+              <div
+                data-no-track-drag
+                aria-label={spread > 1 ? "Turn to previous page" : undefined}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isFlippingRef.current) return;
+                  if (spread > 1) turnCorner("tl", e);
+                }}
+                className="absolute top-0"
+                style={{
+                  left: 0,
+                  width: PAGE_WIDTH,
+                  height: PAGE_HEIGHT,
+                  zIndex: 40,
+                  pointerEvents: "auto",
+                  cursor: spread > 1 ? "pointer" : "default",
+                }}
+              />
+            </>
+          ) : null}
+
+          {/* Corner peek zones — hover lifts the corner; click turns from the
+              corner exactly like the full-page zones below. */}
           {open
             ? cornerZones.map(({ corner, left, top }) => {
                 const enabled = cornerEnabled(corner);
