@@ -39,7 +39,7 @@ const SIDEBAR_PAD = 40;
  *  bar the active one carries. */
 const RAIL_PY = 11.082;
 const RAIL_GAP = 11.082;
-const RAIL_FONT = 16.622;
+const RAIL_FONT = 14;
 const RAIL_BAR = 2.77;
 /** `Project Header` 67:13060 inside `Main Content` 67:13056. */
 const BODY_PAD_X = 110.816;
