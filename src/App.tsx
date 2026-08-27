@@ -16,6 +16,35 @@ import {
 } from "./pieces";
 import { PROJECTS } from "./pieces/projects";
 
+/**
+ * The preloader is an entrance, not a progress bar — it counts out a fixed
+ * 1.8s rather than tracking anything real. So it plays once on arrival and
+ * stays out of the way for the rest of the visit.
+ *
+ * `sessionStorage` rather than `localStorage`: a reload, a deep link, or a
+ * bounce through the case-study routes all skip it, while someone coming back
+ * tomorrow still gets the intro. Every access is guarded — a browser with site
+ * data blocked throws on the property itself, and the page must still open.
+ */
+const SEEN_PRELOADER = "dp:preloader-seen";
+
+const preloaderSeen = () => {
+  try {
+    return sessionStorage.getItem(SEEN_PRELOADER) === "1";
+  } catch {
+    // Storage unavailable: treat it as a first visit and show the preloader.
+    return false;
+  }
+};
+
+const markPreloaderSeen = () => {
+  try {
+    sessionStorage.setItem(SEEN_PRELOADER, "1");
+  } catch {
+    // Nothing to do — worst case it plays again next reload.
+  }
+};
+
 const SCENE_W = 1729;
 const DESK_H = 1117;
 const FOOTER_H = 552;
@@ -333,7 +362,12 @@ export default function App() {
     : -1;
   const deepLinkProject = deepLinkIndex >= 0 ? deepLinkIndex : null;
   const deepLinkSpread = initialAboutRoute?.spread ?? null;
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !preloaderSeen());
+  // Flagged when it starts rather than when it finishes, so a reload part-way
+  // through the count still skips it.
+  useEffect(() => {
+    if (loading) markPreloaderSeen();
+  }, [loading]);
   const clock = useBayClock();
 
   // Folder open/close mirrors into the path (replaceState — the case study
