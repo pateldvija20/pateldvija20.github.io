@@ -3,3 +3,6 @@ dist/
 .DS_Store
 *.local
 .vite/
+
+# Full-res photo originals (web-sized copies live in public/assets/)
+assets-src/

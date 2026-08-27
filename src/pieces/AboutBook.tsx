@@ -1,6 +1,7 @@
 import gsap from "gsap";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { SvgPiece, type Theme } from "./Piece";
+import { Sticker } from "./Sticker";
 import { useIsTouch } from "./useIsTouch";
 import { useElementScale } from "./useElementScale";
 import { useCenterOnPiece } from "./ScatteredFocus";
@@ -31,6 +32,111 @@ const SPREADS = [
   "/assets/aboutme/spread-3.svg",
 ];
 const LAST_SPREAD = SPREADS.length;
+
+/* ── Photos ──
+ * Each spread export ships its photos as empty placeholder rects, so the
+ * pictures are laid in over the SVG rather than baked into it: swapping one
+ * is a file swap, not a re-export from Figma. Coordinates are the spread's
+ * own 1342×900 canvas, copied from the placeholder rects, so the overlay
+ * lands wherever the art does — including on the flap and incoming page
+ * mid-turn, since every copy of a spread goes through SpreadArt. */
+/** The still-flat remainder of the turning page, published per frame by the
+ *  fold tween. Defaults to the whole page so a missing var is a no-op. */
+const OUTGOING_CLIP = `var(--fold-outgoing-clip, polygon(0px 0px, ${PAGE_WIDTH}px 0px, ${PAGE_WIDTH}px ${PAGE_HEIGHT}px, 0px ${PAGE_HEIGHT}px))`;
+
+const PHOTO_RADIUS = 12;
+type Photo = { src: string; x: number; y: number; w: number; h: number };
+const PHOTOS: Photo[][] = [
+  // Spread 1 — the four-up grid on the right page.
+  [
+    { src: "/assets/aboutme/Images/Image_1.jpg", x: 731, y: 80, w: 251.5, h: 280 },
+    { src: "/assets/aboutme/Images/Image_2.jpg", x: 1012.5, y: 80, w: 251.5, h: 354.5 },
+    { src: "/assets/aboutme/Images/Image_3.jpg", x: 731, y: 390, w: 251.5, h: 429 },
+    { src: "/assets/aboutme/Images/Image_4.jpg", x: 1012.5, y: 464.5, w: 251.5, h: 354.5 },
+  ],
+  // Spread 2 — the pair under Education, facing work experience.
+  [
+    { src: "/assets/aboutme/Images/Image_5.jpg", x: 738, y: 446, w: 244.5, h: 280 },
+    { src: "/assets/aboutme/Images/Image_6.jpg", x: 1012.5, y: 539, w: 244.5, h: 280 },
+  ],
+  // Spread 3 — the full-bleed plate under "How I See Things".
+  [{ src: "/assets/aboutme/Images/Image_7.jpg", x: 78, y: 177, w: 533, h: 642 }],
+];
+
+/* ── Stickers ──
+ * The two black note cards the exports used to carry ("I'm open to
+ * opportunities" on spread 1, "Send your thought on Email" on spread 3)
+ * are deleted out of the SVGs; these sit in the holes they left. x/y is
+ * the card's own visual centre in the 1342×900 canvas, and the tilt is
+ * the card's — so the stickers read as hand-stuck at the same angle the
+ * paper note was. Overlaid through SpreadArt, same as the photos, so they
+ * ride the flap and incoming page through a turn.
+ */
+type StickerArt = { n: 1 | 2 | 3; cx: number; cy: number; w: number; h: number; rot: number };
+const STICKERS: StickerArt[][] = [
+  // Spread 1 — bottom of the intro page.
+  [{ n: 1, cx: 237.95, cy: 659.05, w: 250, h: 236.3, rot: -4.61 }],
+  // Spread 2 — none.
+  [],
+  // Spread 3 — bottom of the reading-list page.
+  [{ n: 2, cx: 1123.5, cy: 678.5, w: 250, h: 204.3, rot: 5 }],
+];
+
+/**
+ * One spread's artwork: the exported SVG with its photos dropped into the
+ * placeholder rects. Always the full 1342×900 canvas — callers slide it with
+ * `left` to choose which half shows, exactly as they did with the bare image.
+ */
+function SpreadArt({ spread, style }: { spread: number; style?: CSSProperties }) {
+  return (
+    <div
+      className="absolute top-0 left-0"
+      style={{ width: BOOK_WIDTH, height: PAGE_HEIGHT, ...style }}
+    >
+      <SvgPiece
+        src={SPREADS[spread - 1]}
+        alt=""
+        aria-hidden="true"
+        className="absolute left-0 top-0"
+        style={{ width: BOOK_WIDTH, height: PAGE_HEIGHT, maxWidth: "none" }}
+      />
+      {PHOTOS[spread - 1].map((photo) => (
+        <img
+          key={photo.src}
+          src={photo.src}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          className="absolute block max-w-none select-none"
+          style={{
+            left: photo.x,
+            top: photo.y,
+            width: photo.w,
+            height: photo.h,
+            objectFit: "cover",
+            borderRadius: PHOTO_RADIUS,
+          }}
+        />
+      ))}
+      {STICKERS[spread - 1].map((sticker) => (
+        <div
+          key={sticker.n}
+          className="absolute"
+          style={{
+            left: sticker.cx - sticker.w / 2,
+            top: sticker.cy - sticker.h / 2,
+            width: sticker.w,
+            height: sticker.h,
+            transform: `rotate(${sticker.rot}deg)`,
+            pointerEvents: "none",
+          }}
+        >
+          <Sticker n={sticker.n} className="block h-full w-full max-w-none" />
+        </div>
+      ))}
+    </div>
+  );
+}
 
 /* ───────────────────────── turn.js corner-fold geometry ─────────────────────────
  * Ported from the old portfolio's InteractiveBook. A page is folded by
@@ -228,7 +334,7 @@ function DogEar({ corner, size, active }: { corner: Corner; size: number; active
  * so once the moving pieces stop carrying their own copy of the margin, its
  * one correctly-fixed copy just shows through.
  */
-function PaperPage({ src, onRight }: { src: string; onRight: boolean }) {
+function PaperPage({ spread, onRight }: { spread: number; onRight: boolean }) {
   const marginOuter = PAGE_WIDTH - (PAPER.x1 - SPINE_X); // == PAPER.x0
   const marginTop = PAPER.y0;
   const marginBottom = PAGE_HEIGHT - PAPER.y1;
@@ -245,15 +351,9 @@ function PaperPage({ src, onRight }: { src: string; onRight: boolean }) {
           : `${PAPER_CORNER_RADIUS}px 0 0 ${PAPER_CORNER_RADIUS}px`,
       }}
     >
-      <SvgPiece
-        src={src}
-        alt=""
-        aria-hidden="true"
-        className="absolute"
+      <SpreadArt
+        spread={spread}
         style={{
-          width: BOOK_WIDTH,
-          height: PAGE_HEIGHT,
-          maxWidth: "none",
           top: -marginTop,
           left: (onRight ? -PAGE_WIDTH : 0) - (onRight ? 0 : marginOuter),
         }}
@@ -518,6 +618,7 @@ export function AboutBook({
 
     const apply = (t: number) => {
       const f = computeCornerFold(t, corner, PAGE_WIDTH, PAGE_HEIGHT);
+      container.style.setProperty("--fold-outgoing-clip", f.outgoingClip);
       container.style.setProperty("--fold-flap-clip", f.flapClip);
       container.style.setProperty("--fold-flap-mat", f.flapMatrix);
       container.style.setProperty("--fold-flap-shadow-op", String(Math.sin(Math.PI * t) * 0.45));
@@ -526,21 +627,20 @@ export function AboutBook({
     };
 
     const obj = { t: 0 };
-    let swapped = false;
     const tween = gsap.to(obj, {
       t: 1,
       duration: 0.7,
       ease: "power2.inOut",
-      onUpdate: () => {
-        apply(obj.t);
-        // Swap the live spread once the flap has swept past the crease.
-        if (!swapped && obj.t >= 0.55) {
-          swapped = true;
-          setSpread(to);
-        }
-      },
+      onUpdate: () => apply(obj.t),
       onComplete: () => {
+        // The spread swaps only once the sheet has landed. Its last frame
+        // already draws the incoming page exactly where the resting layer
+        // is about to, so the handover is invisible — swapping any earlier
+        // (this used to fire at t=0.55) popped the far page in while the
+        // sheet was still visibly in the air.
         foldTRef.current = 0;
+        container.style.removeProperty("--fold-outgoing-clip");
+        setSpread(to);
         setFlip(null);
         isFlippingRef.current = false;
       },
@@ -558,6 +658,9 @@ export function AboutBook({
 
   /** The turning page's half of the target spread, clipped to the fold. */
   const flipTurningRight = flip ? flip.corner === "tr" || flip.corner === "br" : false;
+  /** A committed turn is in flight — peeks leave the resting pages alone. */
+  const turning = flip != null && flip.mode === "turn" && open;
+  const turningLeft = flipTurningRight ? SPINE_X : 0;
 
   const CORNERS: Corner[] = ["tl", "tr", "bl", "br"];
 
@@ -620,6 +723,28 @@ export function AboutBook({
             }}
           />
 
+          {/* ── The page being uncovered ──
+              The turning sheet's other neighbour: on a forward turn the far
+              side of the *target* spread, sitting under the sheet the whole
+              time and revealed as the resting page above is clipped away.
+              Full SpreadArt, not PaperPage — the cover margin sits at the
+              same fixed canvas spot in every spread, so keeping it here is
+              what holds the yellow border continuous through the clip. */}
+          {turning && open ? (
+            <div
+              className="absolute top-0 overflow-hidden"
+              style={{
+                left: turningLeft,
+                width: PAGE_WIDTH,
+                height: PAGE_HEIGHT,
+                zIndex: 5,
+                pointerEvents: "none",
+              }}
+            >
+              <SpreadArt spread={flip.to} style={{ left: flipTurningRight ? -PAGE_WIDTH : 0 }} />
+            </div>
+          ) : null}
+
           <div
             ref={leftPageRef}
             className="absolute top-0 overflow-hidden"
@@ -631,15 +756,12 @@ export function AboutBook({
               transformOrigin: "right center",
               zIndex: 10,
               pointerEvents: "none",
+              // Only the side actually turning gets clipped; the other page
+              // lies flat and stays whole.
+              clipPath: turning && !flipTurningRight ? OUTGOING_CLIP : undefined,
             }}
           >
-            <SvgPiece
-              src={SPREADS[spread - 1]}
-              alt=""
-              aria-hidden="true"
-              className="absolute left-0 top-0"
-              style={{ width: BOOK_WIDTH, height: PAGE_HEIGHT, maxWidth: "none" }}
-            />
+            <SpreadArt spread={spread} />
           </div>
 
           <div
@@ -653,20 +775,10 @@ export function AboutBook({
               transformOrigin: "left center",
               zIndex: 10,
               pointerEvents: "none",
+              clipPath: turning && flipTurningRight ? OUTGOING_CLIP : undefined,
             }}
           >
-            <SvgPiece
-              src={SPREADS[spread - 1]}
-              alt=""
-              aria-hidden="true"
-              className="absolute top-0"
-              style={{
-                width: BOOK_WIDTH,
-                height: PAGE_HEIGHT,
-                maxWidth: "none",
-                left: -PAGE_WIDTH,
-              }}
-            />
+            <SpreadArt spread={spread} style={{ left: -PAGE_WIDTH }} />
           </div>
 
           {/* ── Corner fold overlay ──
@@ -696,29 +808,24 @@ export function AboutBook({
                 const pageLeft = flipTurningRight ? SPINE_X : 0;
                 return (
                   <>
-                    {/* Incoming page — the target spread's turning half,
-                        revealed inside the shrinking folded footprint. Only
-                        the paper (see PaperPage) — the cover margin comes
-                        from the still-mounted resting page beneath this. */}
-                    <div
-                      className="absolute top-0 overflow-hidden"
-                      style={{
-                        left: pageLeft,
-                        width: PAGE_WIDTH,
-                        height: PAGE_HEIGHT,
-                        clipPath: "var(--fold-flap-clip, polygon(0 0, 0 0, 0 0))",
-                        pointerEvents: "none",
-                        zIndex: 55,
-                      }}
-                    >
-                      <PaperPage src={SPREADS[flip.to - 1]} onRight={flipTurningRight} />
-                    </div>
+                    {/* Flap — the turning sheet's BACK face, reflected
+                        across the crease. A sheet carries two consecutive
+                        pages: grab p2 and its back is p3. So the flap draws
+                        the *target* spread's opposite half — turning right
+                        (p2 → ) shows spread `to`'s left page (p3), turning
+                        left shows spread `to`'s right page (p2). It used to
+                        draw `flip.from`'s own half, i.e. the front face
+                        again, which is why the page you were leaving
+                        bled mirror-imaged across the one you were opening.
 
-                    {/* Flap — the outgoing page's own corner, reflected
-                        across the crease. Real content and paper shape
-                        bleed onto it for free; the cover margin is
-                        deliberately excluded (PaperPage) so it stays put
-                        rather than travelling with the reflection. */}
+                        The scaleX(-1) is the second half of that: the back
+                        face reads reversed when seen from the front side,
+                        and the crease matrix reflects it once more. The two
+                        mirrors cancel exactly as the flap touches down, so
+                        it lands reading correctly right where the resting
+                        page takes over. The cover margin is still excluded
+                        (PaperPage) so it stays put rather than travelling
+                        with the reflection. */}
                     <div
                       className="absolute top-0 overflow-hidden"
                       style={{
@@ -733,7 +840,12 @@ export function AboutBook({
                         zIndex: 60,
                       }}
                     >
-                      <PaperPage src={SPREADS[flip.from - 1]} onRight={flipTurningRight} />
+                      <div
+                        className="absolute inset-0"
+                        style={{ transform: "scaleX(-1)" }}
+                      >
+                        <PaperPage spread={flip.to} onRight={!flipTurningRight} />
+                      </div>
                       <div
                         className="absolute inset-0"
                         style={{
