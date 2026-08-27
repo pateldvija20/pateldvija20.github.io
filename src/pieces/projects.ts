@@ -45,8 +45,13 @@ export const PROJECTS: Project[] = [
   {
     slug: "billy-and-buddy",
     name: "Billy & Buddy",
-    thumb: "/assets/projects/coming-soon.png",
-    wip: true,
+    thumb: "/assets/projects/billy-and-buddy/game-hero.jpg",
+    type: "Service Design",
+    title: "A mini game that teaches kids to tell a need from a want, in two minutes",
+    hero: "/assets/projects/billy-and-buddy/game-hero.jpg",
+    // The game captures are 1400x909, not the template's 16:9 — cropping them
+    // taller cuts the scoreboard off the top of every screen.
+    heroAspect: 909 / 1400,
   },
   {
     slug: "the-family-table",

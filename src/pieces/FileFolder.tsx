@@ -7,6 +7,7 @@ import { useElementScale } from "./useElementScale";
 import { useCenterOnPiece } from "./ScatteredFocus";
 import { PROJECTS, cardImage, type Project } from "./projects";
 import { CaseStudy } from "./CaseStudy";
+import { BILLY_AND_BUDDY_SECTIONS } from "./billyAndBuddy";
 import { HACKSVIT_SECTIONS } from "./hacksvit";
 import { GREENERA_SECTIONS } from "./greenera";
 import { THE_FAMILY_TABLE_SECTIONS } from "./theFamilyTable";
@@ -1250,7 +1251,9 @@ function ExpandedPage({
                 ? GREENERA_SECTIONS
                 : project.slug === "the-family-table"
                   ? THE_FAMILY_TABLE_SECTIONS
-                  : undefined
+                  : project.slug === "billy-and-buddy"
+                    ? BILLY_AND_BUDDY_SECTIONS
+                    : undefined
           }
         />
       </div>
