@@ -60,24 +60,31 @@ export const SNAP_TOLERANCE = 72;
  * design says where twelve pieces lie, not which is which.
  *
  * The *angles* are still generated. The frame sets each piece at its own
- * arbitrary rotation, but a piece is squared up here by clicking its corner
- * in 90° steps, so one that started at 23° could never be straightened. The
- * quarter turns below keep every piece on a lattice the visitor can actually
- * solve.
+ * arbitrary rotation, but a piece is squared up here in 90° steps, so one
+ * that started at 23° could never be straightened. The quarter turns below
+ * keep every piece on a lattice the visitor can actually solve.
+ *
+ * The *spread* is the frame's, drawn in at 0.85 about its own centre. The
+ * frame lays the pile out on bare desk; here it sits on the golden-ratio mat,
+ * and at full spread the pieces ran to within about thirteen units of the
+ * mat's edge — close enough to read as overflowing it rather than lying on
+ * it. Scaling the arrangement rather than nudging twelve pairs by hand keeps
+ * the relative composition exactly as drawn. `ScatteredScene` centres the mat
+ * on what this produces, so the two move together.
  */
 const SLOTS: readonly (readonly [number, number])[] = [
-  [1604.7, 2717.0],
-  [1547.5, 3004.7],
-  [1660.9, 2826.1],
-  [1943.9, 3015.0],
-  [1787.2, 3026.0],
-  [1799.9, 2928.1],
-  [1614.9, 3025.3],
-  [1966.7, 2962.1],
-  [1881.2, 2902.1],
-  [1837.9, 2815.1],
-  [1924.7, 3026.1],
-  [1681.9, 2774.4],
+  [1627.6, 2740.2],
+  [1578.9, 2984.7],
+  [1675.3, 2832.9],
+  [1915.9, 2993.5],
+  [1782.7, 3002.8],
+  [1793.5, 2919.6],
+  [1636.2, 3002.2],
+  [1935.3, 2948.5],
+  [1862.6, 2897.5],
+  [1825.8, 2823.6],
+  [1899.6, 3002.9],
+  [1693.2, 2789.0],
 ] as const;
 
 /** The box those slots cover, for anything that needs to point at the pile

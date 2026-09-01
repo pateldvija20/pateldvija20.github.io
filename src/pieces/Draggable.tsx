@@ -1,5 +1,5 @@
 import { useRef, useState, type ReactNode } from "react";
-import { useCenterOnPiece } from "./ScatteredFocus";
+import { useCenterOnPiece, useLiveScale } from "./ScatteredFocus";
 
 /**
  * Lets a single desk piece be picked up and moved independently of the
@@ -15,7 +15,9 @@ import { useCenterOnPiece } from "./ScatteredFocus";
  * 2. Pass `scale` when an ancestor scales the scene (the canvas `fit`
  *    transform does). Pointer deltas arrive in screen pixels but are applied
  *    in unscaled canvas units, so without dividing them the piece drifts
- *    behind the cursor.
+ *    behind the cursor. The prop is only the fallback — where a camera is
+ *    present the live scale is read from it per gesture, so dragging a piece
+ *    during a zoom still tracks the cursor.
  *
  * Clicking a piece (as opposed to dragging it) also pans the canvas to bring
  * it to the middle of the viewport.
@@ -42,6 +44,7 @@ export function Draggable({
   const suppressClick = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const centerOnPiece = useCenterOnPiece();
+  const liveScale = useLiveScale(scale);
 
   const onPointerDown = (e: React.PointerEvent) => {
     if (!enabled) return;
@@ -52,8 +55,9 @@ export function Draggable({
   const onPointerMove = (e: React.PointerEvent) => {
     if (!drag.current) return;
     e.stopPropagation();
-    const dx = (e.clientX - drag.current.px) / scale;
-    const dy = (e.clientY - drag.current.py) / scale;
+    const s = liveScale();
+    const dx = (e.clientX - drag.current.px) / s;
+    const dy = (e.clientY - drag.current.py) / s;
     const far = Math.abs(dx) > 4 || Math.abs(dy) > 4;
     // Capture only once the drag commits. Capturing on pointer-down makes the
     // browser retarget the following click to this wrapper, so buttons inside

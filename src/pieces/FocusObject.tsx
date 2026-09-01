@@ -22,17 +22,12 @@ import {
  * is a placement plus four numbers rather than a fifth animation.
  */
 
-/**
- * How much over-scroll past the end of a document counts as leaving it rather
- * than as the tail of a read. Roughly two notches of a wheel — enough that
- * coasting to the bottom of the page holds, and a deliberate push does not.
- */
-const LEAVE_THRESHOLD = 220;
-
 /** How long the object takes to square up, matched to the camera's own move. */
 const STRAIGHTEN_IN = 0.72;
 const STRAIGHTEN_OUT = 0.6;
 const EASE = "power3.inOut";
+
+const clampTo = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
 
 const reduced = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -82,9 +77,8 @@ export function FocusObject({
   fit?: "contain" | "width";
   maxZoom?: number;
   /**
-   * A document rather than an object: wheels travel down it instead of
-   * dismissing it, and focus is only given up once the reader has run past
-   * the end of the page.
+   * A document rather than an object: wheels travel down it rather than
+   * dismissing it, and running out of page does not end the read.
    */
   scrollable?: boolean;
   draggable?: boolean;
@@ -113,11 +107,16 @@ export function FocusObject({
 
   const box: CanvasRect = rect ?? { left, top, width, height };
 
-  /** Accumulated over-scroll past the end of a document. */
-  const overRef = useRef(0);
-
-  /** Wheel while focused: walk the camera down the page, and only let go once
-   *  the reader has pushed past the end of it. */
+  /**
+   * Wheel while focused: walk the camera down the page.
+   *
+   * A document is never dismissed by scrolling it. Reaching the end of the
+   * page is the most ordinary thing a reader does, and treating it as "I'm
+   * done here" threw them off the sheet exactly when they had finished
+   * reading it — worse on a trackpad, where the momentum after a flick
+   * carries well past the end on its own. The page simply stops at both
+   * ends; leaving is a click off it, Escape, or the back control.
+   */
   const onWheel = useCallback(
     (e: WheelEvent, cam: CameraState) => {
       if (!camera || !scrollable) return false;
@@ -125,18 +124,12 @@ export function FocusObject({
       // camera never showing more than a sliver past either end.
       const topLimit = box.top + cam.viewH / 2 - cam.viewH * 0.03;
       const bottomLimit = box.top + box.height - cam.viewH / 2 + cam.viewH * 0.03;
-      const atTop = cam.y <= topLimit + 1;
-      const atBottom = cam.y >= bottomLimit - 1;
-      const goingDown = e.deltaY > 0;
-      // Run out of document *and* keep pushing — that is the gesture that
-      // means leaving, as opposed to the one that means reading.
-      if ((goingDown && atBottom) || (!goingDown && atTop)) {
-        overRef.current += Math.abs(e.deltaY);
-        if (overRef.current > LEAVE_THRESHOLD) return false;
-        return true;
-      }
-      overRef.current = 0;
-      const next = Math.min(Math.max(cam.y + e.deltaY / cam.zoom, topLimit), bottomLimit);
+      // `deltaY` is screen pixels; `cam.y` is canvas units. The divisor is the
+      // full painted scale, `fit x zoom` — dividing by the zoom alone left the
+      // page travelling at `fit` of the speed of the gesture (about a
+      // quarter of it on a 1280 window), so a flick that should have crossed
+      // the sheet barely moved it.
+      const next = clampTo(cam.y + e.deltaY / camera.getScale(), topLimit, bottomLimit);
       camera.pan(0, next - cam.y);
       return true;
     },
@@ -163,7 +156,6 @@ export function FocusObject({
 
   const take = useCallback(() => {
     if (!camera || focused) return;
-    overRef.current = 0;
     void camera.focus({
       id,
       rect: box,

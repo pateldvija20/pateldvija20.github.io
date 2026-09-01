@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Theme } from "./Piece";
+import { useLiveScale } from "./ScatteredFocus";
 import { InkPad, INKPAD_H, INKPAD_W, Stamp, StampImpression, STAMP_H, STAMP_W, type StampId } from "./Stamp";
 
 /**
@@ -19,8 +20,18 @@ import { InkPad, INKPAD_H, INKPAD_W, Stamp, StampImpression, STAMP_H, STAMP_W, t
  * explicit that the mark must not blur, spread or scale with it.
  */
 
-/** Below this a press is a slip, not a stamp, and leaves nothing. */
-const MIN_PRESS = 120;
+/**
+ * Below this a press is a slip — a pointer that went down and up without the
+ * visitor meaning it — and leaves nothing.
+ *
+ * Deliberately shorter than a click. This used to be 120ms, which is longer
+ * than an ordinary mouse click (60-100ms): someone who clicked the desk the
+ * way they click everything else got no mark, no feedback, and a stamp that
+ * still looked inked, which is indistinguishable from the feature being
+ * broken. The gesture is "press to stamp, hold to press harder" — so a plain
+ * click has to leave the lightest mark rather than nothing at all.
+ */
+const MIN_PRESS = 45;
 /** Full-strength ink. Longer presses do not go darker. */
 const MAX_PRESS = 1200;
 const MIN_DENSITY = 0.22;
@@ -77,6 +88,9 @@ export function StampSystem({
   const [pressStart, setPressStart] = useState<number | null>(null);
   const [preview, setPreview] = useState(0);
   const nextId = useRef(1);
+  /** Live, because a stamp can be carried while the camera is still moving —
+   *  the settled `scale` prop is stale for the whole of a focus tween. */
+  const liveScale = useLiveScale(scale);
 
   /**
    * The interaction runs off refs, not state.
@@ -118,9 +132,10 @@ export function StampSystem({
     (clientX: number, clientY: number) => {
       const r = rootRef.current?.getBoundingClientRect();
       if (!r) return { x: 0, y: 0 };
-      return { x: (clientX - r.left) / scale, y: (clientY - r.top) / scale };
+      const s = liveScale();
+      return { x: (clientX - r.left) / s, y: (clientY - r.top) / s };
     },
-    [scale],
+    [liveScale],
   );
 
   const overPad = useCallback(
@@ -143,12 +158,13 @@ export function StampSystem({
       const r = rootRef.current?.getBoundingClientRect();
       if (!r) return false;
       const p = toCanvas(e.clientX, e.clientY);
-      if (p.x < 0 || p.y < 0 || p.x > r.width / scale || p.y > r.height / scale) return false;
+      const s = liveScale();
+      if (p.x < 0 || p.y < 0 || p.x > r.width / s || p.y > r.height / s) return false;
       const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
       if (el?.closest("button, a, [role='dialog'], [data-no-stamp]")) return false;
       return true;
     },
-    [toCanvas, scale],
+    [toCanvas, liveScale],
   );
 
   // The held stamp tracks the pointer.
@@ -191,10 +207,10 @@ export function StampSystem({
         return;
       }
       if (!stampable(e)) {
-        // Not a surface that takes ink — put the stamp down rather than
-        // leaving it stuck to the pointer with no way to release it.
-        setHeldBoth(null);
-        setInkedBoth(false);
+        // Not a surface that takes ink. The stamp stays in hand: dropping it
+        // here also threw the ink away, so a press that happened to land on a
+        // control cost the visitor the whole set-up and looked like the stamp
+        // had simply stopped working. Escape still puts it down.
         return;
       }
       setPressBoth(performance.now());
@@ -296,6 +312,32 @@ export function StampSystem({
             zIndex: 3,
           }}
         />
+      ) : null}
+
+      {/* What to do with the thing now in your hand.
+          The stamps carry no affordance of their own — a rubber stamp looks
+          like a rubber stamp — so the two-step gesture (ink it, then press and
+          hold) was something a visitor had to already know. It rides under the
+          carried stamp and names whichever step is next. */}
+      {held && !pressing ? (
+        <div
+          className="pointer-events-none absolute flex items-center whitespace-nowrap"
+          style={{
+            left: pos.x,
+            top: pos.y + STAMP_H / 2 + 16,
+            transform: "translate(-50%, 0)",
+            padding: "7px 12px",
+            borderRadius: 8,
+            background: "rgba(24,25,26,0.9)",
+            color: "#fdfeff",
+            fontSize: 21,
+            lineHeight: 1,
+            fontWeight: 500,
+            zIndex: 41,
+          }}
+        >
+          {inked ? "Press and hold to stamp" : "Press the ink pad to load it"}
+        </div>
       ) : null}
 
       {([1, 2] as StampId[]).map((n) => {

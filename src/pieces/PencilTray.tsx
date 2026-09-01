@@ -11,7 +11,7 @@ import {
   type PencilLayout,
   type Placement,
 } from "./pencilLayout";
-import { useCenterOnPiece } from "./ScatteredFocus";
+import { useCenterOnPiece, useLiveScale } from "./ScatteredFocus";
 
 /** Pointer travel before a press counts as a drag rather than a tap — the
  *  same threshold Draggable uses, so every piece on the desk feels alike. */
@@ -46,6 +46,7 @@ export function PencilTray({
   const [layout, setLayout] = useState<PencilLayout>(() => ({ ...DEFAULT_LAYOUT }));
   const rootRef = useRef<HTMLDivElement>(null);
   const centerOnPiece = useCenterOnPiece();
+  const liveScale = useLiveScale(scale);
 
   /**
    * The box's own position. Loose pencils are placed from `layout` in canvas
@@ -107,10 +108,11 @@ export function PencilTray({
   const clientToCanvas = useCallback(
     (clientX: number, clientY: number) => {
       const r = rootRef.current?.getBoundingClientRect();
-      if (!r || !scale) return { x: 0, y: 0 };
-      return { x: (clientX - r.left) / scale, y: (clientY - r.top) / scale };
+      const s = liveScale();
+      if (!r || !s) return { x: 0, y: 0 };
+      return { x: (clientX - r.left) / s, y: (clientY - r.top) / s };
     },
-    [scale],
+    [liveScale],
   );
 
   // A drag in flight must not outlive the component.
@@ -143,8 +145,8 @@ export function PencilTray({
         // Pointer deltas arrive in screen px but the box is placed in canvas
         // units, so the canvas `fit` has to come back out of them.
         const next = {
-          left: g.left0 + (ev.clientX - g.px) / scale,
-          top: g.top0 + (ev.clientY - g.py) / scale,
+          left: g.left0 + (ev.clientX - g.px) / liveScale(),
+          top: g.top0 + (ev.clientY - g.py) / liveScale(),
         };
         boxPosRef.current = next;
         setBoxPos(next);
@@ -179,7 +181,7 @@ export function PencilTray({
         release,
       };
     },
-    [draggable, scale, centerOnPiece],
+    [draggable, liveScale, centerOnPiece],
   );
 
   const pickUp = useCallback(

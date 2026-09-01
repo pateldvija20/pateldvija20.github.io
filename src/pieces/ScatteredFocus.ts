@@ -1,4 +1,4 @@
-import { createContext, useContext } from "react";
+import { createContext, useCallback, useContext, useRef } from "react";
 
 /**
  * The desk camera.
@@ -84,6 +84,20 @@ export type DeskCamera = {
   /** Set the zoom about the current centre, for the Resume's +/- controls. */
   setZoom: (zoom: number) => void;
   read: () => CameraState;
+  /**
+   * The scale the canvas is *currently* painted at — `fit x zoom`, live.
+   *
+   * Every piece that turns a pointer position into canvas units needs this,
+   * and needs it to be true at the instant of the gesture. The settled zoom
+   * that reaches pieces as a `scale` prop is only written when a tween
+   * finishes, so for the whole 0.72s of a focus move it is stale: pointer
+   * deltas convert against the wrong divisor and the piece drifts away from
+   * the cursor, and hit tests made in canvas space miss their targets.
+   *
+   * A ref read rather than a prop precisely because it must not re-render
+   * forty pieces to stay honest.
+   */
+  getScale: () => number;
   /** Centre a piece at the resting zoom. The pre-camera behaviour, kept
    *  because most desk pieces only ever wanted this much. */
   centerOn: (el: HTMLElement) => Promise<void>;
@@ -103,6 +117,21 @@ export const FocusedIdContext = createContext<string | null>(null);
 
 export function useFocusedId(): string | null {
   return useContext(FocusedIdContext);
+}
+
+/**
+ * The live canvas scale, for pieces doing pointer maths.
+ *
+ * Takes the piece's own `scale` prop as the fallback so this works unchanged
+ * in Organised mode and in tests, where there is no camera to ask. Returns a
+ * getter rather than a number: the whole point is to read it at gesture time,
+ * not at render time.
+ */
+export function useLiveScale(fallback: number): () => number {
+  const camera = useDeskCamera();
+  const ref = useRef(fallback);
+  ref.current = fallback;
+  return useCallback(() => (camera ? camera.getScale() : ref.current), [camera]);
 }
 
 /** Legacy shape: bring a piece to the middle without zooming. */
