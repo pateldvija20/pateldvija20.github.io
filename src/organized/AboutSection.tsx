@@ -168,10 +168,11 @@ export function AboutSection() {
   return (
     <Section id="about" title="About" centred>
       <div className="flex flex-col gap-[60px] xl:flex-row xl:items-center xl:gap-[80px]">
+        {/* No greeting line here any more. The page already opens on "Hello,
+            Dvija here I am" above the Work grid, and repeating the
+            introduction two sections later made the About section read as a
+            second beginning. The paragraphs carry it on their own. */}
         <div className="flex flex-col gap-6 xl:max-w-[478px]">
-          <h2 className="font-slab text-section" style={{ color: "var(--content)" }}>
-            {ABOUT.heading}
-          </h2>
           {ABOUT.paragraphs.map((p) => (
             <p key={p} className="text-2xl font-medium text-muted">
               {p}

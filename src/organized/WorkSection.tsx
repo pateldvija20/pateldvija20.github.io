@@ -6,10 +6,10 @@ import { Section } from "./Section";
 /**
  * The introduction the page opens on (Figma 1840:35880).
  *
- * It sits inside the Work section rather than in a section of its own: the
- * first thing the page should say is who this is, and giving that its own
- * heading and closing rule would make the visitor read a section break before
- * reaching any work.
+ * It sits inside the Work section, above its heading, rather than in a section
+ * of its own: the first thing the page should say is who this is, and giving
+ * that its own heading and closing rule would make the visitor cross a section
+ * break before reaching any work.
  *
  * The blue pill keeps the 2.02° tilt the file gives it. That tilt is the one
  * bit of the desk's character the document borrows — everything else here is
@@ -45,8 +45,7 @@ function WorkIntro() {
  */
 export function WorkSection({ onOpen }: { onOpen: (slug: string, el: HTMLElement) => void }) {
   return (
-    <Section id="work" title="Work">
-      <WorkIntro />
+    <Section id="work" title="Work" lead={<WorkIntro />}>
       <div className="grid grid-cols-1 gap-[30px] md:grid-cols-2 md:gap-8">
         {PROJECTS.map((p) => (
           <ProjectCard key={p.slug} project={p} onOpen={(el) => onOpen(p.slug, el)} />

@@ -48,37 +48,37 @@ export function IntroCard({ theme, className }: { theme: Theme; className?: stri
         className="pointer-events-none absolute inset-0 h-full w-full"
       />
 
-      <div className="relative flex h-full w-full flex-col justify-between" style={{ padding: 44 }}>
-        <p
-          className="font-sans"
-          style={{ fontSize: 30, fontWeight: 600, letterSpacing: 0.3, lineHeight: 1.1 }}
-        >
-          {INTRO.greeting}
-        </p>
+      {/*
+        Placed, not stacked.
 
-        {/* Indented and set in mono, as the export had it — the aside on the
-            card rather than its headline. */}
-        <p
-          className="font-mono"
-          style={{
-            fontSize: 15,
-            lineHeight: 1.55,
-            letterSpacing: 0.15,
-            maxWidth: "62%",
-            marginLeft: "auto",
-            marginTop: -18,
-          }}
-        >
-          {INTRO.cardAside}
-        </p>
+        The three blocks sit at the coordinates the export puts them at, read
+        back out of `intro_card_dark.svg` by mounting it and measuring the ink:
+        the greeting at 42,49; the aside at 290,148 in a 286-wide column; the
+        role at 110,278. A padded flex column looked like the same card and
+        was not — it spread the blocks to the edges evenly, losing the indent
+        on the role and the way the aside hangs off to the right of centre,
+        which is most of the card's character.
+      */}
+      <p
+        className="absolute font-sans"
+        style={{ left: 42, top: 47, fontSize: 30, fontWeight: 600, letterSpacing: 0.3, lineHeight: 1.1 }}
+      >
+        {INTRO.greeting}
+      </p>
 
-        <p
-          className="font-slab"
-          style={{ fontSize: 62, fontWeight: 400, letterSpacing: 0.5, lineHeight: 1 }}
-        >
-          {INTRO.role}
-        </p>
-      </div>
+      <p
+        className="absolute font-mono"
+        style={{ left: 290, top: 145, width: 286, fontSize: 15, lineHeight: 1.53, letterSpacing: 0.15 }}
+      >
+        {INTRO.cardAside}
+      </p>
+
+      <p
+        className="absolute font-slab"
+        style={{ left: 110, top: 272, fontSize: 60, fontWeight: 400, letterSpacing: 0.4, lineHeight: 1.05 }}
+      >
+        {INTRO.role}
+      </p>
     </div>
   );
 }

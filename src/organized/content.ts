@@ -48,7 +48,6 @@ export const INTRO = {
 /* ------------------------------------------------------------------ */
 
 export const ABOUT = {
-  heading: "Hi, I'm Dvija Patel.",
   paragraphs: [
     "I believe in creating meaningful products through the intersection of technology, culture, and human behavior. I explore ideas from research to interactive experiences, always seeking new perspectives that shape the way I see and create.",
     "Beyond design, you’ll usually find me watching films, trying new food, reading and napping.",
