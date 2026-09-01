@@ -1,7 +1,6 @@
 import { Pencil, type PencilColor } from "./Pencil";
 import { ALL_SLOTS } from "./pencilLayout";
 import { SvgPiece, type Theme } from "./Piece";
-import { useElementScale } from "./useElementScale";
 
 /** The pencils Scattered lays loose on the desk, so their wells sit empty. */
 const DEFAULT_LOOSE: PencilColor[] = ["yellow", "darkblue", "darkgreen", "black"];
@@ -38,10 +37,16 @@ export function PencilBox({
 }) {
   const missing = new Set<PencilColor>(omit ?? (full ? [] : DEFAULT_LOOSE));
   const seated = slots ?? ALL_SLOTS.map((c) => (missing.has(c) ? null : c));
-  const { containerRef, scale } = useElementScale(BASE_WIDTH, BASE_HEIGHT);
 
   return (
-    <div ref={containerRef} className={`relative h-full flex items-center justify-center ${className ?? ""}`}>
+    <div className={`relative h-full flex items-center justify-center ${className ?? ""}`}>
+      {/* Rendered at its authored size. The Scattered canvas already applies
+          one `transform: scale(fit)` over the whole desk, so a piece that
+          scales itself as well is scaled twice — which is what a
+          since-removed `useElementScale` hook did here, shrinking this by
+          (height - 200) / height for a 100px margin that means nothing
+          inside a canvas. Every placement in `ScatteredScene` is solved
+          against the authored size, so this stays 1:1. */}
       <div
         className="relative"
         data-pencil-box
@@ -49,7 +54,6 @@ export function PencilBox({
         style={{
           width: BASE_WIDTH,
           height: BASE_HEIGHT,
-          transform: `scale(${scale})`,
           cursor: onBoxPointerDown ? "grab" : undefined,
           touchAction: onBoxPointerDown ? "none" : undefined,
         }}

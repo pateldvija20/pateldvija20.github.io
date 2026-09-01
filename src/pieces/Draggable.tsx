@@ -23,10 +23,17 @@ import { useCenterOnPiece } from "./ScatteredFocus";
 export function Draggable({
   enabled,
   scale = 1,
+  onTap,
   children,
 }: {
   enabled: boolean;
   scale?: number;
+  /**
+   * What a click (as opposed to a drag) means for this piece. Given by
+   * `FocusObject`, which leans the camera in rather than merely centring —
+   * two camera moves competing for one gesture is what this replaces.
+   */
+  onTap?: () => void;
   children: ReactNode;
 }) {
   const [pos, setPos] = useState({ x: 0, y: 0 });
@@ -71,6 +78,15 @@ export function Draggable({
       e.stopPropagation();
       e.preventDefault();
       suppressClick.current = false;
+      return;
+    }
+    // A focusable piece wants every tap on it, its own controls included: a
+    // click on a folder sheet is still a click on the folder, and focusing is
+    // idempotent, so the sheet's own handler runs undisturbed afterwards.
+    // This fires on capture, before those handlers, which is what lets the
+    // piece's `centerOnPiece` call see that the camera is already spoken for.
+    if (onTap) {
+      onTap();
       return;
     }
     // Pieces with their own controls (the folder, the book) centre themselves

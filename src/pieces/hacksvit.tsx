@@ -858,8 +858,13 @@ function MascotRow() {
  * 22.163 with 0.2216 tracking, the lead in Medium at full ink and the
  * follow-on in Regular at the muted grey. The old 18px/`opacity` pair read a
  * size too small and greyed the text by transparency rather than colour.
+ *
+ * Clamped for the same reason the shared scale in `caseStudyBits` is: the
+ * `vw` term is 22.163/1512, so desktop is untouched and only the phone moves.
+ * This file still keeps its own copy of the scale — folding it into the
+ * shared bits is the separate job the header note describes.
  */
-const BODY_FONT = 22.163;
+const BODY_FONT = "clamp(16px, 1.466vw, 22.163px)";
 const BODY_TRACK = 0.2216;
 const MUTED = "#7c838b";
 
@@ -1116,7 +1121,10 @@ export const HACKSVIT_SECTIONS: CaseStudySection[] = [
           />
           <StickerSheet />
         </div>
-        <div className="grid grid-cols-2 gap-[30px]">
+        {/* Held at two columns on the phone too: the bag and the tee are one
+            merch pair, and stacking them puts a screenful between the two
+            things the reader is meant to see together. */}
+        <div className="grid grid-cols-2 gap-[30px]" data-cs-cols>
           <Figure src={`${ART}/merch-bag.png`} ratio="782 / 948" radius={16} />
           <Figure src={`${ART}/merch-tshirt.png`} ratio="782 / 948" radius={16} />
         </div>

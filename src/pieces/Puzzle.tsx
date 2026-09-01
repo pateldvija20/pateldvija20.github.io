@@ -7,8 +7,10 @@ import {
   PUZZLE_W,
   type PuzzlePiece,
 } from "./puzzleGeometry";
+import { useDeskCamera, useFocusedId } from "./ScatteredFocus";
 import {
   clearState,
+  PILE,
   clusterOf,
   initialState,
   loadState,
@@ -54,6 +56,9 @@ const ROTATE_CURSOR =
  *  piece is unambiguously "pick me up". */
 const CORNER = 0.3;
 
+/** The camera's name for this object. */
+const FOCUS_ID = "puzzle";
+
 const REDUCED = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -94,6 +99,7 @@ export function Puzzle({
   scale,
   enabled,
   z,
+  focusZ,
   onSolvedOpen,
 }: {
   /** Canvas `fit` scale, so pointer deltas convert to canvas units. */
@@ -101,6 +107,8 @@ export function Puzzle({
   enabled: boolean;
   /** Where the puzzle sits in the desk's stacking order. */
   z: number;
+  /** Where it sits while the camera is leaning in on it. */
+  focusZ: number;
   /** Called when the finished Archive card is clicked. */
   onSolvedOpen: () => void;
 }) {
@@ -112,6 +120,8 @@ export function Puzzle({
   const [overCorner, setOverCorner] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const last = useRef<{ x: number; y: number } | null>(null);
+  const camera = useDeskCamera();
+  const focused = useFocusedId() === FOCUS_ID;
 
   useEffect(() => saveState(state), [state]);
 
@@ -180,9 +190,49 @@ export function Puzzle({
     return (fx < CORNER || fx > 1 - CORNER) && (fy < CORNER || fy > 1 - CORNER);
   };
 
+  /**
+   * What the camera should frame: whatever the twelve pieces currently cover.
+   *
+   * Measured from the live state rather than from `PILE`, because by the time
+   * anyone focuses the puzzle the pieces have usually been moved — framing
+   * the box they *started* in would leave half the game off-screen.
+   */
+  const bounds = useCallback(() => {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const piece of PUZZLE_PIECES) {
+      const st = state.pieces[piece.id];
+      if (!st) continue;
+      x0 = Math.min(x0, st.ox + piece.x);
+      y0 = Math.min(y0, st.oy + piece.y);
+      x1 = Math.max(x1, st.ox + piece.x + piece.w);
+      y1 = Math.max(y1, st.oy + piece.y + piece.h);
+    }
+    if (!Number.isFinite(x0)) return null;
+    return { left: x0, top: y0, width: x1 - x0, height: y1 - y0 };
+  }, [state.pieces]);
+
+  /**
+   * Lean the camera in on the pile.
+   *
+   * `el` is deliberately left off the spec: this component's root spans the
+   * whole canvas so that pieces can be carried anywhere across it, which
+   * would make "did the click land on the puzzle?" answer yes to every click
+   * on the desk. The camera falls back to hit-testing the rect instead.
+   */
+  const takeFocus = useCallback(() => {
+    const rect = bounds();
+    if (!camera || !rect) return false;
+    void camera.focus({ id: FOCUS_ID, rect, fill: 0.78, maxZoom: 3 });
+    return true;
+  }, [bounds, camera]);
+
   const onPieceClick = (e: React.MouseEvent, id: string) => {
     if (!enabled || state.solved) return;
     e.stopPropagation();
+    // The first click brings the puzzle over; picking pieces up comes after.
+    // At the resting desk scale a piece is around fifty pixels across, so a
+    // click there is a click at something rather than on it.
+    if (!focused && takeFocus()) return;
     // Corner turns it, middle carries it — one click target, two verbs, told
     // apart by where in the piece the click lands.
     if (!held && atCorner(e, e.currentTarget as HTMLElement)) {
@@ -273,7 +323,11 @@ export function Puzzle({
   return (
     // An explicit z-index creates a stacking context, so the piece-level
     // values below are private to the puzzle.
-    <div ref={rootRef} className="pointer-events-none absolute inset-0" style={{ zIndex: z }}>
+    <div
+      ref={rootRef}
+      className="pointer-events-none absolute inset-0"
+      style={{ zIndex: focused ? focusZ : z }}
+    >
       <div className="pointer-events-none absolute inset-0">
         {solvedOrigin ? (
           <button
@@ -304,8 +358,8 @@ export function Puzzle({
             onClick={reset}
             className="absolute cursor-pointer rounded-lg border px-4 py-2 font-mono text-sm uppercase tracking-wide"
             style={{
-              left: state.solved && solvedOrigin ? solvedOrigin.ox : 4163,
-              top: state.solved && solvedOrigin ? solvedOrigin.oy + PUZZLE_H + 28 : 2140,
+              left: state.solved && solvedOrigin ? solvedOrigin.ox : PILE.x,
+              top: state.solved && solvedOrigin ? solvedOrigin.oy + PUZZLE_H + 28 : PILE.y + PILE.h + 40,
               pointerEvents: "auto",
               background: "var(--surface)",
               color: "var(--content)",

@@ -29,10 +29,19 @@ const MIN_DENSITY = 0.22;
  *  limit. Oldest fades out first, well past what exploring produces. */
 const MAX_IMPRESSIONS = 60;
 
-const INKPAD = { x: 3817, y: 2642 };
-const STAMP_HOME: Record<StampId, { x: number; y: number }> = {
-  1: { x: 4603, y: 2773 },
-  2: { x: 4838, y: 2844 },
+/**
+ * Placements from the Scattered frame (458:45201), in canvas units.
+ *
+ * The pad is square to the desk — `Frame 48096044`'s box has exactly the
+ * pad's own 701:424 proportions, so there is no rotation in it. The two
+ * stamps are tilted; each angle is solved from its box against the stamp's
+ * 154x178 body. A stamp straightens as it is picked up, which is what the
+ * `carried` branch below does by simply not applying the tilt.
+ */
+const INKPAD = { x: 1988.6, y: 1835.2 };
+const STAMP_HOME: Record<StampId, { x: number; y: number; deg: number }> = {
+  1: { x: 2791.4, y: 1821.6, deg: -10.35 },
+  2: { x: 2745.2, y: 2107.4, deg: -8.89 },
 };
 
 type Impression = { id: number; n: StampId; x: number; y: number; density: number };
@@ -244,9 +253,13 @@ export function StampSystem({
 
   return (
     // An explicit z-index here creates a stacking context, so the 1-40 used
-    // below are private to the stamps and cannot collide with the desk's scale.
+    // below are private to the stamps and cannot collide with the desk's
+    // scale: 1 pad, 2 impressions, 3 the live preview, 4 the stamps at rest,
+    // 40 a carried stamp.
     <div ref={rootRef} className="pointer-events-none absolute inset-0" style={{ zIndex: z }}>
-      {/* Impressions sit on the desk, under everything else. */}
+      {/* Marks sit on top of the pad, not under it: a press that lands on the
+          pad is ink on the pad's face, and hiding it there made the pad look
+          like it had swallowed the stamp. */}
       {impressions.map((im) => (
         <StampImpression
           key={im.id}
@@ -258,12 +271,14 @@ export function StampSystem({
             width: STAMP_W,
             height: STAMP_W,
             opacity: im.density,
-            zIndex: 1,
+            zIndex: 2,
           }}
         />
       ))}
 
-      <div className="pointer-events-none absolute" style={{ left: INKPAD.x, top: INKPAD.y, zIndex: 2 }}>
+      {/* The pad is the floor of this context — everything the stamps do
+          happens above it. */}
+      <div className="pointer-events-none absolute" style={{ left: INKPAD.x, top: INKPAD.y, zIndex: 1 }}>
         <InkPad theme={theme} style={{ width: INKPAD_W, height: INKPAD_H }} />
       </div>
 
@@ -303,6 +318,10 @@ export function StampSystem({
               pointerEvents: enabled && !carried ? "auto" : "none",
               cursor: enabled && !carried ? "grab" : undefined,
               zIndex: carried ? 40 : 4,
+              // Square in the hand, tilted at rest: the frame lays both
+              // stamps down at an angle, and a stamp you are holding over the
+              // desk is one you have straightened up to press.
+              transform: carried ? undefined : `rotate(${home.deg}deg)`,
               filter: carried ? "drop-shadow(0 16px 20px rgba(0,0,0,0.34))" : undefined,
               transition: "top 120ms ease-out",
             }}

@@ -137,10 +137,20 @@ export const SOCIALS = [
 /* ------------------------------------------------------------------ */
 
 /**
- * ⚠️ PLACEHOLDER — the Archive frame is nine empty cards and the real images,
- * titles and links are still being chosen. The heights below are Figma's own
- * alternating rhythm, kept so the grid reads correctly while it waits for
- * content. Replace the array, not the layout.
+ * What the Archive says while it has no entries. Shown by both routes into
+ * it — the Organised section and the Scattered puzzle's overlay — so the two
+ * never disagree about what is there.
+ */
+export const ARCHIVE_NOTE =
+  "Side projects, explorations and older work are being sorted through. This section opens once the pieces worth showing are picked.";
+
+/**
+ * ⚠️ PLACEHOLDER, currently unrendered — the Archive frame is nine empty cards
+ * and the real images, titles and links are still being chosen. Drawing them
+ * put nine blank rectangles on the page, so both Archive views show
+ * `ARCHIVE_NOTE` instead until there are entries. The heights below are
+ * Figma's own alternating rhythm and are what the grid goes back to: replace
+ * the array, not the layout.
  */
 export const ARCHIVE_COLUMNS: number[][] = [
   [360, 360, 480],

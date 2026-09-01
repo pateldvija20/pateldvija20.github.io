@@ -168,3 +168,46 @@ body {
 body[data-project-open] #root {
   pointer-events: none;
 }
+
+/* ------------------------------------------------------------------ */
+/* Case study body — phone width                                       */
+/* ------------------------------------------------------------------ */
+
+/* Every case study is authored against Figma's 1512 frame, where two-up is
+   the default: metadata strips, before/after pairs, image-plus-claim cards,
+   related projects. At 375 there is no second column to have, so the whole
+   body stacks.
+
+   Done here, once, rather than at the ~20 call sites that declare a column
+   template. That keeps each project file's authored desktop numbers exactly
+   as Figma gives them — `247.24fr 524.48fr`, `438.52fr 611.01fr` and the
+   rest — instead of rewriting them into responsive approximations; below the
+   breakpoint they simply stop applying. `!important` is load-bearing: the
+   templates are React inline styles, and nothing else can outrank them.
+
+   Two exclusions, both deliberate:
+   - `data-cs-cols` marks a grid that reads *better* side by side on a phone
+     than stacked — a pair of screenshots meant to be compared, where making
+     each one full-width separates the two things being compared by a
+     screenful. Those hold at two columns instead.
+   - `[data-site-scroller]` is the Hacksvit site mock, which is a scaled
+     replica of a real page inside a browser frame. It shrinks as one object
+     via its own transform, so reflowing its interior would break the very
+     thing it is showing. */
+@media (max-width: 767px) {
+  [data-cs-body] .grid:not([data-cs-cols], [data-site-scroller] *),
+  [data-cs-body]
+    [style*="grid-template-columns"]:not([data-cs-cols], [data-site-scroller] *) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  [data-cs-body] [data-cs-cols]:not([data-site-scroller] *) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Images and figures inside the body must never be the reason the page
+     scrolls sideways. */
+  [data-cs-body] img:not([data-site-scroller] *) {
+    max-width: 100%;
+  }
+}

@@ -3,7 +3,6 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { SvgPiece, type Theme } from "./Piece";
 import { Sticker } from "./Sticker";
 import { useIsTouch } from "./useIsTouch";
-import { useElementScale } from "./useElementScale";
 import { useCenterOnPiece } from "./ScatteredFocus";
 
 const PAGE_WIDTH = 671;
@@ -428,8 +427,6 @@ export function AboutBook({
   // 1. Keep a persistent reference to the GSAP context
   const ctx = useRef<gsap.Context | undefined>(undefined);
 
-  const { containerRef, scale } = useElementScale(PAGE_WIDTH, PAGE_HEIGHT);
-
   // 2. INITIAL SETUP: Run only once on mount to establish the base structure
   useEffect(() => {
     const scene = sceneRef.current;
@@ -689,19 +686,23 @@ export function AboutBook({
 
   return (
     <div
-      ref={containerRef}
       // Added `select-none` to prevent highlighting text/elements accidentally when dragging
       className={`relative flex h-full items-center justify-center select-none ${
         className ?? ""
       }`}
     >
+      {/* Rendered at its authored size. The Scattered canvas already applies
+          one `transform: scale(fit)` over the whole desk, so a piece that
+          scales itself as well is scaled twice — which is what a
+          since-removed `useElementScale` hook did here, shrinking this by
+          (height - 200) / height for a 100px margin that means nothing
+          inside a canvas. Every placement in `ScatteredScene` is solved
+          against the authored size, so this stays 1:1. */}
       <div
         className="relative"
         style={{
           width: BOOK_WIDTH,
           height: PAGE_HEIGHT,
-          transform: `scale(${scale})`,
-          transformOrigin: "center center",
           pointerEvents: "none",
         }}
       >

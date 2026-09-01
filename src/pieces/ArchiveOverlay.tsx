@@ -1,13 +1,13 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import { ARCHIVE_COLUMNS } from "../organized/content";
+import { ArchiveNote } from "../organized/ArchiveSection";
 import { BackControl } from "./BackControl";
 
 /**
  * The Archive, opened from the finished puzzle in Scattered mode.
  *
  * Shows the same content Organised mode does — the puzzle is a second route
- * to it, never the only one. Both read `ARCHIVE_COLUMNS`, so filling the
+ * to it, never the only one. Both render `ArchiveNote`, so filling the
  * Archive in fills it in for both.
  */
 export function ArchiveOverlay({ onClose }: { onClose: () => void }) {
@@ -42,19 +42,7 @@ export function ArchiveOverlay({ onClose }: { onClose: () => void }) {
         <h2 className="mb-[60px] font-slab text-page" style={{ color: "var(--content)" }}>
           Archive
         </h2>
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-          {ARCHIVE_COLUMNS.map((column, ci) => (
-            <div key={ci} className="flex flex-col gap-8">
-              {column.map((height, ri) => (
-                <div
-                  key={ri}
-                  className="w-full overflow-hidden rounded-xl bg-well"
-                  style={{ height, border: "1px solid var(--edge)" }}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
+        <ArchiveNote />
       </div>
 
       <BackControl onClick={onClose} label="Back" aria-label="Back — close the Archive" />
