@@ -4,15 +4,19 @@ export type Mode = "scattered" | "organized";
 
 /* Top control bar (Figma `Component 9`, 144x76 at the 1729 design width).
  *
- * Two 60px buttons in a pill: the layout toggle and the theme toggle. The bar
- * inverts with the theme — dark shell with light buttons in light mode, and
- * the other way round in dark mode.
+ * Two 60px buttons — the layout toggle and the theme toggle — sitting directly
+ * on the page. There is no enclosing pill: each button already carries its own
+ * outline and radius, so a container drawing the same border around both read
+ * as a box inside a box. The wrapper below is positioning only.
  *
- * It is pinned to the top-right corner in every mode. This is the only chrome
+ * The buttons invert with the theme: light face and dark ink in light mode,
+ * the other way round in dark.
+ *
+ * Pinned to the top-right corner in every mode. This is the only chrome
  * outside the fit-scaled scene, so it's the only place clamp()/vw is used: the
  * values resolve to the Figma sizes at 1729px and shrink continuously from
- * there. Nothing below 1024px needs handling —
- * SmallScreenBlock covers that range. */
+ * there. Below 1025px the layout toggle is dropped, since Scattered mode is
+ * unavailable at those widths. */
 
 /** Figma parks the bar 30px in from the top-right corner of the 1729 scene. */
 const EDGE = "clamp(22px, 10.38px + 1.1348vw, 30px)";
@@ -59,11 +63,16 @@ export function ControlBar({
   mode,
   onMode,
   onToggleTheme,
+  showLayoutToggle = true,
 }: {
   theme: Theme;
   mode: Mode;
   onMode: (m: Mode) => void;
   onToggleTheme: () => void;
+  /** False at and below 1024, where Scattered mode is unavailable — the bar
+   *  keeps only the theme button rather than offering a layout that cannot
+   *  be entered. */
+  showLayoutToggle?: boolean;
 }) {
   const light = theme === "light";
   // The pill and its buttons share one fill and one ink colour, so the bar
@@ -83,25 +92,19 @@ export function ControlBar({
   return (
     <div
       className="fixed z-50 flex w-max items-center"
-      style={{
-        top: EDGE,
-        right: EDGE,
-        background: face,
-        border: `2px solid ${ink}`,
-        borderRadius: RADIUS,
-        padding: PAD,
-        gap: PAD,
-      }}
+      style={{ top: EDGE, right: EDGE, gap: PAD }}
     >
-      <button
-        onClick={() => onMode(next)}
-        aria-label={next === "organized" ? "Switch to organised layout" : "Switch to scattered layout"}
-        aria-pressed={mode === "organized"}
-        className="flex shrink-0 cursor-pointer items-center justify-center overflow-hidden"
-        style={button}
-      >
-        <LayoutIcon mode={next} fg={ink} bg={face} />
-      </button>
+      {showLayoutToggle ? (
+        <button
+          onClick={() => onMode(next)}
+          aria-label={next === "organized" ? "Switch to organised layout" : "Switch to scattered layout"}
+          aria-pressed={mode === "organized"}
+          className="flex shrink-0 cursor-pointer items-center justify-center overflow-hidden"
+          style={button}
+        >
+          <LayoutIcon mode={next} fg={ink} bg={face} />
+        </button>
+      ) : null}
       <button
         onClick={onToggleTheme}
         aria-label={light ? "Switch to dark mode" : "Switch to light mode"}

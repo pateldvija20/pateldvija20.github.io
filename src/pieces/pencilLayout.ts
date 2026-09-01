@@ -29,9 +29,16 @@ export type PencilLayout = Record<PencilColor, Placement>;
 export const PENCIL_W = 32.95;
 export const PENCIL_H = 641.9;
 
-/** The box's own placement on the Scattered canvas (Figma `main_canvas`
- *  69:8583). Its rotation is what a pencil inherits on the way out of a well. */
-export const PENCIL_BOX = { left: 3287, top: 1477, deg: 5.19 };
+/** The box's own placement on the Scattered canvas (Figma 458:45201). Its
+ *  rotation is what a pencil inherits on the way out of a well.
+ *
+ *  ⚠️ Position and angle are updated to the new frame; the box's *scale* is
+ *  not. Figma draws it at its full 910x911 and the loose pencils at
+ *  42.2 x 822, where this renders both ~22% smaller via PencilBox's
+ *  `useElementScale`. Correcting that means changing PENCIL_W/H and the box's
+ *  own sizing together, which would move every well and the drag-between-well
+ *  hit testing with it — a separate change, not a placement tweak. */
+export const PENCIL_BOX = { left: 2498.8, top: 1851.1, deg: 5.2 };
 
 /**
  * Where each pencil sits when the Scattered desk first renders: four loose on
@@ -43,20 +50,19 @@ export const PENCIL_BOX = { left: 3287, top: 1477, deg: 5.19 };
  * the desk — at Figma's spacing they read as unrelated to it, and the drag
  * affordance only makes sense if a pencil and its well are near each other.
  *
- * The box's *visual* footprint is x 3387–4097, y 1577–2288: its 910x911
- * layout box is shrunk 0.7804 about its own centre by `useElementScale`. Each
- * pencil below sits just outside one edge of that, clear of the others —
- * a pencil is 32.95 x 641.9 and rotates about its own centre, so the spans
- * below account for both.
+ * Angles are Figma's own (458:45201), solved from each pencil's bounding box.
+ * Positions are pulled in around the box rather than taken literally from the
+ * frame: at this render scale (see PENCIL_BOX) Figma's spacing would leave the
+ * loose four reading as unrelated to the box they drag in and out of.
  */
 export const DEFAULT_LAYOUT: PencilLayout = {
   // Standing to the left of the box, the taller one nearer.
-  yellow: { where: "desk", left: 3163.5, top: 1529.05, deg: 9.85 },
-  darkgreen: { where: "desk", left: 3313.5, top: 1589.05, deg: 0 },
+  yellow: { where: "desk", left: 2375.3, top: 1903.1, deg: 10.43 },
+  darkgreen: { where: "desk", left: 2525.3, top: 1963.1, deg: 0.6 },
   // Laid flat just above the box's top edge.
-  darkblue: { where: "desk", left: 3613.5, top: 1179.05, deg: -94.89 },
+  darkblue: { where: "desk", left: 2825.3, top: 1553.1, deg: -84.53 },
   // Angled across the desk just below the box.
-  black: { where: "desk", left: 3283.5, top: 2109.05, deg: -72.02 },
+  black: { where: "desk", left: 2495.3, top: 2483.1, deg: -71.53 },
   // Seated, each in the well that matches its own colour slot.
   orange: { where: "box", slot: 1 },
   red: { where: "box", slot: 2 },

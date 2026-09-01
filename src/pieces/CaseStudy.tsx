@@ -55,11 +55,19 @@ const SECTION_GAP = 80;
 const HEAD_GAP = 22.163;
 /** `2ae66f10…-1920x1080` 67:13059 — 1301.168 x 731.907, i.e. 16:9. */
 const HERO_ASPECT = 731.907 / 1301.168;
-/** Type scale, all DM Mono Medium / DM Sans / Roboto Slab Regular. */
-const META_FONT = 18.469;
-const META_GAP = 28.628;
+/**
+ * Type scale, all DM Mono Medium / DM Sans / Roboto Slab Regular.
+ *
+ * The page is authored against a 1512-wide frame but is now reachable from the
+ * Work grid at phone and tablet widths too, so the two display sizes are
+ * expressed as clamps rather than fixed px: they hold the authored value on
+ * desktop and shrink from there. The Figma number is the clamp's ceiling in
+ * both cases, so nothing about the desktop rendering changes.
+ */
+const META_FONT = "clamp(13px, 1.22vw, 18.469px)";
+const META_GAP = "clamp(14px, 1.9vw, 28.628px)";
 const META_PY = 7.388;
-const TITLE_FONT = 44.327;
+const TITLE_FONT = "clamp(28px, 2.93vw, 44.327px)";
 const TITLE_TRACK = 0.8865;
 
 export type CaseStudySection = {
@@ -113,7 +121,7 @@ export function CaseStudy({
   // rule that sit on it are fixed to match.
   const face = "#fdfeff";
   const ink = "#18191a";
-  const muted = "#7c838b";
+  const muted = "#626262";
   const divider = "#e3e5e8";
   const accent = "#0059ff";
 
@@ -313,7 +321,7 @@ export function CaseStudy({
         >
           <header style={{ marginBottom: SECTION_GAP }}>
             <div
-              className="flex items-start uppercase"
+              className="flex flex-wrap items-start uppercase"
               style={{
                 color: muted,
                 gap: META_GAP,

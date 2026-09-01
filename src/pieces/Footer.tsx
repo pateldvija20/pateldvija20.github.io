@@ -6,6 +6,51 @@ const CONNECT_LINKS: { label: string; href: string }[] = [
   { label: "Twitter", href: "https://twitter.com/pateldvija" },
 ];
 
+/**
+ * The phone footer (Figma 458:33453) is not the desk footer scaled down.
+ * Desktop and tablet both keep the 1729:552 ratio exactly (0.3193), so they
+ * are one artwork scaled; the phone's is 0.626, drops the chair entirely, and
+ * lays the CONNECT links in a row. Scaling the desk footer to 440px would put
+ * this card at 25% and make it unreadable, so the phone gets its own.
+ */
+export function FooterMobile({ theme, clock }: { theme: Theme; clock: string }) {
+  const isDark = theme === "dark";
+  const surface = isDark
+    ? "bg-[#2f2f2f] border-[#fdfeff] text-[#fdfeff]"
+    : "bg-[rgba(253,254,255,0.85)] border-[#2f2f2f] text-[#2f2f2f]";
+
+  return (
+    <div
+      className={`relative w-full px-[30px] py-[30px] ${isDark ? "bg-[#2f2f2f]" : "halftone"}`}
+    >
+      <div
+        className={`flex w-full flex-col gap-8 rounded-[12px] border-2 border-solid p-6 leading-normal backdrop-blur-sm ${surface}`}
+      >
+        <div className="flex flex-col gap-4">
+          <p className="text-[14px] font-medium uppercase tracking-wide opacity-60">connect:</p>
+          <div className="flex flex-wrap gap-6 text-[18px] font-semibold capitalize">
+            {CONNECT_LINKS.map((link) => (
+              <a
+                key={link.label}
+                href={link.href}
+                target="_blank"
+                rel="noreferrer"
+                className="transition-opacity duration-200 hover:opacity-70"
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-4">
+          <p className="text-[14px] font-medium uppercase tracking-wide opacity-60">currently:</p>
+          <p className="text-[18px] font-semibold capitalize">{clock}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Footer({
   theme,
   clock,

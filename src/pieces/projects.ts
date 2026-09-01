@@ -1,6 +1,7 @@
 /**
- * The six case studies that live in the folder, top of the fan to bottom —
- * the order Figma stacks them in `Group 14777` (node 233:7627).
+ * The six case studies, in display order: published work first, then the two
+ * that are still coming. This is the order the Work grid and the folder's fan
+ * both read, so a visitor meets real case studies before placeholders.
  *
  * `thumb` files are committed under `public/assets/projects/`, downloaded from
  * the Figma fills rather than linked: the MCP asset URLs expire after ~7 days.
@@ -30,18 +31,6 @@ export type Project = {
 };
 
 export const PROJECTS: Project[] = [
-  {
-    slug: "burnout",
-    name: "Burnout",
-    thumb: "/assets/projects/coming-soon.png",
-    wip: true,
-  },
-  {
-    slug: "nearby",
-    name: "Nearby",
-    thumb: "/assets/projects/coming-soon.png",
-    wip: true,
-  },
   {
     slug: "billy-and-buddy",
     name: "Billy & Buddy",
@@ -80,6 +69,18 @@ export const PROJECTS: Project[] = [
     year: "2022",
     title: "Designing Visual Identity for Hackathons",
     hero: "/assets/projects/hacksvit/hero.png",
+  },
+  {
+    slug: "burnout",
+    name: "Burnout",
+    thumb: "/assets/projects/coming-soon.png",
+    wip: true,
+  },
+  {
+    slug: "nearby",
+    name: "Nearby",
+    thumb: "/assets/projects/coming-soon.png",
+    wip: true,
   },
 ];
 

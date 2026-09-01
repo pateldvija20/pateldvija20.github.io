@@ -78,8 +78,10 @@ const STICKERS: StickerArt[][] = [
   [{ n: 1, cx: 237.95, cy: 659.05, w: 250, h: 236.3, rot: -4.61 }],
   // Spread 2 — none.
   [],
-  // Spread 3 — bottom of the reading-list page.
-  [{ n: 2, cx: 1123.5, cy: 678.5, w: 250, h: 204.3, rot: 5 }],
+  // Spread 3 — none. The sticker used to fill a hole left by a deleted note
+  // card on the old page 6; the redesigned page is three gradient cards edge
+  // to edge, so there is no hole and a sticker would land on top of them.
+  [],
 ];
 
 /**
