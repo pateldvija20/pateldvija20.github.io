@@ -1,5 +1,16 @@
 import { SvgPiece, type Theme } from "./Piece";
 
+/**
+ * The legal line, in one place because the desk and phone footers are two
+ * separate compositions rather than one responsive layout.
+ *
+ * A copyright claim and nothing else: the site sets no cookies beyond three
+ * functional keys, runs no analytics, embeds no third-party script and has no
+ * form that collects anything, so a privacy notice would be describing
+ * practices it does not have. Add one the day any of that stops being true.
+ */
+const COPYRIGHT = `\u00a9 ${new Date().getFullYear()} Dvija Patel. All rights reserved.`;
+
 const CONNECT_LINKS: { label: string; href: string }[] = [
   { label: "Linkedin", href: "https://www.linkedin.com/in/pateldvija" },
   { label: "Github", href: "https://github.com/pateldvija" },
@@ -47,6 +58,12 @@ export function FooterMobile({ theme, clock }: { theme: Theme; clock: string }) 
           <p className="text-[18px] font-semibold capitalize">{clock}</p>
         </div>
       </div>
+
+      <p
+        className={`mt-6 text-[13px] leading-normal opacity-55 ${isDark ? "text-[#fdfeff]" : "text-[#2f2f2f]"}`}
+      >
+        {COPYRIGHT}
+      </p>
     </div>
   );
 }
@@ -100,6 +117,17 @@ export function Footer({
           </p>
         </div>
       </div>
+
+      {/* On the artboard rather than in the card: the card is the contact
+          block, and a copyright claim is a property of the page, not of the
+          way to reach its author. Aligned to the card's own 78px inset so the
+          footer keeps one left edge. */}
+      <p
+        className={`absolute left-[78px] bottom-[44px] whitespace-nowrap text-[14px] leading-normal opacity-55 ${isDark ? "text-[#fdfeff]" : "text-[#2f2f2f]"}`}
+        style={{ fontVariationSettings: '"opsz" 14' }}
+      >
+        {COPYRIGHT}
+      </p>
     </div>
   );
 }

@@ -4,25 +4,28 @@ import type { Theme } from "./Piece";
 /**
  * The Resume's own controls, shown only while the sheet is being read.
  *
- * They join the mode and brightness buttons in the top-right rather than
- * floating over the page, because the page is a physical object on the desk:
- * a toolbar attached to it would turn it into a viewer window, which is the
- * one thing the reading mode is trying not to be. Same button geometry as
- * `ControlBar`, so the row reads as one set of controls that grew.
+ * A floating bar at the bottom centre, clear of the sheet rather than attached
+ * to it: the page is a physical object on the desk, and a chrome rail welded
+ * to its edge would turn it into a viewer window, which is the one thing the
+ * reading mode is trying not to be. Bottom centre because that is where the
+ * hand is while reading — the top-right corner is already the mode and
+ * brightness bar's, and a second row stacked under it read as an overflow menu
+ * rather than as this document's own controls.
+ *
+ * Same button geometry as `ControlBar`, so the two read as one family.
  *
  * `data-focus-chrome` keeps a click here from being read as a click off the
- * sheet — these belong to the focused object even though they sit nowhere
- * near it.
+ * sheet — these belong to the focused object even though they sit nowhere near
+ * it.
  */
 
 /** Matches ControlBar's own scale exactly — see the note on its constants. */
-const EDGE = "clamp(22px, 10.38px + 1.1348vw, 30px)";
 const BUTTON = "clamp(44px, 20.76px + 2.2695vw, 60px)";
 const ICON = "clamp(18px, 9.29px + 0.8511vw, 24px)";
 const PAD = "clamp(6px, 3.1px + 0.2837vw, 8px)";
 const RADIUS = "clamp(9px, 4.65px + 0.4255vw, 12px)";
-/** Clears the control bar, which owns the corner. */
-const ROW_GAP = "clamp(52px, 24.9px + 2.723vw, 72px)";
+/** How far the row floats off the bottom edge. */
+const EDGE = "clamp(22px, 10.38px + 1.1348vw, 30px)";
 
 export function ResumeControls({
   theme,
@@ -33,6 +36,9 @@ export function ResumeControls({
   theme: Theme;
   onZoomIn: () => void;
   onZoomOut: () => void;
+  /** Puts the sheet back on the desk. Labelled rather than an X: with the
+   *  scroll-to-leave gesture gone this is the only visible way out, and a
+   *  bare X on a document reads as "discard" rather than "put down". */
   onClose: () => void;
 }) {
   const light = theme === "light";
@@ -40,8 +46,8 @@ export function ResumeControls({
   const ink = light ? "#2f2f2f" : "#fdfeff";
 
   const button: React.CSSProperties = {
-    width: BUTTON,
     height: BUTTON,
+    width: BUTTON,
     borderRadius: RADIUS,
     background: face,
     border: `2px solid ${ink}`,
@@ -53,11 +59,25 @@ export function ResumeControls({
   return (
     <div
       data-focus-chrome
-      className="fixed z-50 flex w-max items-center"
-      style={{ top: `calc(${EDGE} + ${ROW_GAP})`, right: EDGE, gap: PAD }}
+      className="fixed left-1/2 z-50 flex w-max -translate-x-1/2 items-center"
+      style={{ bottom: EDGE, gap: PAD }}
       role="toolbar"
       aria-label="Resume controls"
     >
+      {/* Wider than the icon buttons and carrying a word, because this is the
+          exit and it should not have to be guessed at. */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap px-4 text-[15px] font-medium"
+        style={{ ...button, width: "auto" }}
+      >
+        <svg width={ICON} height={ICON} viewBox="0 0 24 24" fill="none" aria-hidden>
+          <path d="M15 6l-6 6 6 6" {...stroke} strokeLinejoin="round" />
+        </svg>
+        Back to desk
+      </button>
+
       <a
         href={RESUME_PDF}
         download
@@ -90,17 +110,6 @@ export function ResumeControls({
       >
         <svg width={ICON} height={ICON} viewBox="0 0 24 24" fill="none" aria-hidden>
           <path d="M12 5v14M5 12h14" {...stroke} />
-        </svg>
-      </button>
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Put the resume back on the desk"
-        className="flex shrink-0 cursor-pointer items-center justify-center"
-        style={button}
-      >
-        <svg width={ICON} height={ICON} viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path d="M6 6l12 12M18 6 6 18" {...stroke} />
         </svg>
       </button>
     </div>

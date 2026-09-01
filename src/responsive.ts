@@ -45,6 +45,22 @@ export const SCATTER_MIN_W = TABLET_BP + 1;
 /** True when the viewport can host Scattered mode at all. */
 export const canScatter = (width: number) => width >= SCATTER_MIN_W;
 
+/**
+ * Where Scattered stops being merely *available* and becomes the front door.
+ *
+ * Deliberately above SCATTER_MIN_W rather than equal to it. Between 1025 and
+ * 1204 the desk fits and is worth offering, but the window is narrow enough
+ * that a visitor lands on a canvas they have to pan before it reads as
+ * anything — so the toggle appears there while Organised still opens. From
+ * 1205 up, enough of the composition is on screen at rest for the desk to
+ * introduce itself, so it leads.
+ */
+export const SCATTER_DEFAULT_W = 1205;
+
+/** True when a *fresh* visit should open on the desk. A remembered choice
+ *  always outranks this — see `App`. */
+export const prefersScatter = (width: number) => width >= SCATTER_DEFAULT_W;
+
 
 /* ------------------------------------------------------------------ */
 /* Scattered canvas                                                     */

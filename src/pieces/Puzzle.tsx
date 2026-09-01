@@ -7,7 +7,7 @@ import {
   PUZZLE_W,
   type PuzzlePiece,
 } from "./puzzleGeometry";
-import { useDeskCamera, useFocusedId } from "./ScatteredFocus";
+import { useDeskCamera, useFocusedId, useLiveScale } from "./ScatteredFocus";
 import {
   clearState,
   PILE,
@@ -25,36 +25,20 @@ import {
 /**
  * The Archive puzzle.
  *
- * Click a piece to pick up whatever it is joined to, move the pointer, click
- * again to put it down. Pieces snap to each other by proximity — there is no
- * tray or outline to drop them onto, and nothing shows the finished picture
- * before it is finished. A snap straightens both sides, so the visitor never
- * rotates anything by hand.
+ * Press a piece to take hold of whatever it is joined to, drag, and let go to
+ * set it down. `R` or the right button turns the piece under the pointer, held
+ * or not, so a piece can be squared up in the middle of being carried.
+ *
+ * Pieces join by proximity *and* orientation: two neighbours that are close
+ * enough will not snap until both are square to the picture, so the opening
+ * rotations are a real obstacle rather than decoration. There is no tray or
+ * outline to drop onto, and nothing shows the finished picture before it is
+ * finished — the only signal that a join is available is the glow a carried
+ * piece takes on when it is both in place and the right way up.
  *
  * The puzzle is a bonus, never a gate: the Archive it produces is reachable
  * directly in Organised mode without touching this.
  */
-
-/**
- * The rotate cursor, as a data URI. Inline rather than an asset because it has
- * to be a `cursor:` value — an SVG file would be one more request for a 24px
- * glyph, and this way it cannot go missing.
- */
-const ROTATE_CURSOR =
-  "url(\"data:image/svg+xml;utf8," +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">' +
-      '<g fill="none" stroke="%23fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M18 3v4.5h-4.5"/></g>' +
-      '<g fill="none" stroke="%232f2f2f" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M18 3v4.5h-4.5"/></g></svg>',
-  ).replace(/%23/g, "%23") +
-  "\") 12 12, crosshair";
-
-/** How far in from a piece's edges still counts as its corner, as a fraction
- *  of the bounding box. Big enough to hit, small enough that the middle of the
- *  piece is unambiguously "pick me up". */
-const CORNER = 0.3;
 
 /** The camera's name for this object. */
 const FOCUS_ID = "puzzle";
@@ -116,11 +100,13 @@ export function Puzzle({
   const [state, setState] = useState<PuzzleState>(() => loadState() ?? initialState());
   const [held, setHeld] = useState<string | null>(null);
   const [justSnapped, setJustSnapped] = useState<string | null>(null);
-  /** Piece id the pointer is currently over a corner of, if any. */
-  const [overCorner, setOverCorner] = useState<string | null>(null);
+  /** Piece the pointer is resting on. What `R` and the right button act on
+   *  when nothing is being carried. */
+  const [hover, setHover] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const last = useRef<{ x: number; y: number } | null>(null);
   const camera = useDeskCamera();
+  const liveScale = useLiveScale(scale);
   const focused = useFocusedId() === FOCUS_ID;
 
   useEffect(() => saveState(state), [state]);
@@ -129,13 +115,39 @@ export function Puzzle({
     (clientX: number, clientY: number) => {
       const r = rootRef.current?.getBoundingClientRect();
       if (!r) return { x: 0, y: 0 };
-      return { x: (clientX - r.left) / scale, y: (clientY - r.top) / scale };
+      const s = liveScale();
+      return { x: (clientX - r.left) / s, y: (clientY - r.top) / s };
     },
-    [scale],
+    [liveScale],
   );
 
-  // While a cluster is held it tracks the pointer. This is click-move-click,
-  // not press-drag-release, so the page can still be scrolled mid-carry.
+  const drop = useCallback((id: string) => {
+    setState((s) => {
+      const { state: next, snapped } = trySnap(s, id);
+      if (snapped) {
+        setJustSnapped(id);
+        window.setTimeout(() => setJustSnapped(null), 420);
+      }
+      return next;
+    });
+    setHeld(null);
+    last.current = null;
+  }, []);
+
+  /**
+   * Carrying a cluster: press, drag, release.
+   *
+   * This used to be click, move, click — pick a piece up with one click and
+   * set it down with another. It reads fine written down and is wrong in the
+   * hand: nothing else on the desk behaves that way, a piece stays stuck to
+   * the cursor if the second click goes astray, and the whole time the piece
+   * is following the pointer the visitor is holding no button, which is the
+   * one signal that says "you are carrying something".
+   *
+   * The listeners are on `window` rather than on the piece so a fast drag
+   * cannot outrun its own element, and pointer capture keeps the gesture
+   * whole if the pointer crosses another piece on the way.
+   */
   useEffect(() => {
     if (!held) return;
     const onMove = (e: PointerEvent) => {
@@ -144,51 +156,50 @@ export function Puzzle({
       last.current = p;
       setState((s) => moveCluster(s, held, p.x - prev.x, p.y - prev.y));
     };
-    window.addEventListener("pointermove", onMove);
-    return () => window.removeEventListener("pointermove", onMove);
-  }, [held, toCanvas]);
-
-  const drop = useCallback(
-    (id: string) => {
-      setState((s) => {
-        const { state: next, snapped } = trySnap(s, id);
-        if (snapped) {
-          setJustSnapped(id);
-          window.setTimeout(() => setJustSnapped(null), 420);
-        }
-        return next;
-      });
-      setHeld(null);
-      last.current = null;
-    },
-    [],
-  );
-
-  // A click anywhere puts a held cluster down, so a piece can never get stuck
-  // to the pointer.
-  useEffect(() => {
-    if (!held) return;
-    const onClick = () => drop(held);
-    window.addEventListener("click", onClick);
-    return () => window.removeEventListener("click", onClick);
-  }, [held, drop]);
-
-  useEffect(() => {
-    if (!held) return;
+    const onUp = () => drop(held);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") drop(held);
     };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [held, toCanvas, drop]);
+
+  /**
+   * Turning a piece, without having to put it down first.
+   *
+   * The old rotate was a click inside an invisible corner zone, which had two
+   * problems: nothing on screen said the zone was there, and it only worked
+   * on a piece that was *not* being carried — so squaring a piece up meant
+   * dropping it, turning it, and picking it up again, three gestures for one
+   * intention. Now the piece under the pointer turns, whether it is being
+   * carried or merely hovered, and it turns from the keyboard or from the
+   * right button.
+   */
+  const turnTarget = held ?? hover;
+  const turn = useCallback(() => {
+    if (!enabled || state.solved || !turnTarget) return;
+    setState((s) => rotateCluster(s, turnTarget));
+  }, [enabled, state.solved, turnTarget]);
+
+  useEffect(() => {
+    if (!turnTarget) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "r" || e.key === "R") {
+        e.preventDefault();
+        turn();
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [held, drop]);
-
-  /** True when the pointer sits in one of the piece's four corner zones. */
-  const atCorner = (e: React.MouseEvent, el: HTMLElement) => {
-    const b = el.getBoundingClientRect();
-    const fx = (e.clientX - b.left) / b.width;
-    const fy = (e.clientY - b.top) / b.height;
-    return (fx < CORNER || fx > 1 - CORNER) && (fy < CORNER || fy > 1 - CORNER);
-  };
+  }, [turnTarget, turn]);
 
   /**
    * What the camera should frame: whatever the twelve pieces currently cover.
@@ -226,23 +237,17 @@ export function Puzzle({
     return true;
   }, [bounds, camera]);
 
-  const onPieceClick = (e: React.MouseEvent, id: string) => {
-    if (!enabled || state.solved) return;
+  const onPieceDown = (e: React.PointerEvent, id: string) => {
+    if (!enabled || state.solved || held) return;
     e.stopPropagation();
-    // The first click brings the puzzle over; picking pieces up comes after.
-    // At the resting desk scale a piece is around fifty pixels across, so a
-    // click there is a click at something rather than on it.
+    // The first press brings the puzzle over; carrying pieces comes after. At
+    // the resting desk scale a piece is around fifty pixels across, so a press
+    // there is a press *at* something rather than on it.
     if (!focused && takeFocus()) return;
-    // Corner turns it, middle carries it — one click target, two verbs, told
-    // apart by where in the piece the click lands.
-    if (!held && atCorner(e, e.currentTarget as HTMLElement)) {
-      setState((s) => rotateCluster(s, id));
-      return;
-    }
-    if (held) {
-      drop(held);
-      return;
-    }
+    // Only the primary button carries. The right button turns the piece, and
+    // is handled by `onContextMenu` below.
+    if (e.button !== 0) return;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     last.current = toCanvas(e.clientX, e.clientY);
     setHeld(id);
   };
@@ -254,6 +259,15 @@ export function Puzzle({
     last.current = null;
     setState(initialState());
   };
+
+  /** Where the rotate hint sits: centred under the piece it applies to. */
+  const turnHint = (() => {
+    if (!enabled || state.solved || !turnTarget) return null;
+    const piece = PUZZLE_PIECES.find((p) => p.id === turnTarget);
+    const st = piece ? state.pieces[piece.id] : null;
+    if (!piece || !st) return null;
+    return { x: st.ox + piece.x + piece.w / 2, y: st.oy + piece.y + piece.h + 14 };
+  })();
 
   const heldIds = held ? new Set(clusterOf(state, held)) : new Set<string>();
   // Recomputed each render while carrying, which is exactly when it changes.
@@ -272,13 +286,20 @@ export function Puzzle({
         role={enabled && !state.solved ? "button" : undefined}
         tabIndex={-1}
         aria-hidden="true"
-        onClick={(e) => onPieceClick(e, piece.id)}
-        onPointerMove={(e) => {
+        onPointerDown={(e) => onPieceDown(e, piece.id)}
+        onPointerEnter={() => {
           if (!enabled || state.solved || held) return;
-          const on = atCorner(e, e.currentTarget as HTMLElement);
-          setOverCorner((cur) => (on ? piece.id : cur === piece.id ? null : cur));
+          setHover(piece.id);
         }}
-        onPointerLeave={() => setOverCorner((cur) => (cur === piece.id ? null : cur))}
+        onPointerLeave={() => setHover((cur) => (cur === piece.id ? null : cur))}
+        onContextMenu={(e) => {
+          if (!enabled || state.solved) return;
+          // Right-click turns the piece. Suppressing the menu is the point:
+          // there is nothing on it worth more than a rotation here.
+          e.preventDefault();
+          e.stopPropagation();
+          setState((s) => rotateCluster(s, piece.id));
+        }}
         className="absolute"
         style={{
           left: st.ox + piece.x,
@@ -288,13 +309,7 @@ export function Puzzle({
           transform: `rotate(${st.deg}deg)${carried ? " scale(1.06)" : ""}`,
           transformOrigin: "center",
           pointerEvents: enabled && !state.solved ? "auto" : "none",
-          cursor: !enabled || state.solved
-            ? undefined
-            : carried
-              ? "grabbing"
-              : overCorner === piece.id
-                ? ROTATE_CURSOR
-                : "grab",
+          cursor: !enabled || state.solved ? undefined : carried ? "grabbing" : "grab",
           zIndex: carried ? 30 : 1,
           filter: carried
             ? willSnap
@@ -349,6 +364,43 @@ export function Puzzle({
         ) : null}
 
         {PUZZLE_PIECES.map((p) => renderPiece(p))}
+
+        {/* The rotate affordance.
+            Rotation used to live in an invisible zone at each piece's corner,
+            which meant the one control the puzzle cannot be solved without was
+            the one nothing on screen mentioned. It rides just under whichever
+            piece the pointer is on, so it appears exactly when it applies and
+            never while the visitor is doing something else. */}
+        {turnHint ? (
+          <div
+            className="pointer-events-none absolute flex items-center gap-[7px] whitespace-nowrap"
+            style={{
+              left: turnHint.x,
+              top: turnHint.y,
+              transform: "translate(-50%, 0)",
+              padding: "7px 12px",
+              borderRadius: 8,
+              background: "rgba(24,25,26,0.9)",
+              color: "#fdfeff",
+              fontSize: 21,
+              lineHeight: 1,
+              fontWeight: 500,
+              zIndex: 40,
+              opacity: held ? 1 : 0.86,
+            }}
+          >
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden>
+              <path
+                d="M20 12a8 8 0 1 1-2.34-5.66M18 3v4.5h-4.5"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            R or right-click to turn
+          </div>
+        ) : null}
 
         {/* Reset appears only once the pile has been disturbed, so it is not
             an invitation to undo something that has not started. */}

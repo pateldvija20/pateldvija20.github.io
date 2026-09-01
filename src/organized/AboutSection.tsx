@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ABOUT, ABOUT_PHOTOS } from "./content";
 import { Section } from "./Section";
 
@@ -24,6 +24,14 @@ const BURIED = { deg: 5.25, x: 8, y: 24 };
 /** The flick: where the departing card travels before it drops to the back. */
 const FLICK = { deg: -16, x: 150, y: -54 };
 const DEAL_MS = 300;
+/**
+ * How long a photo sits at the front before the deck deals itself on.
+ *
+ * Long enough to actually look at the picture — a deck that turns over faster
+ * than you can take one in is a slideshow, which is the thing the flick
+ * animation exists to avoid being.
+ */
+const AUTO_DEAL_MS = 4000;
 
 function Polaroid({
   src,
@@ -90,7 +98,8 @@ function Polaroid({
  *
  * The photo stack is a real deck of physical cards. Clicking it throws the
  * front polaroid out and around to the back, and the one behind comes forward
- * to take its place.
+ * to take its place. It also deals itself every few seconds so the deck
+ * announces that it is a deck, rather than waiting to be discovered.
  *
  * Each photo owns a DOM node for the life of the section, keyed by its own
  * source — so what animates is the *frame* travelling between depths. Keying
@@ -106,6 +115,13 @@ export function AboutSection() {
   const [order, setOrder] = useState(ABOUT_PHOTOS);
   const [dealing, setDealing] = useState<string | null>(null);
   const timer = useRef<number | undefined>(undefined);
+  const stackRef = useRef<HTMLButtonElement>(null);
+  /** Held while the pointer is over the deck, so reaching for it stops the
+   *  cycle rather than fighting it. */
+  const [hovered, setHovered] = useState(false);
+  /** Whether the deck is actually on screen. A stack shuffling itself in a
+   *  section nobody has scrolled to is work nobody sees. */
+  const [inView, setInView] = useState(false);
 
   const deal = useCallback(() => {
     // Ignore clicks mid-throw, or the card in flight would be reordered out
@@ -123,13 +139,40 @@ export function AboutSection() {
     }, DEAL_MS);
   }, [dealing, order]);
 
+  useEffect(() => {
+    const el = stackRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setInView(e.isIntersecting), {
+      threshold: 0.4,
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  /**
+   * The deck deals itself.
+   *
+   * The same `deal` a click runs, on a timer — so the two can never drift
+   * apart, and a click mid-cycle simply advances the deck early. It runs only
+   * while the stack is on screen and unhovered, and not at all for a visitor
+   * who has asked for reduced motion: an unprompted animation is exactly what
+   * that preference is about.
+   */
+  useEffect(() => {
+    if (!inView || hovered || dealing) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const id = window.setTimeout(deal, AUTO_DEAL_MS);
+    return () => window.clearTimeout(id);
+  }, [inView, hovered, dealing, deal]);
+
   return (
     <Section id="about" title="About" centred>
       <div className="flex flex-col gap-[60px] xl:flex-row xl:items-center xl:gap-[80px]">
+        {/* No greeting line here any more. The page already opens on "Hello,
+            Dvija here I am" above the Work grid, and repeating the
+            introduction two sections later made the About section read as a
+            second beginning. The paragraphs carry it on their own. */}
         <div className="flex flex-col gap-6 xl:max-w-[478px]">
-          <h2 className="font-slab text-section" style={{ color: "var(--content)" }}>
-            {ABOUT.heading}
-          </h2>
           {ABOUT.paragraphs.map((p) => (
             <p key={p} className="text-2xl font-medium text-muted">
               {p}
@@ -143,8 +186,13 @@ export function AboutSection() {
             tablet, 320 on the phone; those are the two scales. */}
         <div className="flex flex-1 justify-center">
           <button
+            ref={stackRef}
             type="button"
             onClick={deal}
+            onPointerEnter={() => setHovered(true)}
+            onPointerLeave={() => setHovered(false)}
+            onFocus={() => setHovered(true)}
+            onBlur={() => setHovered(false)}
             aria-label="Shuffle to the next photo"
             className="relative h-[369px] w-[320px] cursor-pointer border-0 bg-transparent p-0 [--stack:0.661] focus-visible:outline-2 focus-visible:outline-offset-8 md:h-[581px] md:w-[503px] md:[--stack:1.0406]"
             style={{ outlineColor: "var(--content)" }}

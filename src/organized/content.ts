@@ -20,11 +20,34 @@ export const NAV_SECTIONS: { id: SectionId; label: string }[] = [
 ];
 
 /* ------------------------------------------------------------------ */
+/* Intro (Figma 1840:35880)                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * How the portfolio introduces itself, in one place.
+ *
+ * Used twice, deliberately: it heads the Work section in Organised mode and it
+ * is the copy printed on the desk's gradient card in Scattered. Two modes are
+ * two ways of showing the same portfolio, so the sentence that says what this
+ * is cannot be allowed to differ between them — which it did, the card having
+ * been exported with its own wording and a spelling mistake in it.
+ */
+export const INTRO = {
+  greeting: "Hello, Dvija here I am",
+  /** The blue pill after the greeting. */
+  role: "Product designer",
+  description:
+    "Designing products that feel human and effortless to use. Over the past 4+ years, I\u2019ve worked across startups building for 0\u21921 products and setup systems that adapt to evolving user and business needs.",
+  /** The card is a fifth the width of the section, so it carries the claim
+   *  rather than the whole paragraph. */
+  cardAside: "Designing products that feel human and effortless to use.",
+};
+
+/* ------------------------------------------------------------------ */
 /* About (Figma 456:18891)                                              */
 /* ------------------------------------------------------------------ */
 
 export const ABOUT = {
-  heading: "Hi, I'm Dvija Patel.",
   paragraphs: [
     "I believe in creating meaningful products through the intersection of technology, culture, and human behavior. I explore ideas from research to interactive experiences, always seeking new perspectives that shape the way I see and create.",
     "Beyond design, you’ll usually find me watching films, trying new food, reading and napping.",

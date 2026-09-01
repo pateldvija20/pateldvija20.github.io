@@ -57,7 +57,22 @@ import { useFocusedId } from "./ScatteredFocus";
 const FIGMA_SCALE = 3580 / 1911;
 
 export const CANVAS_W = 4566;
-export const CANVAS_H = 3580;
+/**
+ * Taller than the frame it is derived from, on purpose.
+ *
+ * The frame is 1911 units tall, which is 3580 here — but two pieces are drawn
+ * hanging past its bottom edge, and Figma simply clips them. The canvas is a
+ * scrollable desk rather than a fixed frame, so clipping them is not a
+ * faithful reproduction, it is a cut-off desk: measured against 3580, the
+ * desk mat's rotated corner ran 99 units past the edge and the golden-ratio
+ * mat 128. The grid mat is lifted back onto the desk below, which leaves the
+ * desk mat's corner as the deepest thing on the canvas; 3700 clears it with
+ * room to spare and costs nothing but pan range.
+ *
+ * The origin is untouched, so the resting view is exactly where it was — this
+ * only gives the desk somewhere to end.
+ */
+export const CANVAS_H = 3700;
 /**
  * Where the window rests on the canvas. The frame sits at x -463 behind the
  * window, so the desk opens 867 canvas units in — on the intro card, the
@@ -165,7 +180,13 @@ export function ScatteredScene({
       <div className="pointer-events-none absolute left-[516.3px] top-[273.68px] rotate-[2.38deg]" style={{ zIndex: Z.mats }}>
         <CuttingMat theme={theme} className="h-[1009.72px] w-[1545.26px]" />
       </div>
-      <div className="pointer-events-none absolute left-[1401.66px] top-[3158.79px] rotate-[6.31deg]" style={{ zIndex: Z.mats }}>
+      {/* Moved off the frame's own coordinate, and the only piece that is.
+          The frame parks the grid mat below the puzzle and lets it hang past
+          the bottom edge, where Figma clips it; here it is the surface the
+          puzzle is worked on, so it is centred on the pile
+          (`puzzleState.SLOTS`) instead. Its size and 6.31° tilt are still the
+          file's — only the placement moved. */}
+      <div className="pointer-events-none absolute left-[1428.2px] top-[2675.75px] rotate-[6.31deg]" style={{ zIndex: Z.mats }}>
         <GoldenRatioMat theme={theme} className="h-[508px] w-[777px]" />
       </div>
 
@@ -275,7 +296,12 @@ export function ScatteredScene({
         straighten={false}
         z={Z.objects}
         focusZ={Z.focused}
-        fill={0.86}
+        // Lower than the resume's, and deliberately: a spread is read across
+        // rather than down, so the margin either side is what stops the two
+        // pages running into the edges of the window. At 0.86 the book met
+        // the viewport almost exactly on its limiting axis and had nowhere to
+        // put the shadow it casts.
+        fill={0.78}
         draggable={draggable}
         scale={scale}
         // Letting go of an object puts it back the way it was found, state

@@ -3,7 +3,7 @@ import gsap from "gsap";
 import { ControlBar, type Mode } from "./pieces/ControlBar";
 import { OrganizedPage } from "./organized/OrganizedPage";
 import type { SectionId } from "./organized/content";
-import { canScatter, MOBILE_BP } from "./responsive";
+import { canScatter, MOBILE_BP, prefersScatter } from "./responsive";
 import { Preloader } from "./pieces/Preloader";
 import {
   FocusedIdContext,
@@ -44,8 +44,8 @@ const SEEN_PRELOADER = "dp:preloader-seen";
  * rather than resetting them to Organised.
  *
  * `sessionStorage`, matching the preloader flag: it survives a refresh and a
- * bounce through the case-study routes, but a new visit still opens on
- * Organised — which stays the default and the only linkable mode.
+ * bounce through the case-study routes, while a genuinely new visit falls
+ * back to the width rule in `App`. Organised stays the only linkable mode.
  */
 const LAST_MODE = "dp:mode";
 
@@ -181,8 +181,21 @@ function useFit(ref: React.RefObject<HTMLDivElement | null>, designW: number) {
   return fit;
 }
 
+/** The browser window's own height, tracked so the desk can refuse to be
+ *  taller than it. */
+function useWindowHeight() {
+  const [h, setH] = useState(() => (typeof window === "undefined" ? 0 : window.innerHeight));
+  useEffect(() => {
+    const measure = () => setH(window.innerHeight);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+  return h;
+}
+
 /* ------------------------------------------------------------------ */
-/* Scattered — pan a 4566x3580 canvas through the frame's own window    */
+/* Scattered — pan the desk canvas through the frame's own window       */
 /* ------------------------------------------------------------------ */
 
 function ScatteredStage({
@@ -208,6 +221,28 @@ function ScatteredStage({
   const fit = useFit(viewportRef, SCENE_W);
   const fitRef = useRef(fit);
   fitRef.current = fit;
+  const windowH = useWindowHeight();
+  /**
+   * How tall the desk actually is.
+   *
+   * `fit` comes from the width alone, which is what keeps the desk at the
+   * scale the frame draws it — but it means the height that scale asks for is,
+   * on any laptop-shaped window, more than there is. At 1600x900 the stage came
+   * out 1039px tall in a 900px window: 139px of desk below the fold, and a
+   * focused object centred in the stage rather than in the window, hanging off
+   * the bottom of the screen. That is the resume and the journal being cut off.
+   *
+   * Clamping the stage rather than the scale is the right half to give up. The
+   * desk is a window onto a canvas already larger than any viewport, so showing
+   * a shorter slice costs nothing and the camera can pan. Fitting the *scale*
+   * to the height instead would shrink the whole composition away from the size
+   * it is drawn at, on exactly the windows people actually use.
+   *
+   * Everything downstream corrects itself, because the camera measures the
+   * viewport rather than assuming it: `focus` derives its zoom from
+   * `clientHeight`, so a shorter stage simply frames a little tighter.
+   */
+  const stageH = Math.min(DESK_H * fit, windowH || DESK_H * fit);
 
   /**
    * The camera: the canvas point under the middle of the viewport, and how far
@@ -422,9 +457,14 @@ function ScatteredStage({
     [tweenCamera],
   );
 
+  /** The scale the canvas is painted at right now. Read straight off the refs
+   *  the ticker writes, so it is correct mid-tween — which is the whole
+   *  reason pieces ask for it instead of using the `scale` prop. */
+  const getScale = useCallback(() => fitRef.current * cam.current.zoom, []);
+
   const camera = useMemo<DeskCamera>(
-    () => ({ focus, release, pan, setZoom, read, centerOn }),
-    [focus, release, pan, setZoom, read, centerOn],
+    () => ({ focus, release, pan, setZoom, read, getScale, centerOn }),
+    [focus, release, pan, setZoom, read, getScale, centerOn],
   );
 
   /**
@@ -444,6 +484,12 @@ function ScatteredStage({
       const spec = focusRef.current;
       if (!spec) return;
       e.preventDefault();
+      // A trackpad pinch arrives as a wheel with `ctrlKey` set. The zoom of a
+      // focused object belongs to its own controls — a pinch that quietly
+      // re-framed the sheet would fight the +/- buttons for the same state,
+      // and the two would disagree about where the camera is. Swallowed
+      // rather than ignored, so the browser does not page-zoom instead.
+      if (e.ctrlKey) return;
       if (spec.onWheel?.(e, read())) return;
       release(spec.id);
     };
@@ -529,7 +575,7 @@ function ScatteredStage({
         ref={viewportRef}
         onScroll={syncFromScroll}
         className="no-scrollbar relative w-full"
-        style={{ height: DESK_H * fit, overflow: attached ? "auto" : "hidden" }}
+        style={{ height: stageH, overflow: attached ? "auto" : "hidden" }}
       >
         {/* The canvas is sized by a transform, and transforms don't affect
             layout — so this spacer is what gives the scroller its extent, at
@@ -643,14 +689,26 @@ export default function App() {
   // on the about book already open to that spread.
   const initialRoute = useRef(parseProjectRoute()).current;
   const initialAboutRoute = useRef(parseAboutRoute()).current;
-  // Organised is the default and the only directly linkable mode. Scattered is
-  // opt-in through the control bar and is never entered by a URL — but once
-  // chosen it survives a reload, so refreshing on the desk keeps the desk.
-  // A deep link still wins: it always resolves to its Organised destination.
+  // Which mode a visit opens in, in priority order:
+  //
+  //   1. A deep link always resolves to Organised — that is the only mode with
+  //      real URLs, so a shared link has to land where it points.
+  //   2. Whatever they chose last, if they chose. A remembered mode outranks
+  //      the width rule below: someone who switched to Organised and reloaded
+  //      meant it, and having the desk reassert itself would read as the
+  //      toggle not working.
+  //   3. On a wide enough window, the desk. Below that, Organised.
+  //
+  // Organised remains the only directly linkable mode; this changes which door
+  // a fresh visit comes through, not what a URL can address.
   const deepLinked = initialRoute.folder || initialRoute.slug !== null || initialAboutRoute !== null;
-  const [mode, setMode] = useState<Mode>(() =>
-    deepLinked ? "organized" : (rememberedMode() ?? "organized"),
-  );
+  const [mode, setMode] = useState<Mode>(() => {
+    if (deepLinked) return "organized";
+    const remembered = rememberedMode();
+    if (remembered) return remembered;
+    if (typeof window === "undefined") return "organized";
+    return prefersScatter(window.innerWidth) ? "scattered" : "organized";
+  });
 
   useEffect(() => {
     rememberMode(mode);

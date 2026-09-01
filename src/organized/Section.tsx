@@ -20,6 +20,7 @@ export function Section({
   id,
   label,
   title,
+  lead,
   centred = false,
   children,
 }: {
@@ -30,6 +31,15 @@ export function Section({
    *  one, so the page reads as a sequence of named parts rather than a run of
    *  unlabelled blocks. */
   title?: string;
+  /**
+   * Content that comes *before* the heading, inside the same section.
+   *
+   * Only Work uses it, for the introduction the page opens on. Putting that in
+   * a section of its own would have drawn a rule under it and made the visitor
+   * cross a section break before reaching any work; putting it after the
+   * heading made the page announce "Work" before saying whose work it is.
+   */
+  lead?: ReactNode;
   centred?: boolean;
   children: ReactNode;
 }) {
@@ -51,6 +61,7 @@ export function Section({
         borderBottom: "1px solid color-mix(in srgb, var(--edge) 18%, transparent)",
       }}
     >
+      {lead}
       {title ? (
         <div className={centred ? "mb-[60px]" : "mb-[40px] xl:mb-[60px]"}>
           <SectionHeading>{title}</SectionHeading>
@@ -61,10 +72,22 @@ export function Section({
   );
 }
 
-/** Section heading — Roboto Slab 40 (Figma 456:18830). */
+/**
+ * Section heading — Roboto Slab, at the same size as the introduction it now
+ * sits under (`text-section`, 28px).
+ *
+ * It used to be `text-page`, 40px, which made every section name louder than
+ * the sentence introducing the page. Dropping to the introduction's size lets
+ * the names read as labels on the parts rather than as competing headlines.
+ *
+ * No `capitalize` either: the titles are written in Title Case at the point
+ * they are defined, so the casing is editable copy rather than something CSS
+ * imposes — which also stops it forcing a capital onto words that should keep
+ * their own case.
+ */
 export function SectionHeading({ children }: { children: ReactNode }) {
   return (
-    <h2 className="font-slab text-page capitalize" style={{ color: "var(--content)" }}>
+    <h2 className="font-slab text-section" style={{ color: "var(--content)" }}>
       {children}
     </h2>
   );
