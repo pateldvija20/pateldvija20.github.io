@@ -17,15 +17,34 @@ import { PROJECTS } from "./projects";
  * the decimals are odd rather than rounded.
  */
 
-/** The standard body size shared by every case study. */
-export const BODY_FONT = 22.163;
+/**
+ * The type scale, expressed as clamps rather than the flat Figma pixel.
+ *
+ * Every case study is authored against a 1512-wide frame, and the page is now
+ * reachable from the Work grid at phone and tablet widths. Held at 22.163 a
+ * body paragraph runs four or five words to the line on a 375px phone, which
+ * is what made the pages read as broken rather than as narrow. The `vw`
+ * middle term is the Figma value over 1512, so the desktop rendering is
+ * unchanged to the pixel and only the small end moves.
+ */
+export const BODY_FONT = "clamp(16px, 1.466vw, 22.163px)";
 export const BODY_TRACK = 0.2216;
 export const MUTED = "#626262";
 export const INK = "#18191a";
 export const DIVIDER = "#e3e5e8";
 export const MONO = "'DM Mono', monospace";
 /** The eyebrow size `CaseStudy` sets its own section headings in. */
-export const LABEL_FONT = 16.622;
+export const LABEL_FONT = "clamp(13px, 1.099vw, 16.622px)";
+/** Figure captions — a step under body copy at both ends. */
+export const CAPTION_FONT = "clamp(12px, 1.058vw, 16px)";
+/**
+ * The gap a two-up block keeps between its halves, and the block padding a
+ * ruled row carries. Both collapse toward the phone, where the two halves are
+ * stacked (see the `[data-cs-body]` rule in `index.css`) and Figma's 40/28
+ * would read as a gulf rather than as a pair.
+ */
+export const PAIR_GAP = "clamp(20px, 2.65vw, 40px)";
+export const ROW_PAD = "clamp(18px, 1.85vw, 28px)";
 
 /** A section's claim — the line that carries the argument. */
 export function SectionLead({ children }: { children: ReactNode }) {
@@ -123,7 +142,10 @@ export function FigureRow({
   radius?: number;
 }) {
   return (
-    <div className="flex items-start" style={{ gap }}>
+    // `grid` below md, `flex` from md up. A column flexbox would have read the
+    // children's `flexGrow` as a *height* ratio and stretched the tall ones;
+    // in a grid container those declarations are simply inert.
+    <div className="grid items-start md:flex" style={{ gap }}>
       {items.map((it) => (
         <div key={it.src} style={{ flexGrow: it.aspect, flexBasis: 0, minWidth: 0 }}>
           <Figure src={it.src} alt={it.alt} ratio={String(it.aspect)} radius={radius} />
@@ -138,7 +160,7 @@ export function Caption({ children }: { children: ReactNode }) {
   return (
     <p
       style={{
-        fontSize: 16,
+        fontSize: CAPTION_FONT,
         letterSpacing: BODY_TRACK,
         lineHeight: "normal",
         color: MUTED,
@@ -155,16 +177,17 @@ export function Caption({ children }: { children: ReactNode }) {
  * now until real icons are drawn.
  */
 export function IconTile({ glyph }: { glyph: string }) {
+  const size = "clamp(72px, 10.71vw, 162px)";
   return (
     <div
       className="flex shrink-0 items-center justify-center"
       style={{
-        width: 162,
-        height: 162,
+        width: size,
+        height: size,
         background: "#ccdeff",
         border: `0.727px solid ${DIVIDER}`,
         borderRadius: 17.438,
-        fontSize: 64,
+        fontSize: "clamp(30px, 4.23vw, 64px)",
         lineHeight: 1,
       }}
     >
@@ -184,7 +207,7 @@ export function IconRow({
   body: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-[40px]">
+    <div className="flex items-center" style={{ gap: PAIR_GAP }}>
       <IconTile glyph={glyph} />
       <div
         className="flex min-w-0 flex-1 flex-col gap-[12px]"
@@ -246,9 +269,15 @@ export function DefinitionGrid({
 }) {
   return (
     <div
-      className="grid gap-[40px]"
+      className="grid"
       style={{
-        gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))`,
+        // `auto-fit` rather than a fixed count: a four-up metadata strip is
+        // one word per line on a phone, and the number of columns that fit is
+        // exactly what should decide here. `min(100%, 190px)` keeps the track
+        // from ever being wider than the column it sits in, which is what
+        // stops a long value forcing a horizontal scroll.
+        gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 190px), 1fr))",
+        gap: PAIR_GAP,
         borderTop: bordered ? `1px solid ${DIVIDER}` : undefined,
         borderBottom: bordered ? `1px solid ${DIVIDER}` : undefined,
         paddingBlock: bordered ? 24 : undefined,
@@ -259,7 +288,7 @@ export function DefinitionGrid({
           <Label>{label}</Label>
           <p
             style={{
-              fontSize: 18,
+              fontSize: "clamp(15px, 1.19vw, 18px)",
               letterSpacing: BODY_TRACK,
               lineHeight: "normal",
               color: muted ? MUTED : undefined,
@@ -286,7 +315,7 @@ export function ClaimList({ items }: { items: [string, string][] }) {
           key={claim}
           className="flex flex-col gap-[12px]"
           style={{
-            paddingBlock: 28,
+            paddingBlock: ROW_PAD,
             borderTop: `1px solid ${DIVIDER}`,
             borderBottom: i === items.length - 1 ? `1px solid ${DIVIDER}` : "none",
           }}
@@ -304,11 +333,15 @@ export function PullQuote({ children, attribution }: { children: ReactNode; attr
   return (
     <div
       className="flex flex-col gap-[16px]"
-      style={{ borderLeft: `2.77px solid ${INK}`, paddingLeft: 32, paddingBlock: 8 }}
+      style={{
+        borderLeft: `2.77px solid ${INK}`,
+        paddingLeft: "clamp(18px, 2.12vw, 32px)",
+        paddingBlock: 8,
+      }}
     >
       <p
         className="font-medium"
-        style={{ fontSize: 30, letterSpacing: 0.3, lineHeight: 1.3 }}
+        style={{ fontSize: "clamp(20px, 1.98vw, 30px)", letterSpacing: 0.3, lineHeight: 1.3 }}
       >
         {children}
       </p>
@@ -329,7 +362,7 @@ export function RelatedProjects({ slugs }: { slugs: string[] }) {
     .map((slug) => PROJECTS.find((p) => p.slug === slug))
     .filter((p) => p !== undefined);
   return (
-    <div className="grid grid-cols-2 gap-[40px]">
+    <div className="grid grid-cols-1 gap-[24px] md:grid-cols-2 md:gap-[40px]">
       {related.map((p) => (
         // The same card the Work grid uses, in the sheet palette — a case
         // study stays paper-white in both themes, so its cards do too.

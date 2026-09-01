@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cardImage, type Project } from "./projects";
 import type { Theme } from "./Piece";
 
@@ -46,10 +46,17 @@ const BODY_PAD_X = 110.816;
 const BODY_W = 1079.536;
 /** Hero bottom to the header — `Frame 48096010`'s own top padding. */
 const BODY_PAD_TOP = 92.347;
-/** Header/section to the next block — every top-level block in the file sits
- *  this far from the one before it, uniformly: 260.204 - 200.204,
- *  563.642 - 503.642, 1194.362 - 1134.362, and so on down the page. */
-const SECTION_GAP = 80;
+/**
+ * Header/section to the next block — every top-level block in the file sits
+ * this far from the one before it, uniformly: 260.204 - 200.204,
+ * 563.642 - 503.642, 1194.362 - 1134.362, and so on down the page.
+ *
+ * A clamp rather than the flat 80: on a phone the columns either side of a
+ * block have collapsed into it, so 80px of air between every section turns a
+ * long case study into a scroll through mostly nothing. The `vw` term is
+ * 80/1512, so the desktop rhythm is the file's own to the pixel.
+ */
+const SECTION_GAP = "clamp(44px, 5.29vw, 80px)";
 /** A section's own heading to its first line of body copy — `TLDR Section
  *  Block` 325:11704's own gap, which also separates its two paragraphs. */
 const HEAD_GAP = 22.163;
@@ -69,6 +76,17 @@ const META_GAP = "clamp(14px, 1.9vw, 28.628px)";
 const META_PY = 7.388;
 const TITLE_FONT = "clamp(28px, 2.93vw, 44.327px)";
 const TITLE_TRACK = 0.8865;
+/**
+ * The phone/tablet section picker's height, and the left inset that keeps it
+ * clear of the overlay's floating back button (36px square, pinned to the
+ * card's top-left corner).
+ *
+ * It doubles as the scroll offset every jump lands short by, so a section
+ * heading arrives *under* the bar rather than behind it — which is why the
+ * rail uses it too rather than its own number.
+ */
+const PICKER_H = 48;
+const PICKER_INSET = 44;
 
 export type CaseStudySection = {
   /** Rail label, and the scroll target's id. */
@@ -196,6 +214,48 @@ export function CaseStudy({
     if (el && el.scrollTop !== 0) el.scrollTop = 0;
   }, [chrome]);
 
+  /**
+   * Scroll the body column to a section, and pin the rail there for the
+   * duration of the smooth scroll. Shared by the desktop rail and the phone
+   * picker so the two cannot drift — both pin, both set `active` up front,
+   * and both land on the same offset.
+   */
+  const goToSection = useCallback(
+    (id: string) => {
+      const el = bodyRef.current;
+      const sec = document.getElementById(`${project.slug}-${id}`);
+      if (!el || !sec) return;
+      lockRef.current = id;
+      setActive(id);
+      window.clearTimeout(settleRef.current);
+      const top =
+        sec.getBoundingClientRect().top -
+        el.getBoundingClientRect().top +
+        el.scrollTop -
+        PICKER_H;
+      el.scrollTo({ top, behavior: "smooth" });
+    },
+    [project.slug],
+  );
+
+  /**
+   * What the phone picker should read as current.
+   *
+   * The spy tracks every section, the picker only lists the ones the rail
+   * shows (`inRail !== false`) — Greenera's metadata strip is a section with
+   * no rail entry, and letting the select fall to a value it has no option
+   * for blanks the control mid-scroll. Walking back to the nearest listed
+   * section instead keeps it on the heading the reader last passed.
+   */
+  const railSections = sections.filter((s) => s.inRail !== false);
+  const pickerValue = (() => {
+    const i = sections.findIndex((s) => s.id === active);
+    for (let j = i; j >= 0; j--) {
+      if (sections[j].inRail !== false) return sections[j].id;
+    }
+    return railSections[0]?.id ?? "";
+  })();
+
   const heroSrc = cardImage(project);
   // The file crops the hero to 16:9 (1301.168 x 731.907) rather than letting
   // the asset's own proportions decide, so the header always lands in the
@@ -243,18 +303,7 @@ export function CaseStudy({
               // Native anchor navigation scrolls every scrollable ancestor,
               // which pans the whole desk page. Scroll only the body column.
               e.preventDefault();
-              const el = bodyRef.current;
-              const sec = document.getElementById(`${project.slug}-${s.id}`);
-              if (!el || !sec) return;
-              lockRef.current = s.id;
-              setActive(s.id);
-              window.clearTimeout(settleRef.current);
-              const top =
-                sec.getBoundingClientRect().top -
-                el.getBoundingClientRect().top +
-                el.scrollTop -
-                40;
-              el.scrollTo({ top, behavior: "smooth" });
+              goToSection(s.id);
             }}
             className="whitespace-nowrap uppercase transition-colors duration-200"
             style={{
@@ -308,14 +357,89 @@ export function CaseStudy({
             className="block h-full w-full select-none object-cover"
           />
         </div>
+
+        {/*
+          The section rail, for widths that have no room for a column beside
+          the body.
+
+          Sticky and placed *after* the hero rather than pinned to the top of
+          the card: it should ride up with the art and only take the top edge
+          once the reader is actually in the body — the same moment the rail
+          becomes useful on desktop.
+
+          A native <select> rather than a custom menu. A case study runs nine
+          sections and ~9,000px, so this is a real navigation control, and on
+          a phone the platform picker is the one that scrolls properly,
+          reaches the keyboard, and does not fight the body's own scroll.
+        */}
         <div
+          // z-5, not higher: it has to outrank the body's own positioned
+          // figures (all at `auto`) but stay under the overlay's floating
+          // back button at z-10, which shares this stacking context and must
+          // never end up behind the bar.
+          className="sticky top-0 z-[5] lg:hidden"
+          style={{
+            height: PICKER_H,
+            background: face,
+            borderBottom: `1px solid ${divider}`,
+            paddingLeft: PICKER_INSET,
+            paddingRight: 16,
+            // Folds in with the rest of the chrome, and stays inert until the
+            // page has finished opening — the body cannot be scrolled before
+            // then anyway.
+            opacity: chrome,
+            pointerEvents: chrome > 0.99 ? "auto" : "none",
+          }}
+          aria-hidden={chrome < 0.5}
+        >
+          <div className="relative h-full">
+            <select
+              className="h-full w-full cursor-pointer appearance-none bg-transparent pr-[24px] uppercase outline-none"
+              style={{
+                color: accent,
+                fontFamily: "'DM Mono', monospace",
+                fontWeight: 500,
+                fontSize: RAIL_FONT,
+              }}
+              value={pickerValue}
+              onChange={(e) => goToSection(e.target.value)}
+              aria-label={`${project.name} sections`}
+            >
+              {railSections.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.title}
+                </option>
+              ))}
+            </select>
+            {/* `appearance-none` is what lets the closed control carry the
+                rail's own mono type, so the caret has to be drawn back. */}
+            <svg
+              className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden
+            >
+              <path
+                d="m6 9 6 6 6-6"
+                stroke={accent}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </div>
+        </div>
+        <div
+          data-cs-body
           style={{
             maxWidth: BODY_W + BODY_PAD_X * 2,
             width: "100%",
             boxSizing: "border-box",
             marginInline: 0,
             paddingInline: `clamp(24px, 6vw, ${BODY_PAD_X}px)`,
-            paddingTop: BODY_PAD_TOP * chrome,
+            paddingTop: `calc(clamp(40px, 6.11vw, ${BODY_PAD_TOP}px) * ${chrome})`,
             paddingBottom: 120,
           }}
         >
@@ -361,7 +485,7 @@ export function CaseStudy({
             <section
               key={s.id}
               id={`${project.slug}-${s.id}`}
-              style={{ scrollMarginTop: 40, marginBottom: SECTION_GAP }}
+              style={{ scrollMarginTop: PICKER_H, marginBottom: SECTION_GAP }}
             >
               {s.hideTitle ? null : (
                 <h2

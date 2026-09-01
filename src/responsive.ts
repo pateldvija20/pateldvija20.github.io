@@ -11,7 +11,7 @@
  * three widths, so the type scale is fixed and stepped rather than fluid.
  * clamp()-ing it would be engineering convenience overriding the design.
  *
- * Scattered is a composed illustration: a fixed 5313x3580 coordinate space
+ * Scattered is a composed illustration: a fixed 4566x3580 coordinate space
  * painted by one `transform: scale(fit)`. That gives proportional shrinking
  * of every font, gap and piece with no restructuring, which is right for a
  * drawing and wrong for a document. Piece coordinates must stay in canvas
@@ -50,8 +50,17 @@ export const canScatter = (width: number) => width >= SCATTER_MIN_W;
 /* Scattered canvas                                                     */
 /* ------------------------------------------------------------------ */
 
-/** The window the Scattered canvas is scaled against (Figma's desk frame). */
-export const DESIGN_W = 1729;
+/**
+ * The window the Scattered canvas is scaled against, in canvas units.
+ *
+ * Figma's `macscreen` frame (491:2154) is a 1512x982 MacBook Pro 14 with the
+ * 2437.33x1911 desk frame behind it. Canvas units run 3580/1911 to the Figma
+ * unit — see the header of `ScatteredScene` for why that factor and not 1 —
+ * so the window is 1512 of them times the same factor.
+ *
+ * `App` keeps its own copy of this as `SCENE_W`; the two must not drift.
+ */
+export const DESIGN_W = 1512 * (3580 / 1911);
 
 /* ------------------------------------------------------------------ */
 /* Organised layout, per breakpoint — all measured from Figma            */

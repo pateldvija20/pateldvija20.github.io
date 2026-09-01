@@ -1,11 +1,18 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import gsap from "gsap";
 import { ControlBar, type Mode } from "./pieces/ControlBar";
 import { OrganizedPage } from "./organized/OrganizedPage";
 import type { SectionId } from "./organized/content";
 import { canScatter, MOBILE_BP } from "./responsive";
 import { Preloader } from "./pieces/Preloader";
-import { ScatteredFocusContext } from "./pieces/ScatteredFocus";
+import {
+  FocusedIdContext,
+  ScatteredFocusContext,
+  type CameraState,
+  type DeskCamera,
+  type FocusSpec,
+} from "./pieces/ScatteredFocus";
+import { ResumeControls } from "./pieces/ResumeControls";
 import {
   CANVAS_H,
   CANVAS_ORIGIN_X,
@@ -76,11 +83,49 @@ const markPreloaderSeen = () => {
   }
 };
 
-const SCENE_W = 1729;
-const DESK_H = 1117;
+/**
+ * The window the Scattered canvas is scaled against — Figma's `macscreen`
+ * frame (491:2154), a 1512x982 MacBook Pro 14, expressed in canvas units via
+ * the same 3580/1911 factor `ScatteredScene` uses. `fit` is
+ * `viewportWidth / SCENE_W`, so at 1512 the desk renders at exactly the size
+ * the frame draws it.
+ */
+const SCENE_W = 1512 * (3580 / 1911);
+const DESK_H = 982 * (3580 / 1911);
+/** The footer is a separate composition on its own 1729-wide artboard, and
+ *  scales against that rather than against the desk's window. */
+const FOOTER_W = 1729;
 const FOOTER_H = 552;
 /** How long the canvas takes to bring a clicked piece to centre. */
 const PAN_DURATION = 0.5;
+/**
+ * Leaning in on an object, and leaning back out.
+ *
+ * Longer than a plain pan and eased at both ends: the camera has somewhere
+ * specific to arrive at, and a zoom that snaps reads as a cut rather than as
+ * a move. Releasing is a touch quicker — you look away faster than you look.
+ */
+const FOCUS_DURATION = 0.72;
+const RELEASE_DURATION = 0.6;
+const FOCUS_EASE = "power3.inOut";
+/** How much of the viewport a focused object fills, unless it asks otherwise. */
+const DEFAULT_FILL = 0.82;
+/** The camera never goes further in than this, whatever an object asks for —
+ *  past it the desk stops reading as a desk and the art starts to soften. */
+const MAX_ZOOM = 3.6;
+
+/**
+ * Where the desk rests, in canvas units: the frame's own origin plus half a
+ * viewport, which is the point the resting window is centred on. Expressed as
+ * a camera position rather than as a scroll offset so a resize re-frames the
+ * composition instead of stranding it.
+ */
+const REST_X = -CANVAS_ORIGIN_X + SCENE_W / 2;
+const REST_Y = -CANVAS_ORIGIN_Y + DESK_H / 2;
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+const reducedMotion = () =>
+  typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* ------------------------------------------------------------------ */
 /* Routing: /projects opens the folder, /projects/<slug> opens a case   */
@@ -116,28 +161,28 @@ function parseAboutRoute(): { spread: number } | null {
 }
 
 /* ------------------------------------------------------------------ */
-/* Shared: measure the viewport and scale the 1729-wide scene to fit    */
+/* Shared: measure the viewport and scale a fixed-width composition to fit */
 /* ------------------------------------------------------------------ */
 
-function useFit(ref: React.RefObject<HTMLDivElement | null>) {
+function useFit(ref: React.RefObject<HTMLDivElement | null>, designW: number) {
   const [fit, setFit] = useState(1);
   useLayoutEffect(() => {
     const measure = () => {
       // Purely fluid: one scale drives the whole composition. Nothing below
       // the iPad breakpoint needs special handling — SmallScreenBlock covers
       // that range entirely.
-      if (ref.current) setFit(ref.current.clientWidth / SCENE_W);
+      if (ref.current) setFit(ref.current.clientWidth / designW);
     };
     measure();
     const ro = new ResizeObserver(measure);
     if (ref.current) ro.observe(ref.current);
     return () => ro.disconnect();
-  }, [ref]);
+  }, [ref, designW]);
   return fit;
 }
 
 /* ------------------------------------------------------------------ */
-/* Scattered — scroll a 4327x2713 canvas through the 1729x1117 window   */
+/* Scattered — pan a 4566x3580 canvas through the frame's own window    */
 /* ------------------------------------------------------------------ */
 
 function ScatteredStage({
@@ -158,21 +203,303 @@ function ScatteredStage({
   deepLinkSpread: number | null;
 }) {
   const viewportRef = useRef<HTMLDivElement>(null);
-  const fit = useFit(viewportRef);
-  const didInit = useRef(false);
+  const spacerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const fit = useFit(viewportRef, SCENE_W);
+  const fitRef = useRef(fit);
+  fitRef.current = fit;
 
-  // Land on Figma's resting origin (main_canvas at left:-1299; top:-240).
-  // Guarded until the measured `fit` has actually been applied to the spacer,
-  // otherwise the first pass (fit still 1) would scroll against a stale extent
-  // and get clamped once the real scale lands.
+  /**
+   * The camera: the canvas point under the middle of the viewport, and how far
+   * in it has leaned. Held in a ref and written straight to the DOM rather
+   * than kept in state — a focus move is ~45 frames, and re-rendering forty
+   * desk pieces on each of them is what would make the zoom stutter.
+   */
+  const cam = useRef({ x: REST_X, y: REST_Y, zoom: 1 });
+  /**
+   * The settled zoom, mirrored into state so pieces can convert pointer
+   * deltas into canvas units. Only updated at rest: nothing is being dragged
+   * during a camera move, and a value that changed every frame would put the
+   * whole scene back into the render path this ref exists to keep it out of.
+   */
+  const [sceneZoom, setSceneZoom] = useState(1);
+  const [focusedId, setFocusedId] = useState<string | null>(null);
+  const focusRef = useRef<FocusSpec | null>(null);
+  /** Where the camera was before the first focus in a chain, to come back to. */
+  const restRef = useRef<{ x: number; y: number } | null>(null);
+  /** True while a camera move is in flight, so the scroll events that move
+   *  generates are not read back as the visitor panning. */
+  const movingRef = useRef(false);
+
+  /** Push the camera onto the DOM. The spacer is what gives the scroller its
+   *  extent, so it has to be resized before the scroll position is set. */
+  const applyCamera = useCallback(() => {
+    const vp = viewportRef.current;
+    const spacer = spacerRef.current;
+    const canvas = canvasRef.current;
+    if (!vp || !spacer || !canvas) return;
+    const s = fitRef.current * cam.current.zoom;
+    spacer.style.width = `${CANVAS_W * s}px`;
+    spacer.style.height = `${CANVAS_H * s}px`;
+    canvas.style.transform = `scale(${s})`;
+    vp.scrollLeft = clamp(cam.current.x * s - vp.clientWidth / 2, 0, CANVAS_W * s - vp.clientWidth);
+    vp.scrollTop = clamp(cam.current.y * s - vp.clientHeight / 2, 0, CANVAS_H * s - vp.clientHeight);
+  }, []);
+
+  const read = useCallback((): CameraState => {
+    const vp = viewportRef.current;
+    const s = fitRef.current * cam.current.zoom;
+    return {
+      x: cam.current.x,
+      y: cam.current.y,
+      zoom: cam.current.zoom,
+      viewW: vp ? vp.clientWidth / s : SCENE_W,
+      viewH: vp ? vp.clientHeight / s : DESK_H,
+    };
+  }, []);
+
+  /** Keep the camera honest about a pan the visitor drove themselves. */
+  const syncFromScroll = useCallback(() => {
+    if (focusRef.current || movingRef.current) return;
+    const vp = viewportRef.current;
+    if (!vp) return;
+    const s = fitRef.current * cam.current.zoom;
+    cam.current.x = (vp.scrollLeft + vp.clientWidth / 2) / s;
+    cam.current.y = (vp.scrollTop + vp.clientHeight / 2) / s;
+  }, []);
+
+  // The camera is applied here rather than through React-rendered styles, so
+  // a resize (which does re-render) re-frames from the same source of truth
+  // the tweens write to.
   useLayoutEffect(() => {
-    const el = viewportRef.current;
-    if (!el || didInit.current || !el.clientWidth) return;
-    if (Math.abs(fit - el.clientWidth / SCENE_W) > 0.001) return;
-    el.scrollLeft = -CANVAS_ORIGIN_X * fit;
-    el.scrollTop = -CANVAS_ORIGIN_Y * fit;
-    didInit.current = true;
-  }, [fit]);
+    applyCamera();
+  }, [applyCamera, fit]);
+
+  const tweenCamera = useCallback(
+    (to: { x: number; y: number; zoom: number }, duration = FOCUS_DURATION) =>
+      new Promise<void>((resolve) => {
+        gsap.killTweensOf(cam.current);
+        const pageY = typeof window === "undefined" ? 0 : window.scrollY;
+        if (reducedMotion()) {
+          Object.assign(cam.current, to);
+          applyCamera();
+          if (pageY) window.scrollTo(0, 0);
+          setSceneZoom(to.zoom);
+          resolve();
+          return;
+        }
+        movingRef.current = true;
+        gsap.to(cam.current, {
+          ...to,
+          duration,
+          ease: FOCUS_EASE,
+          onUpdate: applyCamera,
+          onComplete: () => {
+            movingRef.current = false;
+            setSceneZoom(cam.current.zoom);
+            resolve();
+          },
+        });
+        // The stage is only the whole viewport while the page is at the top;
+        // below that the footer has risen over it, so bring the page back up
+        // alongside the move rather than focusing behind the footer.
+        if (pageY >= 2) {
+          const proxy = { y: pageY };
+          gsap.to(proxy, {
+            y: 0,
+            duration,
+            ease: FOCUS_EASE,
+            onUpdate: () => window.scrollTo(0, proxy.y),
+          });
+        }
+      }),
+    [applyCamera],
+  );
+
+  const release = useCallback(
+    (id?: string) => {
+      const spec = focusRef.current;
+      if (!spec || (id !== undefined && spec.id !== id)) return;
+      focusRef.current = null;
+      setFocusedId(null);
+      spec.onRelease?.();
+      const back = restRef.current ?? { x: REST_X, y: REST_Y };
+      restRef.current = null;
+      void tweenCamera({ ...back, zoom: 1 }, RELEASE_DURATION);
+    },
+    [tweenCamera],
+  );
+
+  const focus = useCallback(
+    (spec: FocusSpec) => {
+      const vp = viewportRef.current;
+      if (!vp) return Promise.resolve();
+      if (focusRef.current?.id === spec.id) return Promise.resolve();
+      // A chain of focuses (folder, then the book behind it) shares one way
+      // back — the desk the visitor started from, not the last object.
+      if (!focusRef.current) restRef.current = { ...cam.current };
+      else focusRef.current.onRelease?.();
+      focusRef.current = spec;
+      setFocusedId(spec.id);
+
+      const fill = spec.fill ?? DEFAULT_FILL;
+      const viewW = vp.clientWidth / fitRef.current;
+      const viewH = vp.clientHeight / fitRef.current;
+      // Zoom is derived from how much of the viewport the object should fill,
+      // not given as a multiplier: the same object then lands at the same
+      // apparent size on a 1030 laptop and a 2560 display.
+      const zx = (viewW * fill) / spec.rect.width;
+      const zy = (viewH * fill) / spec.rect.height;
+      const zoom = clamp(
+        spec.fit === "width" ? zx : Math.min(zx, zy),
+        1,
+        Math.min(spec.maxZoom ?? MAX_ZOOM, MAX_ZOOM),
+      );
+
+      const x = spec.rect.left + spec.rect.width / 2;
+      // A document is read from its top down, so `width` fit parks the sheet's
+      // head just under the top edge instead of centring a page you cannot see
+      // the start of.
+      const y =
+        spec.fit === "width"
+          ? spec.rect.top + viewH / (2 * zoom) - (viewH / zoom) * 0.03
+          : spec.rect.top + spec.rect.height / 2;
+      return tweenCamera({ x, y, zoom });
+    },
+    [tweenCamera],
+  );
+
+  const pan = useCallback(
+    (dx: number, dy: number) => {
+      const vp = viewportRef.current;
+      const s = fitRef.current * cam.current.zoom;
+      if (vp) {
+        const halfW = vp.clientWidth / (2 * s);
+        const halfH = vp.clientHeight / (2 * s);
+        cam.current.x = clamp(cam.current.x + dx, halfW, CANVAS_W - halfW);
+        cam.current.y = clamp(cam.current.y + dy, halfH, CANVAS_H - halfH);
+      }
+      applyCamera();
+      return read();
+    },
+    [applyCamera, read],
+  );
+
+  const setZoom = useCallback(
+    (zoom: number) => {
+      void tweenCamera(
+        { x: cam.current.x, y: cam.current.y, zoom: clamp(zoom, 1, MAX_ZOOM) },
+        0.32,
+      );
+    },
+    [tweenCamera],
+  );
+
+  // Pan the canvas so a clicked piece lands in the middle of the viewport, and
+  // bring the stage back up under the footer if the page has scrolled past it.
+  // Interactive pieces await this before playing their own animation.
+  const centerOn = useCallback(
+    (el: HTMLElement) => {
+      const vp = viewportRef.current;
+      if (!vp) return Promise.resolve();
+      // While an object is focused the camera belongs to it. Pieces that ask
+      // to be centred as part of opening (the book, the folder, a pencil) are
+      // asking a resting-desk question, and answering it mid-focus would drag
+      // the camera off whatever it just leaned in on.
+      if (focusRef.current) return Promise.resolve();
+      const s = fitRef.current * cam.current.zoom;
+      const vpBox = vp.getBoundingClientRect();
+      const elBox = el.getBoundingClientRect();
+      const dx = (elBox.left + elBox.width / 2 - (vpBox.left + vpBox.width / 2)) / s;
+      const dy = (elBox.top + elBox.height / 2 - (vpBox.top + vpBox.height / 2)) / s;
+      const settled = Math.abs(dx) * s < 2 && Math.abs(dy) * s < 2 && window.scrollY < 2;
+      if (settled) return Promise.resolve();
+      return tweenCamera(
+        { x: cam.current.x + dx, y: cam.current.y + dy, zoom: cam.current.zoom },
+        PAN_DURATION,
+      );
+    },
+    [tweenCamera],
+  );
+
+  const camera = useMemo<DeskCamera>(
+    () => ({ focus, release, pan, setZoom, read, centerOn }),
+    [focus, release, pan, setZoom, read, centerOn],
+  );
+
+  /**
+   * Leaving focus.
+   *
+   * A wheel is offered to the focused object first — that is what lets the
+   * Resume travel down its own page while a folder treats the same gesture as
+   * "I'm done here". A pointer down anywhere outside the object always lets
+   * go, except inside the case-study overlay (which lives above the desk in
+   * its own layer) and inside anything marked as the focused object's own
+   * chrome.
+   */
+  useEffect(() => {
+    const vp = viewportRef.current;
+    if (!vp) return;
+    const onWheel = (e: WheelEvent) => {
+      const spec = focusRef.current;
+      if (!spec) return;
+      e.preventDefault();
+      if (spec.onWheel?.(e, read())) return;
+      release(spec.id);
+    };
+    /** Did the pointer land inside the focused object's own box? Used for
+     *  objects that have no single element to test against — the puzzle's
+     *  root spans the whole canvas so its pieces can be carried across it,
+     *  which would answer "yes" to every click on the desk. */
+    const inFocusRect = (e: PointerEvent, spec: FocusSpec) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return false;
+      const b = canvas.getBoundingClientRect();
+      const s = fitRef.current * cam.current.zoom;
+      const x = (e.clientX - b.left) / s;
+      const y = (e.clientY - b.top) / s;
+      // Generous, because a puzzle piece can be carried a little way past the
+      // pile the camera framed and grabbing it again should not count as
+      // walking away.
+      const padX = spec.rect.width * 0.18;
+      const padY = spec.rect.height * 0.18;
+      return (
+        x >= spec.rect.left - padX &&
+        x <= spec.rect.left + spec.rect.width + padX &&
+        y >= spec.rect.top - padY &&
+        y <= spec.rect.top + spec.rect.height + padY
+      );
+    };
+    const onDown = (e: PointerEvent) => {
+      const spec = focusRef.current;
+      if (!spec) return;
+      // Not every pointer target is an element — a press that lands on the
+      // document itself has no `closest` to ask, and treating it as one threw
+      // out of the listener before the release could run.
+      const t = e.target instanceof Element ? e.target : null;
+      if (t) {
+        // The case study is a fixed overlay above the desk, and the resume's
+        // controls sit with the mode buttons — both belong to the focused
+        // object even though neither is inside it.
+        if (t.closest("[data-project-overlay]") || t.closest("[data-focus-chrome]")) return;
+        if (spec.el ? spec.el.contains(t) : inFocusRect(e, spec)) return;
+      } else if (inFocusRect(e, spec)) {
+        return;
+      }
+      release(spec.id);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") release();
+    };
+    vp.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("pointerdown", onDown, true);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      vp.removeEventListener("wheel", onWheel);
+      window.removeEventListener("pointerdown", onDown, true);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [read, release]);
 
   // The canvas's own pan (this div's internal scroll) only makes sense while
   // the desk has the viewport to itself. As soon as the page scrolls at all
@@ -196,91 +523,61 @@ function ScatteredStage({
     };
   }, []);
 
-  // Pan the canvas so a clicked piece lands in the middle of the viewport, and
-  // bring the stage back up under the footer if the page has scrolled past it.
-  // Interactive pieces await this before playing their own animation.
-  const centerOnPiece = useCallback((el: HTMLElement) => {
-    const vp = viewportRef.current;
-    if (!vp) return Promise.resolve();
-
-    const vpBox = vp.getBoundingClientRect();
-    const elBox = el.getBoundingClientRect();
-    const dx = elBox.left + elBox.width / 2 - (vpBox.left + vpBox.width / 2);
-    const dy = elBox.top + elBox.height / 2 - (vpBox.top + vpBox.height / 2);
-
-    const clamp = (v: number, max: number) => Math.min(Math.max(v, 0), Math.max(max, 0));
-    const toLeft = clamp(vp.scrollLeft + dx, vp.scrollWidth - vp.clientWidth);
-    const toTop = clamp(vp.scrollTop + dy, vp.scrollHeight - vp.clientHeight);
-
-    const pageY = window.scrollY;
-    const settled =
-      Math.abs(toLeft - vp.scrollLeft) < 2 && Math.abs(toTop - vp.scrollTop) < 2 && pageY < 2;
-    if (settled) return Promise.resolve();
-
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      vp.scrollLeft = toLeft;
-      vp.scrollTop = toTop;
-      window.scrollTo(0, 0);
-      return Promise.resolve();
-    }
-
-    return new Promise<void>((resolve) => {
-      gsap.killTweensOf(vp);
-      gsap.to(vp, {
-        scrollLeft: toLeft,
-        scrollTop: toTop,
-        duration: PAN_DURATION,
-        ease: "power2.inOut",
-        onComplete: resolve,
-      });
-      // The window has no tweenable scroll property, so drive it via a proxy.
-      if (pageY >= 2) {
-        const proxy = { y: pageY };
-        gsap.to(proxy, {
-          y: 0,
-          duration: PAN_DURATION,
-          ease: "power2.inOut",
-          onUpdate: () => window.scrollTo(0, proxy.y),
-        });
-      }
-    });
-  }, []);
-
   return (
-    <div
-      ref={viewportRef}
-      className="no-scrollbar relative w-full"
-      style={{ height: DESK_H * fit, overflow: attached ? "auto" : "hidden" }}
-    >
-      {/* The canvas is sized by a transform, and transforms don't affect
-          layout — so this spacer is what gives the scroller its extent, at
-          the canvas's *rendered* (scaled) size. Without it you'd scroll into
-          ~1000px of dead space on each axis. */}
-      <div className="relative" style={{ width: CANVAS_W * fit, height: CANVAS_H * fit }}>
-        {/* Clipped to Figma's main_canvas bounds. Rotated pieces keep an
-            unrotated (taller) layout box — the -72deg pencil's box runs ~190px
-            past the bottom — which would otherwise pad the scroll extent with
-            dead space even though the piece visually fits. */}
-        <div
-          className="absolute left-0 top-0 origin-top-left overflow-hidden"
-          style={{ width: CANVAS_W, height: CANVAS_H, transform: `scale(${fit})` }}
-        >
-          <ScatteredFocusContext.Provider value={centerOnPiece}>
-            <ScatteredScene
-              theme={theme}
-              bookOpen={bookOpen}
-              onBookOpenChange={onBookOpenChange}
-              fileOpen={fileOpen}
-              onFileOpenChange={onFileOpenChange}
-              deepLinkProject={deepLinkProject}
-              deepLinkSpread={deepLinkSpread}
-              draggable
-              scale={fit}
-            />
-          </ScatteredFocusContext.Provider>
+    <>
+      <div
+        ref={viewportRef}
+        onScroll={syncFromScroll}
+        className="no-scrollbar relative w-full"
+        style={{ height: DESK_H * fit, overflow: attached ? "auto" : "hidden" }}
+      >
+        {/* The canvas is sized by a transform, and transforms don't affect
+            layout — so this spacer is what gives the scroller its extent, at
+            the canvas's *rendered* (scaled) size. Without it you'd scroll into
+            ~1000px of dead space on each axis. Its size and the scale below
+            are written by `applyCamera`, not rendered, because both change on
+            every frame of a zoom. */}
+        <div ref={spacerRef} className="relative">
+          {/* Clipped to Figma's main_canvas bounds. Rotated pieces keep an
+              unrotated (taller) layout box — the -72deg pencil's box runs ~190px
+              past the bottom — which would otherwise pad the scroll extent with
+              dead space even though the piece visually fits. */}
+          <div
+            ref={canvasRef}
+            className="absolute left-0 top-0 origin-top-left overflow-hidden"
+            style={{ width: CANVAS_W, height: CANVAS_H }}
+          >
+            <ScatteredFocusContext.Provider value={camera}>
+              <FocusedIdContext.Provider value={focusedId}>
+                <ScatteredScene
+                  theme={theme}
+                  bookOpen={bookOpen}
+                  onBookOpenChange={onBookOpenChange}
+                  fileOpen={fileOpen}
+                  onFileOpenChange={onFileOpenChange}
+                  deepLinkProject={deepLinkProject}
+                  deepLinkSpread={deepLinkSpread}
+                  draggable
+                  scale={fit * sceneZoom}
+                />
+              </FocusedIdContext.Provider>
+            </ScatteredFocusContext.Provider>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* Sits with the mode and brightness controls rather than on the sheet:
+          the Resume is a physical page on the desk, and hanging a toolbar off
+          it would make it a viewer window instead. */}
+      {focusedId === "resume" ? (
+        <ResumeControls
+          theme={theme}
+          onZoomIn={() => setZoom(cam.current.zoom * 1.25)}
+          onZoomOut={() => setZoom(cam.current.zoom / 1.25)}
+          onClose={() => release("resume")}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -536,7 +833,7 @@ export default function App() {
  * rather than a smaller one. */
 function FooterFit({ theme, clock }: { theme: Theme; clock: string }) {
   const ref = useRef<HTMLDivElement>(null);
-  const scale = useFit(ref);
+  const scale = useFit(ref, FOOTER_W);
   const [phone, setPhone] = useState(
     () => typeof window !== "undefined" && window.innerWidth <= MOBILE_BP,
   );
@@ -559,7 +856,7 @@ function FooterFit({ theme, clock }: { theme: Theme; clock: string }) {
     <div ref={ref} className="relative z-10 w-full overflow-hidden" style={{ height: FOOTER_H * scale }}>
       <div
         className="absolute left-0 top-0 origin-top-left"
-        style={{ width: SCENE_W, transform: `scale(${scale})` }}
+        style={{ width: FOOTER_W, transform: `scale(${scale})` }}
       >
         <Footer theme={theme} clock={clock} className="h-[552px] w-[1729px]" />
       </div>

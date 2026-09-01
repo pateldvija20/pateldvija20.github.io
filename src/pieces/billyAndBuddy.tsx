@@ -821,7 +821,9 @@ export const BILLY_AND_BUDDY_SECTIONS: CaseStudySection[] = [
           </SectionBody>
         </div>
         <div className="flex flex-col gap-[16px]">
-          <div className="grid grid-cols-2 gap-[24px]">
+          {/* Two states of the same screen, held side by side at every width —
+              the comparison is the point. */}
+          <div className="grid grid-cols-2 gap-[24px]" data-cs-cols>
             <Figure
               src={`${ART}/game-lose.jpg`}
               ratio={SCREEN}

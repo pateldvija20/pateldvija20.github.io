@@ -43,8 +43,51 @@ export type PuzzleState = {
  */
 export const SNAP_TOLERANCE = 72;
 
-/** Where the loose pile sits on the canvas (Figma 458:45201). */
-const PILE = { x: 4163, y: 1670, w: 560, h: 430 };
+/**
+ * Where each of the twelve pieces is spilled, in canvas units.
+ *
+ * These are the frame's own placements — the `A6 - n` instances in Figma
+ * 458:45201, converted from frame units at 3580/1911. The pile used to be a
+ * seeded random scatter inside a box, which meant the desk opened on a
+ * different arrangement every visit and none of them was the drawn one.
+ *
+ * Two things the frame cannot give:
+ *
+ * The *pairing* is arbitrary. `A6 - 2` … `A6 - 13` carry no column or row in
+ * their names and the shapes are matched to within a few units of each other,
+ * so which fragment of the picture lands in which slot is this array's order
+ * rather than the file's. That is not a loss: the pile is a jumble, and the
+ * design says where twelve pieces lie, not which is which.
+ *
+ * The *angles* are still generated. The frame sets each piece at its own
+ * arbitrary rotation, but a piece is squared up here by clicking its corner
+ * in 90° steps, so one that started at 23° could never be straightened. The
+ * quarter turns below keep every piece on a lattice the visitor can actually
+ * solve.
+ */
+const SLOTS: readonly (readonly [number, number])[] = [
+  [1604.7, 2717.0],
+  [1547.5, 3004.7],
+  [1660.9, 2826.1],
+  [1943.9, 3015.0],
+  [1787.2, 3026.0],
+  [1799.9, 2928.1],
+  [1614.9, 3025.3],
+  [1966.7, 2962.1],
+  [1881.2, 2902.1],
+  [1837.9, 2815.1],
+  [1924.7, 3026.1],
+  [1681.9, 2774.4],
+] as const;
+
+/** The box those slots cover, for anything that needs to point at the pile
+ *  without walking every piece. */
+export const PILE = {
+  x: Math.min(...SLOTS.map((v) => v[0])),
+  y: Math.min(...SLOTS.map((v) => v[1])),
+  w: Math.max(...SLOTS.map((v) => v[0])) - Math.min(...SLOTS.map((v) => v[0])),
+  h: Math.max(...SLOTS.map((v) => v[1])) - Math.min(...SLOTS.map((v) => v[1])),
+};
 
 
 const STORAGE_KEY = "dp:puzzle";
@@ -61,27 +104,25 @@ function rng(seed: number) {
   };
 }
 
-/** A fresh, unsolved arrangement: ten scattered across the pile, two buried. */
+/** A fresh, unsolved arrangement: the twelve pieces as the frame spills them. */
 export function initialState(seed = Date.now()): PuzzleState {
   const rand = rng(seed);
   const pieces: Record<string, PieceState> = {};
   let cluster = 0;
 
-  for (const p of PUZZLE_PIECES) {
-    // Every piece starts in the one pile — a spilled box, all twelve together.
-    // `ox/oy` is the artwork origin, so the piece's own cell offset is
-    // subtracted to land the piece itself inside the pile.
-    //
-    // Angles are quarter turns, not arbitrary: the visitor rotates in 90°
-    // steps from a piece's corner, so a piece must start on that same lattice
-    // or it could never be squared up by hand.
+  PUZZLE_PIECES.forEach((p, i) => {
+    const [x, y] = SLOTS[i % SLOTS.length];
+    // `ox/oy` is the *artwork* origin, not the piece's own corner, so a piece
+    // lands on its slot only once its offset within the picture is taken back
+    // out. Two pieces are assembled when their origins coincide, which is why
+    // the state is kept this way round.
     pieces[p.id] = {
-      ox: PILE.x + rand() * PILE.w - p.col * PUZZLE_CELL,
-      oy: PILE.y + rand() * PILE.h - p.row * PUZZLE_CELL,
+      ox: x - p.x,
+      oy: y - p.y,
       deg: Math.floor(rand() * 4) * 90,
       cluster: cluster++,
     };
-  }
+  });
 
   return { pieces, solved: false, touched: false };
 }

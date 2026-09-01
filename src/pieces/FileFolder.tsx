@@ -3,7 +3,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom";
 import { SvgPiece, type Theme } from "./Piece";
 import { useIsTouch } from "./useIsTouch";
-import { useElementScale } from "./useElementScale";
 import { useCenterOnPiece } from "./ScatteredFocus";
 import { PROJECTS, cardImage, type Project } from "./projects";
 import { CaseStudy } from "./CaseStudy";
@@ -60,8 +59,13 @@ const FIT_Y = (BASE_HEIGHT - STAGE_H * FIT) / 2;
  * in both exports, which is what makes it the anchor the two states are
  * aligned on. It ships un-rotated in the stage box, so the rest tilt is CSS
  * and can animate to square; this is the point it turns about.
+ *
+ * The tilt is the Scattered frame's: `file` 458:45213 reports a
+ * 615.866x448.165 box, which against this stage's proportions solves to
+ * 6.074 degrees at 0.808 scale. The scale is applied by the scene (see
+ * `FOLDER_FIT`), the angle here.
  */
-const REST_TILT = -5.0023;
+const REST_TILT = -6.0736;
 const PIVOT_X = 701.52;
 const PIVOT_Y = 461.53;
 /** 14804 -> 14784: hovering the shut folder lifts it, in stage units. */
@@ -329,7 +333,6 @@ export function FileFolder({
   const sheetLayerRef = useRef<HTMLDivElement>(null);
   const sheetRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const { containerRef, scale } = useElementScale(BASE_WIDTH, BASE_HEIGHT);
 
   /** Openness, driven as one interruptible value (see above). */
   const openness = useRef({ t: 0 });
@@ -752,16 +755,19 @@ export function FileFolder({
   };
 
   return (
-    <div
-      ref={containerRef}
-      className={`relative flex h-full items-center justify-center ${className ?? ""}`}
-    >
+    <div className={`relative flex h-full items-center justify-center ${className ?? ""}`}>
+      {/* Rendered at its authored size. The Scattered canvas already applies
+          one `transform: scale(fit)` over the whole desk, so a piece that
+          scales itself as well is scaled twice — which is what a
+          since-removed `useElementScale` hook did here, shrinking this by
+          (height - 200) / height for a 100px margin that means nothing
+          inside a canvas. Every placement in `ScatteredScene` is solved
+          against the authored size, so this stays 1:1. */}
       <div
         className="relative"
         style={{
           width: BASE_WIDTH,
           height: BASE_HEIGHT,
-          transform: `scale(${scale})`,
         }}
         onMouseEnter={() => !isTouch && setHovered(true)}
         onMouseLeave={() => !isTouch && setHovered(false)}
@@ -1037,7 +1043,7 @@ export function FileFolder({
           role="status"
           className="absolute left-1/2 z-[60] -translate-x-1/2 whitespace-nowrap capitalize"
           style={{
-            top: -14 * scale,
+            top: -14,
             background: "#2f2f2f",
             color: "#fdfeff",
             fontFamily: "'DM Mono', monospace",
