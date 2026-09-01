@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Theme } from "./Piece";
 import { useLiveScale } from "./ScatteredFocus";
-import { InkPad, INKPAD_H, INKPAD_W, Stamp, StampImpression, STAMP_H, STAMP_W, type StampId } from "./Stamp";
+import {
+  impressionSize,
+  InkPad,
+  INKPAD_H,
+  INKPAD_W,
+  Stamp,
+  StampImpression,
+  STAMP_H,
+  STAMP_W,
+  type StampId,
+} from "./Stamp";
 
 /**
  * The ink pad and the two rubber stamps.
@@ -35,6 +45,20 @@ const MIN_PRESS = 45;
 /** Full-strength ink. Longer presses do not go darker. */
 const MAX_PRESS = 1200;
 const MIN_DENSITY = 0.22;
+
+/**
+ * The colour each stamp inks in.
+ *
+ * Stamp 2 keeps the design's blue, which reads on both the light and the dark
+ * desk. Stamp 1's exported mark is `#2F2F2F` — the dark desk exactly — so its
+ * ink follows the surface instead: dark on a light desk, light on a dark one.
+ * See `StampImpression`, which is why this can be a colour rather than a
+ * re-export.
+ */
+const INK: Record<StampId, (theme: Theme) => string> = {
+  1: (theme) => (theme === "dark" ? "#fdfeff" : "#2f2f2f"),
+  2: () => "#0059ff",
+};
 
 /** Impressions are transient, but a long session should not grow DOM without
  *  limit. Oldest fades out first, well past what exploring produces. */
@@ -276,21 +300,24 @@ export function StampSystem({
       {/* Marks sit on top of the pad, not under it: a press that lands on the
           pad is ink on the pad's face, and hiding it there made the pad look
           like it had swallowed the stamp. */}
-      {impressions.map((im) => (
-        <StampImpression
-          key={im.id}
-          n={im.n}
-          className="pointer-events-none absolute"
-          style={{
-            left: im.x - STAMP_W / 2,
-            top: im.y - STAMP_W / 2,
-            width: STAMP_W,
-            height: STAMP_W,
-            opacity: im.density,
-            zIndex: 2,
-          }}
-        />
-      ))}
+      {impressions.map((im) => {
+        const size = impressionSize(im.n);
+        return (
+          <StampImpression
+            key={im.id}
+            n={im.n}
+            ink={INK[im.n](theme)}
+            className="pointer-events-none absolute"
+            style={{
+              left: im.x - size.width / 2,
+              top: im.y - size.height / 2,
+              ...size,
+              opacity: im.density,
+              zIndex: 2,
+            }}
+          />
+        );
+      })}
 
       {/* The pad is the floor of this context — everything the stamps do
           happens above it. */}
@@ -302,12 +329,12 @@ export function StampSystem({
       {pressing && held ? (
         <StampImpression
           n={held}
+          ink={INK[held](theme)}
           className="pointer-events-none absolute"
           style={{
-            left: pos.x - STAMP_W / 2,
-            top: pos.y - STAMP_W / 2,
-            width: STAMP_W,
-            height: STAMP_W,
+            left: pos.x - impressionSize(held).width / 2,
+            top: pos.y - impressionSize(held).height / 2,
+            ...impressionSize(held),
             opacity: preview,
             zIndex: 3,
           }}
@@ -376,8 +403,9 @@ export function StampSystem({
             {carried && inked && !pressing ? (
               <StampImpression
                 n={n}
+                ink={INK[n](theme)}
                 className="pointer-events-none absolute left-0 top-0"
-                style={{ width: STAMP_W, height: STAMP_W, opacity: 0.9 }}
+                style={{ ...impressionSize(n), opacity: 0.9 }}
               />
             ) : null}
           </div>

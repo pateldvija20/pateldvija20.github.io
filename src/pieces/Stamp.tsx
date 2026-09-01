@@ -39,16 +39,61 @@ export function Stamp({
   return <SvgPiece src={`/assets/stamp${n}_${theme}.svg`} className={className} style={style} alt="" />;
 }
 
-/** The mark a stamp leaves. Single-colour, so press duration can drive its
- *  density by opacity alone without white paint showing through. */
+/**
+ * The mark a stamp leaves.
+ *
+ * Drawn as a *mask* rather than as an image, for two reasons the exported
+ * assets make unavoidable.
+ *
+ * The ink colour is baked into the files, and `stamp1_impression.svg` is
+ * filled `#2F2F2F` throughout — which is exactly the dark desk. Pressed in
+ * dark mode it painted grey ink onto a grey desk and vanished, which is
+ * indistinguishable from the stamp not working. Masking throws the file's own
+ * colour away and keeps only its shape, so the ink is chosen here and is
+ * legible on both surfaces.
+ *
+ * The two files also disagree about proportion — 128x129 and 133x103 — and
+ * were both being drawn into the same 154x154 square, squashing the second by
+ * a third. Each now renders at its own aspect.
+ */
+export const IMPRESSION_ASPECT: Record<StampId, number> = {
+  1: 129 / 128,
+  2: 103 / 133,
+};
+
+/** How wide a mark is, and therefore how tall. */
+export const impressionSize = (n: StampId, width = STAMP_W) => ({
+  width,
+  height: width * IMPRESSION_ASPECT[n],
+});
+
 export function StampImpression({
   n,
+  ink,
   className,
   style,
 }: {
   n: StampId;
+  /** The colour the mark is made in. The asset's own fill is discarded. */
+  ink: string;
   className?: string;
   style?: React.CSSProperties;
 }) {
-  return <SvgPiece src={`/assets/stamp${n}_impression.svg`} className={className} style={style} alt="" />;
+  const src = `/assets/stamp${n}_impression.svg`;
+  return (
+    <div
+      className={className}
+      role="presentation"
+      style={{
+        ...style,
+        backgroundColor: ink,
+        maskImage: `url(${src})`,
+        WebkitMaskImage: `url(${src})`,
+        maskSize: "100% 100%",
+        WebkitMaskSize: "100% 100%",
+        maskRepeat: "no-repeat",
+        WebkitMaskRepeat: "no-repeat",
+      }}
+    />
+  );
 }

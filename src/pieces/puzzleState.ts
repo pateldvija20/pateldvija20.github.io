@@ -160,24 +160,36 @@ export function trySnap(state: PuzzleState, id: string): { state: PuzzleState; s
   const heldSet = new Set(held);
   const heldOrigin = state.pieces[id];
 
+  // Position alone is not enough: a piece has to be the right way up before it
+  // will join. Snapping used to straighten both sides on contact, which meant
+  // the twelve opening rotations were decoration — you could solve the whole
+  // picture without ever turning anything. Requiring the orientation makes the
+  // turn a real move, and is why `R` and the right button had to become
+  // reachable mid-drag first.
+  if (!squared(heldOrigin.deg)) return { state, snapped: false };
+
   for (const hId of held) {
     const h = byId.get(hId)!;
     for (const [tId, t] of Object.entries(state.pieces)) {
       if (heldSet.has(tId)) continue;
       const tp = byId.get(tId)!;
       if (!adjacent(h, tp)) continue;
+      if (!squared(t.deg)) continue;
 
       const dx = t.ox - heldOrigin.ox;
       const dy = t.oy - heldOrigin.oy;
       if (Math.hypot(dx, dy) > SNAP_TOLERANCE) continue;
 
-      // Adopt the target's origin exactly, and flatten both clusters onto it.
+      // Adopt the target's origin exactly and merge the clusters. Angles are
+      // left alone: both sides are already square by the guards above, and
+      // rewriting an accumulated 360 back to 0 would spin the piece a full
+      // turn backwards at the moment it joined.
       const target = state.pieces[tId];
       const merged: Record<string, PieceState> = { ...state.pieces };
       const targetCluster = target.cluster;
       for (const k of Object.keys(merged)) {
         if (heldSet.has(k) || merged[k].cluster === targetCluster) {
-          merged[k] = { ...merged[k], ox: target.ox, oy: target.oy, deg: 0, cluster: targetCluster };
+          merged[k] = { ...merged[k], ox: target.ox, oy: target.oy, cluster: targetCluster };
         }
       }
       const solved = new Set(Object.values(merged).map((p) => p.cluster)).size === 1;
@@ -206,10 +218,27 @@ export function moveCluster(state: PuzzleState, id: string, dx: number, dy: numb
 }
 
 /** Turn `id`'s cluster a quarter turn clockwise, about the piece grabbed. */
+/**
+ * Is this piece square to the picture? Orientation is stored as a running
+ * total rather than wrapped (see `rotateCluster`), so the test is modular.
+ */
+export const squared = (deg: number) => (((deg % 360) + 360) % 360) === 0;
+
+/**
+ * Turn a cluster a quarter turn clockwise.
+ *
+ * The angle accumulates — 0, 90, 180, 270, 360, 450 — instead of wrapping at
+ * 360. Wrapping is what made a piece appear to turn three times and then spin
+ * backwards to where it started: CSS interpolates `rotate(270deg)` to
+ * `rotate(0deg)` the short way round, so the fourth quarter turn played as a
+ * three-quarter reversal. Letting the number grow means every turn is a
+ * forward 90 degrees, and nothing else cares about the absolute value because
+ * orientation is compared with `squared`.
+ */
 export function rotateCluster(state: PuzzleState, id: string): PuzzleState {
   const ids = clusterOf(state, id);
   const pieces = { ...state.pieces };
-  for (const k of ids) pieces[k] = { ...pieces[k], deg: (pieces[k].deg + 90) % 360 };
+  for (const k of ids) pieces[k] = { ...pieces[k], deg: pieces[k].deg + 90 };
   return { ...state, pieces, touched: true };
 }
 
@@ -221,11 +250,15 @@ export function rotateCluster(state: PuzzleState, id: string): PuzzleState {
 export function snapCandidate(state: PuzzleState, id: string): boolean {
   const held = new Set(clusterOf(state, id));
   const origin = state.pieces[id];
+  // A crooked piece never reads as ready to join, however close it is — the
+  // hint has to agree with `trySnap` or it teaches the wrong thing.
+  if (!squared(origin.deg)) return false;
   for (const hId of held) {
     const h = byId.get(hId)!;
     for (const [tId, t] of Object.entries(state.pieces)) {
       if (held.has(tId)) continue;
       if (!adjacent(h, byId.get(tId)!)) continue;
+      if (!squared(t.deg)) continue;
       if (Math.hypot(t.ox - origin.ox, t.oy - origin.oy) <= SNAP_TOLERANCE) return true;
     }
   }

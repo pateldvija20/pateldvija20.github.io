@@ -181,6 +181,19 @@ function useFit(ref: React.RefObject<HTMLDivElement | null>, designW: number) {
   return fit;
 }
 
+/** The browser window's own height, tracked so the desk can refuse to be
+ *  taller than it. */
+function useWindowHeight() {
+  const [h, setH] = useState(() => (typeof window === "undefined" ? 0 : window.innerHeight));
+  useEffect(() => {
+    const measure = () => setH(window.innerHeight);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+  return h;
+}
+
 /* ------------------------------------------------------------------ */
 /* Scattered — pan the desk canvas through the frame's own window       */
 /* ------------------------------------------------------------------ */
@@ -208,6 +221,28 @@ function ScatteredStage({
   const fit = useFit(viewportRef, SCENE_W);
   const fitRef = useRef(fit);
   fitRef.current = fit;
+  const windowH = useWindowHeight();
+  /**
+   * How tall the desk actually is.
+   *
+   * `fit` comes from the width alone, which is what keeps the desk at the
+   * scale the frame draws it — but it means the height that scale asks for is,
+   * on any laptop-shaped window, more than there is. At 1600x900 the stage came
+   * out 1039px tall in a 900px window: 139px of desk below the fold, and a
+   * focused object centred in the stage rather than in the window, hanging off
+   * the bottom of the screen. That is the resume and the journal being cut off.
+   *
+   * Clamping the stage rather than the scale is the right half to give up. The
+   * desk is a window onto a canvas already larger than any viewport, so showing
+   * a shorter slice costs nothing and the camera can pan. Fitting the *scale*
+   * to the height instead would shrink the whole composition away from the size
+   * it is drawn at, on exactly the windows people actually use.
+   *
+   * Everything downstream corrects itself, because the camera measures the
+   * viewport rather than assuming it: `focus` derives its zoom from
+   * `clientHeight`, so a shorter stage simply frames a little tighter.
+   */
+  const stageH = Math.min(DESK_H * fit, windowH || DESK_H * fit);
 
   /**
    * The camera: the canvas point under the middle of the viewport, and how far
@@ -540,7 +575,7 @@ function ScatteredStage({
         ref={viewportRef}
         onScroll={syncFromScroll}
         className="no-scrollbar relative w-full"
-        style={{ height: DESK_H * fit, overflow: attached ? "auto" : "hidden" }}
+        style={{ height: stageH, overflow: attached ? "auto" : "hidden" }}
       >
         {/* The canvas is sized by a transform, and transforms don't affect
             layout — so this spacer is what gives the scroller its extent, at

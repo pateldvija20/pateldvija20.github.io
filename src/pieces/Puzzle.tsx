@@ -29,10 +29,12 @@ import {
  * set it down. `R` or the right button turns the piece under the pointer, held
  * or not, so a piece can be squared up in the middle of being carried.
  *
- * Pieces snap to each other by proximity — there is no tray or outline to drop
- * them onto, and nothing shows the finished picture before it is finished. A
- * snap straightens both sides, so a rotation left over from the spill is never
- * something the visitor has to undo before two pieces will join.
+ * Pieces join by proximity *and* orientation: two neighbours that are close
+ * enough will not snap until both are square to the picture, so the opening
+ * rotations are a real obstacle rather than decoration. There is no tray or
+ * outline to drop onto, and nothing shows the finished picture before it is
+ * finished — the only signal that a join is available is the glow a carried
+ * piece takes on when it is both in place and the right way up.
  *
  * The puzzle is a bonus, never a gate: the Archive it produces is reachable
  * directly in Organised mode without touching this.

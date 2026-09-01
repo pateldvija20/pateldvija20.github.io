@@ -27,6 +27,11 @@ const STRAIGHTEN_IN = 0.72;
 const STRAIGHTEN_OUT = 0.6;
 const EASE = "power3.inOut";
 
+/** Clearance kept below the last line of a scrollable document, so the
+ *  floating controls never sit on top of it. Roughly the control row plus its
+ *  own margin. */
+const SCROLL_TAIL_PX = 116;
+
 const clampTo = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), Math.max(lo, hi));
 
 const reduced = () =>
@@ -123,7 +128,14 @@ export function FocusObject({
       // The page is read from the top of the sheet to the bottom, with the
       // camera never showing more than a sliver past either end.
       const topLimit = box.top + cam.viewH / 2 - cam.viewH * 0.03;
-      const bottomLimit = box.top + box.height - cam.viewH / 2 + cam.viewH * 0.03;
+      // Tail room at the foot of the page, in canvas units. The controls
+      // float over the bottom of the window, so a document whose scroll
+      // stopped exactly at its last line left that line underneath them —
+      // readable only by putting the sheet down. Expressed in screen pixels
+      // and converted, because what has to be cleared is a fixed-size toolbar
+      // rather than a fraction of the page.
+      const tail = SCROLL_TAIL_PX / camera.getScale();
+      const bottomLimit = box.top + box.height - cam.viewH / 2 + cam.viewH * 0.03 + tail;
       // `deltaY` is screen pixels; `cam.y` is canvas units. The divisor is the
       // full painted scale, `fit x zoom` — dividing by the zoom alone left the
       // page travelling at `fit` of the speed of the gesture (about a
