@@ -2,7 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Theme } from "./Piece";
 import { useLiveScale } from "./ScatteredFocus";
 import {
-  impressionSize,
+  FACE_CX,
+  FACE_CY,
+  IMPRESSION_H,
+  IMPRESSION_W,
   InkPad,
   INKPAD_H,
   INKPAD_W,
@@ -10,7 +13,6 @@ import {
   StampImpression,
   STAMP_H,
   STAMP_W,
-  type StampId,
 } from "./Stamp";
 
 /**
@@ -46,19 +48,6 @@ const MIN_PRESS = 45;
 const MAX_PRESS = 1200;
 const MIN_DENSITY = 0.22;
 
-/**
- * The colour each stamp inks in.
- *
- * Stamp 2 keeps the design's blue, which reads on both the light and the dark
- * desk. Stamp 1's exported mark is `#2F2F2F` — the dark desk exactly — so its
- * ink follows the surface instead: dark on a light desk, light on a dark one.
- * See `StampImpression`, which is why this can be a colour rather than a
- * re-export.
- */
-const INK: Record<StampId, (theme: Theme) => string> = {
-  1: (theme) => (theme === "dark" ? "#fdfeff" : "#2f2f2f"),
-  2: () => "#0059ff",
-};
 
 /** Impressions are transient, but a long session should not grow DOM without
  *  limit. Oldest fades out first, well past what exploring produces. */
@@ -74,12 +63,22 @@ const MAX_IMPRESSIONS = 60;
  * `carried` branch below does by simply not applying the tilt.
  */
 const INKPAD = { x: 1988.6, y: 1835.2 };
-const STAMP_HOME: Record<StampId, { x: number; y: number; deg: number }> = {
-  1: { x: 2791.4, y: 1821.6, deg: -10.35 },
-  2: { x: 2745.2, y: 2107.4, deg: -8.89 },
-};
+/**
+ * The two stamps, as placements rather than as designs.
+ *
+ * The frame lays two on the desk and the export ships one body, so these are
+ * the same block twice; a stamp is identified by which of the two it is only
+ * so the code knows which one is in hand.
+ */
+const STAMP_HOME = [
+  { x: 2791.4, y: 1821.6, deg: -10.35 },
+  { x: 2745.2, y: 2107.4, deg: -8.89 },
+] as const;
 
-type Impression = { id: number; n: StampId; x: number; y: number; density: number };
+/** Index into `STAMP_HOME`. */
+type StampId = 0 | 1;
+
+type Impression = { id: number; x: number; y: number; density: number };
 
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 
@@ -162,6 +161,16 @@ export function StampSystem({
     [liveScale],
   );
 
+  /** Where the inked face is, given where the pointer is. The block is
+   *  centred on the pointer; its face is not centred on the block. */
+  const faceAt = useCallback(
+    (p: { x: number; y: number }) => ({
+      x: p.x + STAMP_W * (FACE_CX - 0.5),
+      y: p.y + STAMP_H * (FACE_CY - 0.5),
+    }),
+    [],
+  );
+
   const overPad = useCallback(
     (p: { x: number; y: number }) =>
       p.x >= INKPAD.x && p.x <= INKPAD.x + INKPAD_W && p.y >= INKPAD.y && p.y <= INKPAD.y + INKPAD_H,
@@ -193,7 +202,9 @@ export function StampSystem({
 
   // The held stamp tracks the pointer.
   useEffect(() => {
-    if (!held) return;
+    // `held` is an index, so `0` is a stamp, not "nothing in hand". Every test
+    // on it has to be against null.
+    if (held === null) return;
     const onMove = (e: PointerEvent) => setPosBoth(toCanvas(e.clientX, e.clientY));
     window.addEventListener("pointermove", onMove);
     return () => window.removeEventListener("pointermove", onMove);
@@ -213,7 +224,7 @@ export function StampSystem({
   }, [pressStart]);
 
   useEffect(() => {
-    if (!held) return;
+    if (held === null) return;
 
     const onDown = (e: PointerEvent) => {
       // A press on a stamp belongs to that stamp's own handler, which swaps
@@ -249,10 +260,10 @@ export function StampSystem({
       if (elapsed < MIN_PRESS) return; // a slip, not a stamp
       const n = heldRef.current;
       if (n === null) return;
-      const at = posRef.current;
+      const at = faceAt(posRef.current);
       const density = densityFor(elapsed);
       setImpressions((list) => {
-        const next = [...list, { id: nextId.current++, n, x: at.x, y: at.y, density }];
+        const next = [...list, { id: nextId.current++, x: at.x, y: at.y, density }];
         return next.length > MAX_IMPRESSIONS ? next.slice(next.length - MAX_IMPRESSIONS) : next;
       });
       setInkedBoth(false); // re-ink before every impression
@@ -275,7 +286,7 @@ export function StampSystem({
     };
     // Deliberately keyed on `held` alone: everything else is read from refs, so
     // the listeners survive an entire press instead of being swapped mid-gesture.
-  }, [held, toCanvas, overPad, stampable, setHeldBoth, setInkedBoth, setPressBoth, setPosBoth]);
+  }, [held, toCanvas, overPad, stampable, faceAt, setHeldBoth, setInkedBoth, setPressBoth, setPosBoth]);
 
   const pickUp = (e: React.PointerEvent, n: StampId) => {
     if (!enabled || held === n) return;
@@ -300,24 +311,21 @@ export function StampSystem({
       {/* Marks sit on top of the pad, not under it: a press that lands on the
           pad is ink on the pad's face, and hiding it there made the pad look
           like it had swallowed the stamp. */}
-      {impressions.map((im) => {
-        const size = impressionSize(im.n);
-        return (
-          <StampImpression
-            key={im.id}
-            n={im.n}
-            ink={INK[im.n](theme)}
-            className="pointer-events-none absolute"
-            style={{
-              left: im.x - size.width / 2,
-              top: im.y - size.height / 2,
-              ...size,
-              opacity: im.density,
-              zIndex: 2,
-            }}
-          />
-        );
-      })}
+      {impressions.map((im) => (
+        <StampImpression
+          key={im.id}
+          theme={theme}
+          className="pointer-events-none absolute"
+          style={{
+            left: im.x - IMPRESSION_W / 2,
+            top: im.y - IMPRESSION_H / 2,
+            width: IMPRESSION_W,
+            height: IMPRESSION_H,
+            opacity: im.density,
+            zIndex: 2,
+          }}
+        />
+      ))}
 
       {/* The pad is the floor of this context — everything the stamps do
           happens above it. */}
@@ -326,15 +334,15 @@ export function StampSystem({
       </div>
 
       {/* The live mark under a press, so the density is visible while it builds. */}
-      {pressing && held ? (
+      {pressing && held !== null ? (
         <StampImpression
-          n={held}
-          ink={INK[held](theme)}
+          theme={theme}
           className="pointer-events-none absolute"
           style={{
-            left: pos.x - impressionSize(held).width / 2,
-            top: pos.y - impressionSize(held).height / 2,
-            ...impressionSize(held),
+            left: faceAt(pos).x - IMPRESSION_W / 2,
+            top: faceAt(pos).y - IMPRESSION_H / 2,
+            width: IMPRESSION_W,
+            height: IMPRESSION_H,
             opacity: preview,
             zIndex: 3,
           }}
@@ -346,7 +354,7 @@ export function StampSystem({
           like a rubber stamp — so the two-step gesture (ink it, then press and
           hold) was something a visitor had to already know. It rides under the
           carried stamp and names whichever step is next. */}
-      {held && !pressing ? (
+      {held !== null && !pressing ? (
         <div
           className="pointer-events-none absolute flex items-center whitespace-nowrap"
           style={{
@@ -367,7 +375,7 @@ export function StampSystem({
         </div>
       ) : null}
 
-      {([1, 2] as StampId[]).map((n) => {
+      {([0, 1] as StampId[]).map((n) => {
         const carried = held === n;
         const home = STAMP_HOME[n];
         return (
@@ -395,17 +403,22 @@ export function StampSystem({
               transition: "top 120ms ease-out",
             }}
           >
-            <Stamp n={n} theme={theme} style={{ width: STAMP_W, height: STAMP_H }} />
+            <Stamp theme={theme} style={{ width: STAMP_W, height: STAMP_H }} />
             {/* Ink on the face, so a loaded stamp reads as loaded. Hidden
                 while pressing: the stamp is face-down against the desk then,
                 and drawing its face ink as well as the impression underneath
                 put two copies of the artwork on screen at once. */}
             {carried && inked && !pressing ? (
               <StampImpression
-                n={n}
-                ink={INK[n](theme)}
-                className="pointer-events-none absolute left-0 top-0"
-                style={{ ...impressionSize(n), opacity: 0.9 }}
+                theme={theme}
+                className="pointer-events-none absolute"
+                style={{
+                  left: STAMP_W * FACE_CX - IMPRESSION_W / 2,
+                  top: STAMP_H * FACE_CY - IMPRESSION_H / 2,
+                  width: IMPRESSION_W,
+                  height: IMPRESSION_H,
+                  opacity: 0.9,
+                }}
               />
             ) : null}
           </div>
