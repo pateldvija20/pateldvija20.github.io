@@ -2,17 +2,26 @@ import { useEffect, useState } from "react";
 import type { Theme } from "./Piece";
 
 /**
- * The preloader, per the reference frames: a flat ground in the theme's
- * background colour, the count dead-centre in bold Roboto Slab, and a
- * progress strip growing along the bottom edge from the left. Content runs
- * in the theme's ink — #2f2f2f on #fdfeff, or the reverse.
+ * The preloader, per the Figma reference (node 449:17479 / 446:17461): a flat
+ * ground in the theme's background colour, the count dead-centre in DM Mono
+ * Medium, and a progress strip growing along the bottom edge from the left.
+ * Content runs in the theme's ink — #2f2f2f on #fdfeff, or the reverse.
  */
-export function Preloader({ theme, onDone }: { theme: Theme; onDone: () => void }) {
+export function Preloader({
+  theme,
+  onDone,
+  duration = 1800,
+}: {
+  theme: Theme;
+  onDone: () => void;
+  /** Shorter on a mode switch than on the first-visit entrance. */
+  duration?: number;
+}) {
   const [pct, setPct] = useState(0);
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
-    const DURATION = 1800;
+    const DURATION = duration;
     const start = performance.now();
     let raf = 0;
     const tick = (now: number) => {
@@ -29,7 +38,7 @@ export function Preloader({ theme, onDone }: { theme: Theme; onDone: () => void 
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [onDone]);
+  }, [onDone, duration]);
 
   const bg = theme === "light" ? "#fdfeff" : "#2f2f2f";
   const content = theme === "light" ? "#2f2f2f" : "#fdfeff";
@@ -44,11 +53,10 @@ export function Preloader({ theme, onDone }: { theme: Theme; onDone: () => void 
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
         style={{
           color: content,
-          fontFamily: "'Roboto Slab', serif",
-          fontWeight: 700,
-          fontSize: "clamp(72px, 8vw, 160px)",
-          lineHeight: 1,
-          letterSpacing: "-0.01em",
+          fontFamily: "'DM Mono', monospace",
+          fontWeight: 500,
+          fontSize: "24px",
+          lineHeight: "normal",
         }}
       >
         {pct}%
@@ -57,7 +65,7 @@ export function Preloader({ theme, onDone }: { theme: Theme; onDone: () => void 
           climbs, hitting the full width exactly at 100%. */}
       <div
         className="absolute bottom-0 left-0"
-        style={{ height: "clamp(14px, 1.5vw, 28px)", width: `${pct}%`, background: content }}
+        style={{ height: "18px", width: `${pct}%`, background: content }}
       />
     </div>
   );

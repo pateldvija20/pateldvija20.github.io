@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from "react";
+import { ProjectCard } from "./ProjectCard";
 import { PROJECTS } from "./projects";
 
 /**
@@ -19,7 +20,7 @@ import { PROJECTS } from "./projects";
 /** The standard body size shared by every case study. */
 export const BODY_FONT = 22.163;
 export const BODY_TRACK = 0.2216;
-export const MUTED = "#7c838b";
+export const MUTED = "#626262";
 export const INK = "#18191a";
 export const DIVIDER = "#e3e5e8";
 export const MONO = "'DM Mono', monospace";
@@ -330,38 +331,15 @@ export function RelatedProjects({ slugs }: { slugs: string[] }) {
   return (
     <div className="grid grid-cols-2 gap-[40px]">
       {related.map((p) => (
-        // The border/radius live on the anchor itself, not a wrapper around
-        // it — the whole card has to be one click target, padding included.
-        // The image sits flush against the stroke on every side it touches
-        // (its own radius is 0; the anchor's overflow-hidden + radius does
-        // the rounding for it), and the 24px padding applies only to the
-        // text block below.
-        <a
+        // The same card the Work grid uses, in the sheet palette — a case
+        // study stays paper-white in both themes, so its cards do too.
+        <ProjectCard
           key={p.slug}
+          project={p}
+          tone="sheet"
+          src={p.hero ?? p.thumb}
           href={`/projects/${p.slug}`}
-          className="flex flex-col overflow-hidden"
-          style={{ border: `1px solid ${DIVIDER}`, borderRadius: 12 }}
-        >
-          <Figure src={p.hero ?? p.thumb} ratio="466 / 360" radius={0} alt={p.name} />
-          <div className="flex flex-col gap-[12px]" style={{ padding: 24 }}>
-            <div
-              className="flex items-start gap-[31px] uppercase"
-              style={{ color: MUTED, fontFamily: MONO, fontWeight: 500, fontSize: 16 }}
-            >
-              <span>{p.name}</span>
-              {p.type ? <span>{p.type}</span> : null}
-              {p.year ? <span>{p.year}</span> : null}
-            </div>
-            {p.title ? (
-              <p
-                className="font-['Roboto_Slab'] font-normal capitalize"
-                style={{ fontSize: BODY_FONT, letterSpacing: BODY_TRACK }}
-              >
-                {p.title}
-              </p>
-            ) : null}
-          </div>
-        </a>
+        />
       ))}
     </div>
   );

@@ -11,8 +11,7 @@ export { GoldenRatioMat } from "./GoldenRatioMat";
 export { Pencil, type PencilColor } from "./Pencil";
 export { PencilBox } from "./PencilBox";
 export { Sticker } from "./Sticker";
-export { Footer } from "./Footer";
-export { OrganizedScene, ORGANIZED_W, ORGANIZED_H } from "./OrganizedScene";
+export { Footer, FooterMobile } from "./Footer";
 export {
   ScatteredScene,
   CANVAS_W,

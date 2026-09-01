@@ -7,14 +7,127 @@
    alone, not by choice. Roman (0,500) is the default; italic stays available
    for anything that actually asks for it. */
 
-:root {
+/* ------------------------------------------------------------------ *
+ * Design tokens
+ * ------------------------------------------------------------------
+ * Every value below is read from Figma, not inferred. Sizes that land
+ * on a Tailwind default step reuse that step by name; the two that do
+ * not (28px section headings, 40px page headings) are added as their
+ * own steps rather than being rounded to 30/36, because the design
+ * specifies them exactly.
+ * ------------------------------------------------------------------ */
+@theme {
+  /* Palette. `ink`, `paper`, `link` and `ember` are fixed; `muted` and
+     `accent` flip with the theme (see the dark block below). */
+  --color-ink: #2f2f2f;
+  --color-paper: #fdfeff;
+  /* Secondary text. Light-mode value; the dark override is below. Figma uses
+     #cdcfd1 for this throughout, but that is its placeholder grey for copy
+     that had not been written yet — on white it measures 1.55:1, so as soon
+     as it carries real body text it has to darken. */
+  --color-muted: #626262;
+  /* Active nav link. Same story: Figma's #ffc94f is 1.52:1 on white. */
+  --color-accent: #a97c00;
+  /* Placeholder fill — image wells and the empty Archive cards. A *surface*,
+     not text, so it stays light in both themes and does not follow `muted`. */
+  --color-well: #cdcfd1;
+  --color-link: #0059ff; /* Download PDF, and the blue stamp's ink */
+  --color-ember: #ff5a3d; /* gradient-card ground */
+
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-slab: "Roboto Slab", Georgia, serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
+
+  /* 18 / 20 / 24 already match Tailwind's lg / xl / 2xl exactly. */
+  --text-section: 28px;
+  --text-section--line-height: 1.2;
+  --text-section--letter-spacing: 0.02em;
+  --text-page: 40px;
+  --text-page--line-height: 1.15;
+  --text-page--letter-spacing: 0.02em;
+
+  /* Scatter is unavailable at and below 1024, so the desktop breakpoint
+     starts one pixel higher: 64.0625rem = 1025px.
+
+     Two things here are deliberate and easy to get wrong.
+
+     It *overrides* Tailwind's own `lg` rather than adding a new breakpoint
+     name — a custom name is emitted outside the built-in width order, so
+     `md:` would win over it on any shared property.
+
+     And it is in `rem`, not `px`. Tailwind sorts breakpoints to decide
+     media-query order, and it cannot compare `1025px` against the built-in
+     `40rem`/`48rem`, so a px value gets emitted *before* `sm` and `md` — at
+     which point every `md:` utility overrides its `lg:` counterpart at all
+     widths and the desktop layout silently never appears. */
+  --breakpoint-lg: 64.0625rem;
+
+  /* The full 1512 Figma desktop frame — Tailwind's `xl`, overridden for the
+     same ordering reason as `lg` above.
+
+     This exists because 1025-1511 is a genuine squeeze: the 250px sidebar
+     appears at 1025, but the content column is only `viewport - sidebar -
+     gutters` wide, so at 1025 it is ~575px — far too narrow for the
+     side-by-side About or a three-column grid, both of which Figma authored
+     against the full 1512 frame. Layouts that need the whole frame key off
+     `xl:`; `lg:` is only for what genuinely fits from 1025 up. */
+  --breakpoint-xl: 94.5rem;
+
+  /* The 1512 Figma desktop frame is the maximum intended content width;
+     past it the content centres rather than stretching. */
+  --spacing-content: 1512px;
+}
+
+/* Semantic surface tokens. The `theme` state in App.tsx remains the
+   single source of truth and still drives the Scatter pieces through
+   their `theme` prop; it is additionally mirrored onto
+   `<html data-theme>` so the Organized page can flip through CSS
+   instead of threading a prop through every section. */
+:root,
+:root[data-theme="light"] {
+  --surface: #fdfeff;
+  --content: #2f2f2f;
+  --edge: #2f2f2f;
+  /* Kept as the old names too — existing rules below still use them. */
   --paper: #fdfeff;
   --ink: #2f2f2f;
+}
+
+:root[data-theme="dark"] {
+  /* On #2f2f2f the Figma values are the legible ones, so dark keeps them:
+     muted 8.57:1, accent 8.75:1. Overriding the token itself (rather than
+     adding a second name) keeps every `text-muted` call site theme-correct
+     with no change at the point of use. */
+  --color-muted: #cdcfd1;
+  --color-accent: #ffc94f;
+
+  --surface: #2f2f2f;
+  --content: #fdfeff;
+  --edge: #fdfeff;
+  --paper: #2f2f2f;
+  --ink: #fdfeff;
 }
 
 html,
 body {
   height: 100%;
+}
+
+/* Organised sections snap as you scroll past them. `proximity` rather than
+   `mandatory` on purpose: Work and Archive run several viewports tall, and
+   mandatory snapping would refuse to let the reader stop halfway down one.
+   Scoped to the attribute App sets, so the Scattered canvas — which pans
+   rather than scrolls in sections — is unaffected. */
+html[data-organised] {
+  scroll-snap-type: y proximity;
+}
+
+/* A snapping scroller must not also smooth-scroll natively, or a
+   programmatic scrollIntoView fights the snap and lands short. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-organised] {
+    scroll-snap-type: none;
+  }
 }
 
 /* min-height (not height) so the page can grow past the viewport and scroll

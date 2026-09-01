@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import gsap from "gsap";
-import { SmallScreenBlock } from "./pieces/SmallScreenBlock";
 import { ControlBar, type Mode } from "./pieces/ControlBar";
+import { OrganizedPage } from "./organized/OrganizedPage";
+import type { SectionId } from "./organized/content";
+import { canScatter, MOBILE_BP } from "./responsive";
 import { Preloader } from "./pieces/Preloader";
 import { ScatteredFocusContext } from "./pieces/ScatteredFocus";
 import {
@@ -10,7 +12,7 @@ import {
   CANVAS_ORIGIN_Y,
   CANVAS_W,
   Footer,
-  OrganizedScene,
+  FooterMobile,
   ScatteredScene,
   type Theme,
 } from "./pieces";
@@ -18,15 +20,44 @@ import { PROJECTS } from "./pieces/projects";
 
 /**
  * The preloader is an entrance, not a progress bar — it counts out a fixed
- * 1.8s rather than tracking anything real. So it plays once on arrival and
- * stays out of the way for the rest of the visit.
+ * duration rather than tracking anything real. It plays the full 1.8s intro
+ * once on arrival, then replays a shorter 0.9s beat every time the viewer
+ * flips between scattered and organized mode.
  *
  * `sessionStorage` rather than `localStorage`: a reload, a deep link, or a
- * bounce through the case-study routes all skip it, while someone coming back
- * tomorrow still gets the intro. Every access is guarded — a browser with site
- * data blocked throws on the property itself, and the page must still open.
+ * bounce through the case-study routes all skip the entrance, while someone
+ * coming back tomorrow still gets it. Every access is guarded — a browser
+ * with site data blocked throws on the property itself, and the page must
+ * still open.
  */
 const SEEN_PRELOADER = "dp:preloader-seen";
+
+/**
+ * The last mode the visitor chose, so a reload puts them back where they were
+ * rather than resetting them to Organised.
+ *
+ * `sessionStorage`, matching the preloader flag: it survives a refresh and a
+ * bounce through the case-study routes, but a new visit still opens on
+ * Organised — which stays the default and the only linkable mode.
+ */
+const LAST_MODE = "dp:mode";
+
+const rememberedMode = (): Mode | null => {
+  try {
+    const v = sessionStorage.getItem(LAST_MODE);
+    return v === "scattered" || v === "organized" ? v : null;
+  } catch {
+    return null;
+  }
+};
+
+const rememberMode = (m: Mode) => {
+  try {
+    sessionStorage.setItem(LAST_MODE, m);
+  } catch {
+    // Storage unavailable: the mode simply will not survive a reload.
+  }
+};
 
 const preloaderSeen = () => {
   try {
@@ -254,63 +285,28 @@ function ScatteredStage({
 }
 
 /* ------------------------------------------------------------------ */
-/* Organised — one piece locked to the centre, swiped through in a loop */
-/* ------------------------------------------------------------------ */
-
-function OrganizedStage({
-  theme,
-  bookOpen,
-  onBookOpenChange,
-  fileOpen,
-  onFileOpenChange,
-  deepLinkProject,
-  deepLinkSpread,
-  landOnFile = false,
-}: {
-  theme: Theme;
-  bookOpen: boolean;
-  onBookOpenChange: (open: boolean) => void;
-  fileOpen: boolean;
-  onFileOpenChange: (open: boolean) => void;
-  deepLinkProject: number | null;
-  deepLinkSpread: number | null;
-  landOnFile?: boolean;
-}) {
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const fit = useFit(viewportRef);
-
-  return (
-    <div ref={viewportRef} className="relative w-full overflow-hidden" style={{ height: "100vh" }}>
-      <div
-        className="absolute left-1/2 top-1/2"
-        style={{
-          width: SCENE_W,
-          height: DESK_H,
-          transform: `translate(-50%, -50%) scale(${fit})`,
-          transformOrigin: "center center",
-        }}
-      >
-        <OrganizedScene
-          theme={theme}
-          bookOpen={bookOpen}
-          onBookOpenChange={onBookOpenChange}
-          fileOpen={fileOpen}
-          onFileOpenChange={onFileOpenChange}
-          deepLinkProject={deepLinkProject}
-          deepLinkSpread={deepLinkSpread}
-          landOnFile={landOnFile}
-          scale={fit}
-        />
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /* App                                                                */
 /* ------------------------------------------------------------------ */
 
 const DARK_QUERY = "(prefers-color-scheme: dark)";
+
+/**
+ * Whether the viewport is wide enough for Scattered mode. Tracked as state
+ * rather than read on demand so both the toggle and the render branch react to
+ * a resize mid-session.
+ */
+function useScatterAllowed() {
+  const [allowed, setAllowed] = useState(
+    () => typeof window === "undefined" || canScatter(window.innerWidth),
+  );
+  useEffect(() => {
+    const check = () => setAllowed(canScatter(window.innerWidth));
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+  return allowed;
+}
 
 /** The OS preference right now. Guarded because `matchMedia` is missing in
  *  non-browser environments and in some older test runners; light is the
@@ -350,11 +346,26 @@ export default function App() {
   // on the about book already open to that spread.
   const initialRoute = useRef(parseProjectRoute()).current;
   const initialAboutRoute = useRef(parseAboutRoute()).current;
-  // Any recognised deep link lands in Organized mode — the desk's default
-  // is scattered only for a plain visit.
-  const [mode, setMode] = useState<Mode>(
-    initialRoute.folder || initialAboutRoute ? "organized" : "scattered",
+  // Organised is the default and the only directly linkable mode. Scattered is
+  // opt-in through the control bar and is never entered by a URL — but once
+  // chosen it survives a reload, so refreshing on the desk keeps the desk.
+  // A deep link still wins: it always resolves to its Organised destination.
+  const deepLinked = initialRoute.folder || initialRoute.slug !== null || initialAboutRoute !== null;
+  const [mode, setMode] = useState<Mode>(() =>
+    deepLinked ? "organized" : (rememberedMode() ?? "organized"),
   );
+
+  useEffect(() => {
+    rememberMode(mode);
+  }, [mode]);
+  /** Where a deep link lands on the Organised page. */
+  const initialSection: SectionId | null = initialRoute.slug
+    ? "work"
+    : initialRoute.folder
+      ? "work"
+      : initialAboutRoute
+        ? "resume"
+        : null;
   const [bookOpen, setBookOpen] = useState(initialAboutRoute !== null);
   const [fileOpen, setFileOpen] = useState(initialRoute.folder);
   const deepLinkIndex = initialRoute.slug
@@ -363,12 +374,23 @@ export default function App() {
   const deepLinkProject = deepLinkIndex >= 0 ? deepLinkIndex : null;
   const deepLinkSpread = initialAboutRoute?.spread ?? null;
   const [loading, setLoading] = useState(() => !preloaderSeen());
+  // Shorter replay on a scattered/organized switch than the first-visit
+  // entrance — it's a beat of feedback, not a full intro.
+  const [loadingDuration, setLoadingDuration] = useState(1800);
   // Flagged when it starts rather than when it finishes, so a reload part-way
   // through the count still skips it.
   useEffect(() => {
     if (loading) markPreloaderSeen();
   }, [loading]);
   const clock = useBayClock();
+
+  // Mirror the theme onto the document element. `theme` stays the single
+  // source of truth and still reaches every Scattered piece as a prop; this
+  // only gives CSS the same fact, so the Organised page can flip its
+  // surface tokens without threading a prop through every section.
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
 
   // Folder open/close mirrors into the path (replaceState — the case study
   // owns the pushed history entries). Back/Forward re-derive the folder.
@@ -434,6 +456,8 @@ export default function App() {
     prevMode.current = mode;
     setBookOpen(false);
     setFileOpen(false);
+    setLoadingDuration(900);
+    setLoading(true);
   }, [mode]);
 
   const pageBg = theme === "light" ? "#fdfeff" : "#2f2f2f";
@@ -448,17 +472,37 @@ export default function App() {
     landOnFile: initialRoute.folder,
   };
 
+  // Scattered is a desktop-only mode. Someone who narrows the window while
+  // it is open is moved to Organised rather than left on a canvas the layout
+  // no longer supports — and the toggle disappears with it.
+  const scatterAllowed = useScatterAllowed();
+  useEffect(() => {
+    if (!scatterAllowed && mode === "scattered") setMode("organized");
+  }, [scatterAllowed, mode]);
+  const showScattered = mode === "scattered" && scatterAllowed;
+
+  // Scroll-snap belongs to Organised only — Scattered pans a canvas rather
+  // than scrolling through sections, and snapping would fight the pan.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (showScattered) delete root.dataset.organised;
+    else root.dataset.organised = "true";
+    return () => {
+      delete root.dataset.organised;
+    };
+  }, [showScattered]);
+
+
   return (
     <div className="min-h-screen w-full transition-colors duration-500" style={{ background: pageBg }}>
-      {/* ⚠️ TODO: NOT PRODUCTION READY — blacks out <=1024px so no mobile/iPad
-          layout is needed yet. Remove when those designs are signed off
-          (flip WIP_BREAKPOINTS in src/responsive.ts). */}
-      <SmallScreenBlock />
-      {loading ? <Preloader theme={theme} onDone={() => setLoading(false)} /> : null}
+      {loading ? (
+        <Preloader theme={theme} duration={loadingDuration} onDone={() => setLoading(false)} />
+      ) : null}
       <ControlBar
         theme={theme}
         mode={mode}
         onMode={setMode}
+        showLayoutToggle={scatterAllowed}
         onToggleTheme={() => {
           // An explicit choice takes the OS out of the loop — otherwise the
           // system flipping at sunset would undo it mid-visit.
@@ -467,19 +511,50 @@ export default function App() {
         }}
       />
 
-      {/* Both stages scroll away with the page rather than staying pinned —
+      {/* Both modes scroll away with the page rather than staying pinned —
           the footer pushes up after them instead of overlapping. */}
-      {mode === "scattered" ? <ScatteredStage {...stageProps} /> : <OrganizedStage {...stageProps} />}
+      {showScattered ? (
+        <ScatteredStage {...stageProps} />
+      ) : (
+        <OrganizedPage
+          theme={theme}
+          initialSection={initialSection}
+          initialSlug={initialRoute.slug}
+        />
+      )}
 
       <FooterFit theme={theme} clock={clock} />
     </div>
   );
 }
 
-/* Footer scaled to fit page width, preserving its 1729-wide design */
+/* Footer scaled to fit page width, preserving its 1729-wide design.
+ *
+ * Below the phone breakpoint it swaps to `FooterMobile` instead of scaling:
+ * at 440px the scaled desk footer would render its CONNECT card at 25%, which
+ * is unreadable, and Figma's own phone footer is a different composition
+ * rather than a smaller one. */
 function FooterFit({ theme, clock }: { theme: Theme; clock: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const scale = useFit(ref);
+  const [phone, setPhone] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= MOBILE_BP,
+  );
+  useEffect(() => {
+    const check = () => setPhone(window.innerWidth <= MOBILE_BP);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
+  if (phone) {
+    return (
+      <div className="relative z-10 w-full">
+        <FooterMobile theme={theme} clock={clock} />
+      </div>
+    );
+  }
+
   return (
     <div ref={ref} className="relative z-10 w-full overflow-hidden" style={{ height: FOOTER_H * scale }}>
       <div
