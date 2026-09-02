@@ -1,11 +1,11 @@
 import { SvgPiece, type Theme } from "./Piece";
 
 /**
- * The ink pad and the rubber stamps (Figma 460:47043, 478:50457, 478:50461).
+ * The ink pad and the rubber stamp (Figma 460:47043, 478:50457).
  *
- * One artwork, drawn twice. The frame puts two stamps on the desk and the
- * export ships a single body and a single impression, so both positions render
- * the same block — which is why nothing here is keyed by stamp any more.
+ * One stamp. The frame drew two and the export ships a single body, so the
+ * second position was the same block a second time and read as a duplicate
+ * rather than as a pair — which is why nothing here is keyed by stamp.
  *
  * The impression is the mark the face leaves: the same outlined card and
  * lettering with the block and its shadow removed, so what lands on the desk is

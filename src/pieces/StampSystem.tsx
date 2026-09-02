@@ -16,11 +16,11 @@ import {
 } from "./Stamp";
 
 /**
- * The ink pad and the two rubber stamps.
+ * The ink pad and the rubber stamp.
  *
  * State machine, in the order the visitor meets it:
  *
- *   idle ──click a stamp──▶ held ──click over the pad──▶ inked
+ *   idle ──click the stamp──▶ held ──click over the pad──▶ inked
  *   inked ──press and hold on the desk──▶ pressing ──release──▶ impression
  *   impression ──▶ held (uninked; the stamp must be re-inked for the next one)
  *
@@ -64,19 +64,14 @@ const MAX_IMPRESSIONS = 60;
  */
 const INKPAD = { x: 1988.6, y: 1835.2 };
 /**
- * The two stamps, as placements rather than as designs.
+ * Where the stamp rests, at the ink pad's top right.
  *
- * The frame lays two on the desk and the export ships one body, so these are
- * the same block twice; a stamp is identified by which of the two it is only
- * so the code knows which one is in hand.
+ * One stamp. The frame drew two and the export ships a single body, so the
+ * second was the same block a second time — which read as a duplicate rather
+ * than as a pair. With only one on the desk there is nothing to identify:
+ * what is in hand is a boolean, not an index.
  */
-const STAMP_HOME = [
-  { x: 2791.4, y: 1821.6, deg: -10.35 },
-  { x: 2745.2, y: 2107.4, deg: -8.89 },
-] as const;
-
-/** Index into `STAMP_HOME`. */
-type StampId = 0 | 1;
+const STAMP_HOME = { x: 2791.4, y: 1821.6, deg: -10.35 };
 
 type Impression = { id: number; x: number; y: number; density: number };
 
@@ -103,7 +98,7 @@ export function StampSystem({
   z: number;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const [held, setHeld] = useState<StampId | null>(null);
+  const [held, setHeld] = useState(false);
   const [inked, setInked] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [impressions, setImpressions] = useState<Impression[]>([]);
@@ -129,12 +124,12 @@ export function StampSystem({
    * Refs are always current, so the handlers can be registered once and read
    * the truth. State is kept alongside purely so rendering updates.
    */
-  const heldRef = useRef<StampId | null>(null);
+  const heldRef = useRef(false);
   const inkedRef = useRef(false);
   const pressRef = useRef<number | null>(null);
   const posRef = useRef({ x: 0, y: 0 });
 
-  const setHeldBoth = useCallback((v: StampId | null) => {
+  const setHeldBoth = useCallback((v: boolean) => {
     heldRef.current = v;
     setHeld(v);
   }, []);
@@ -202,9 +197,7 @@ export function StampSystem({
 
   // The held stamp tracks the pointer.
   useEffect(() => {
-    // `held` is an index, so `0` is a stamp, not "nothing in hand". Every test
-    // on it has to be against null.
-    if (held === null) return;
+    if (!held) return;
     const onMove = (e: PointerEvent) => setPosBoth(toCanvas(e.clientX, e.clientY));
     window.addEventListener("pointermove", onMove);
     return () => window.removeEventListener("pointermove", onMove);
@@ -224,7 +217,7 @@ export function StampSystem({
   }, [pressStart]);
 
   useEffect(() => {
-    if (held === null) return;
+    if (!held) return;
 
     const onDown = (e: PointerEvent) => {
       // A press on a stamp belongs to that stamp's own handler, which swaps
@@ -238,7 +231,7 @@ export function StampSystem({
       }
       if (!inkedRef.current) {
         // Nothing on the stamp and nowhere to put it — set it back down.
-        setHeldBoth(null);
+        setHeldBoth(false);
         return;
       }
       if (!stampable(e)) {
@@ -258,8 +251,7 @@ export function StampSystem({
       setPressBoth(null);
       setPreview(0);
       if (elapsed < MIN_PRESS) return; // a slip, not a stamp
-      const n = heldRef.current;
-      if (n === null) return;
+      if (!heldRef.current) return;
       const at = faceAt(posRef.current);
       const density = densityFor(elapsed);
       setImpressions((list) => {
@@ -271,7 +263,7 @@ export function StampSystem({
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      setHeldBoth(null);
+      setHeldBoth(false);
       setInkedBoth(false);
       setPressBoth(null);
     };
@@ -288,14 +280,14 @@ export function StampSystem({
     // the listeners survive an entire press instead of being swapped mid-gesture.
   }, [held, toCanvas, overPad, stampable, faceAt, setHeldBoth, setInkedBoth, setPressBoth, setPosBoth]);
 
-  const pickUp = (e: React.PointerEvent, n: StampId) => {
-    if (!enabled || held === n) return;
+  const pickUp = (e: React.PointerEvent) => {
+    if (!enabled || held) return;
     e.stopPropagation();
-    // Swaps rather than refusing: after an impression the stamp stays in hand
-    // (uninked, ready to be re-inked), so reaching for the other one has to
-    // mean "take that one instead" or the second stamp is unreachable.
+    // Guarded on `held` rather than swapping: with one stamp on the desk,
+    // a press while it is already in hand is a press *through* it at the desk
+    // underneath, and picking it up again would reset the ink mid-gesture.
     setPosBoth(toCanvas(e.clientX, e.clientY));
-    setHeldBoth(n);
+    setHeldBoth(true);
     setInkedBoth(false);
     setPressBoth(null);
   };
@@ -334,7 +326,7 @@ export function StampSystem({
       </div>
 
       {/* The live mark under a press, so the density is visible while it builds. */}
-      {pressing && held !== null ? (
+      {pressing && held ? (
         <StampImpression
           theme={theme}
           className="pointer-events-none absolute"
@@ -354,7 +346,7 @@ export function StampSystem({
           like a rubber stamp — so the two-step gesture (ink it, then press and
           hold) was something a visitor had to already know. It rides under the
           carried stamp and names whichever step is next. */}
-      {held !== null && !pressing ? (
+      {held && !pressing ? (
         <div
           className="pointer-events-none absolute flex items-center whitespace-nowrap"
           style={{
@@ -375,55 +367,51 @@ export function StampSystem({
         </div>
       ) : null}
 
-      {([0, 1] as StampId[]).map((n) => {
-        const carried = held === n;
-        const home = STAMP_HOME[n];
-        return (
-          <div
-            key={n}
-            data-stamp={n}
-            onPointerDown={(e) => pickUp(e, n)}
-            className="absolute"
+      <div
+        data-stamp=""
+        onPointerDown={pickUp}
+        className="absolute"
+        style={{
+          left: held ? pos.x - STAMP_W / 2 : STAMP_HOME.x,
+          // A carried stamp lifts off the desk; pressing sets it back down.
+          top:
+            (held ? pos.y - STAMP_H / 2 : STAMP_HOME.y) -
+            (held && !pressing ? 14 : 0),
+          width: STAMP_W,
+          height: STAMP_H,
+          // A carried stamp must not intercept its own hit-testing, or the
+          // desk beneath it can never be identified as stampable.
+          pointerEvents: enabled && !held ? "auto" : "none",
+          cursor: enabled && !held ? "grab" : undefined,
+          zIndex: held ? 40 : 4,
+          // Square in the hand, tilted at rest: the frame lays the stamp
+          // down at an angle, and a stamp you are holding over the desk is
+          // one you have straightened up to press.
+          transform: held ? undefined : `rotate(${STAMP_HOME.deg}deg)`,
+          filter: held ? "drop-shadow(0 16px 20px rgba(0,0,0,0.34))" : undefined,
+          transition: "top 120ms ease-out",
+        }}
+      >
+        <Stamp theme={theme} style={{ width: STAMP_W, height: STAMP_H }} />
+        {/* Ink on the face, so a loaded stamp reads as loaded. Hidden
+            while pressing: the stamp is face-down against the desk then,
+            and drawing its face ink as well as the impression underneath
+            put two copies of the artwork on screen at once. */}
+        {held && inked && !pressing ? (
+          <StampImpression
+            theme={theme}
+            className="pointer-events-none absolute"
             style={{
-              left: carried ? pos.x - STAMP_W / 2 : home.x,
-              // A carried stamp lifts off the desk; pressing sets it back down.
-              top: (carried ? pos.y - STAMP_H / 2 : home.y) - (carried && !pressing ? 14 : 0),
-              width: STAMP_W,
-              height: STAMP_H,
-              // A carried stamp must not intercept its own hit-testing, or the
-              // desk beneath it can never be identified as stampable.
-              pointerEvents: enabled && !carried ? "auto" : "none",
-              cursor: enabled && !carried ? "grab" : undefined,
-              zIndex: carried ? 40 : 4,
-              // Square in the hand, tilted at rest: the frame lays both
-              // stamps down at an angle, and a stamp you are holding over the
-              // desk is one you have straightened up to press.
-              transform: carried ? undefined : `rotate(${home.deg}deg)`,
-              filter: carried ? "drop-shadow(0 16px 20px rgba(0,0,0,0.34))" : undefined,
-              transition: "top 120ms ease-out",
+              left: STAMP_W * FACE_CX - IMPRESSION_W / 2,
+              top: STAMP_H * FACE_CY - IMPRESSION_H / 2,
+              width: IMPRESSION_W,
+              height: IMPRESSION_H,
+              opacity: 0.9,
             }}
-          >
-            <Stamp theme={theme} style={{ width: STAMP_W, height: STAMP_H }} />
-            {/* Ink on the face, so a loaded stamp reads as loaded. Hidden
-                while pressing: the stamp is face-down against the desk then,
-                and drawing its face ink as well as the impression underneath
-                put two copies of the artwork on screen at once. */}
-            {carried && inked && !pressing ? (
-              <StampImpression
-                theme={theme}
-                className="pointer-events-none absolute"
-                style={{
-                  left: STAMP_W * FACE_CX - IMPRESSION_W / 2,
-                  top: STAMP_H * FACE_CY - IMPRESSION_H / 2,
-                  width: IMPRESSION_W,
-                  height: IMPRESSION_H,
-                  opacity: 0.9,
-                }}
-              />
-            ) : null}
-          </div>
-        );
-      })}
+          />
+        ) : null}
+      </div>
+
     </div>
   );
 }
