@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NAV_SECTIONS, type SectionId } from "./content";
 import { useBreakpoint } from "./useBreakpoint";
 
@@ -9,6 +9,15 @@ import { useBreakpoint } from "./useBreakpoint";
  * the bottom on desktop, and a top bar with them inline and right-aligned on
  * tablet and phone. The links themselves are identical at all three widths —
  * 18px, and that is why the type scale steps rather than flowing.
+ *
+ * That fixed size is also why the phone bar has to be able to scroll. Four
+ * 18px labels come to 325px, and the phone bar's content box is 303px at
+ * 419 wide and 204 at 341 — so the row genuinely does not fit, and since the
+ * type is not allowed to shrink, something has to move. It used to overflow
+ * against `justify-content: flex-end`, which pushes the excess off the *left*
+ * edge: "Work" sat 42px off-screen at 375 and 97px off at 341, clipped and
+ * unreachable. Now the row right-aligns while it fits and scrolls once it
+ * does not, so every link stays reachable at every width.
  */
 
 /** Which section is under the top of the viewport right now. */
@@ -44,6 +53,25 @@ const IDS = NAV_SECTIONS.map((s) => s.id);
 
 export function Sidebar() {
   const active = useScrollSpy(IDS);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // Keep the current section in view when the row is scrolled. Without this
+  // the highlight can be sitting off the end of a bar the reader cannot see
+  // has more in it — the scroll solves the clipping, but only this makes the
+  // scrolled-away part discoverable.
+  useEffect(() => {
+    const list = listRef.current;
+    if (!list || list.scrollWidth <= list.clientWidth) return;
+    const link = list.querySelector<HTMLElement>(`a[href="#${active}"]`);
+    if (!link) return;
+    const l = link.getBoundingClientRect();
+    const b = list.getBoundingClientRect();
+    if (l.left >= b.left && l.right <= b.right) return;
+    list.scrollTo({
+      left: list.scrollLeft + (l.left - b.left) - (b.width - l.width) / 2,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+  }, [active]);
 
   const go = (e: React.MouseEvent<HTMLAnchorElement>, id: SectionId) => {
     const el = document.getElementById(id);
@@ -78,7 +106,7 @@ export function Sidebar() {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "flex-end",
-        paddingLeft: bp === "tablet" ? 40 : 24,
+        paddingLeft: bp === "tablet" ? 40 : 16,
         // Clears the control bar, which is pinned to the same corner. Figma's
         // phone frame puts the links 24px from the edge but draws no control
         // bar for them to collide with.
@@ -92,17 +120,37 @@ export function Sidebar() {
       style={{ background: "var(--surface)", ...shell }}
     >
       <ul
-        className="flex"
+        ref={listRef}
+        className={desktop ? "flex" : "no-scrollbar flex"}
         style={
           desktop
             ? { flexDirection: "column", alignItems: "flex-start", gap: 0 }
-            : { flexDirection: "row", alignItems: "center", gap: 32 }
+            : {
+                flexDirection: "row",
+                alignItems: "center",
+                // 20 on the phone rather than the tablet's 32: the gaps are
+                // the only slack in a row whose type is fixed, and three of
+                // them at 32 is 96px the labels could be using.
+                gap: bp === "tablet" ? 32 : 20,
+                // Right-aligned while it fits (`margin-left: auto`), scrolling
+                // once it does not. `max-width: 100%` is what makes the
+                // difference: without it the row keeps its natural width and
+                // overflows the padding box instead of scrolling inside it.
+                marginLeft: "auto",
+                maxWidth: "100%",
+                overflowX: "auto",
+              }
         }
       >
         {NAV_SECTIONS.map((s) => {
           const on = active === s.id;
           return (
-            <li key={s.id} style={desktop ? { width: "100%", padding: "12px 0" } : undefined}>
+            <li
+              key={s.id}
+              // Never squash a label to make the row fit — that is what the
+              // scroll is for.
+              style={desktop ? { width: "100%", padding: "12px 0" } : { flexShrink: 0 }}
+            >
               <a
                 href={`#${s.id}`}
                 onClick={(e) => go(e, s.id)}
