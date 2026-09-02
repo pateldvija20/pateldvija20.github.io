@@ -33,7 +33,7 @@ export const NAV_SECTIONS: { id: SectionId; label: string }[] = [
  * been exported with its own wording and a spelling mistake in it.
  */
 export const INTRO = {
-  greeting: "Hello, Dvija here I am",
+  greeting: "Hello I am Dvija",
   /** The blue pill after the greeting. */
   role: "Product designer",
   description:
