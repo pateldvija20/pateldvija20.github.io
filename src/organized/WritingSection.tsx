@@ -1,21 +1,24 @@
-import { WRITING, WRITING_HEADING } from "./content";
-import { GradientCard } from "./GradientCard";
+import { WRITING_HEADING, WRITING_NOTE } from "./content";
 import { Section } from "./Section";
 
 /**
- * "How I See Things" (Figma 451:17513). Three across on desktop, two on
- * tablet, one on the phone.
+ * "How I See Things" (Figma 451:17513).
+ *
+ * ⚠️ Collapsed, for the same reason Archive is. The frame ships three cards
+ * and all three carry the same placeholder title with no link, because none
+ * of the writing exists yet — rendering them drew three identical tiles that
+ * looked like a rendering fault rather than an empty section. The heading
+ * stays (the scroll target and the sidebar entry both still resolve) and one
+ * line says what it is waiting for.
+ *
+ * `WRITING` in `content.ts` still holds the three mesh gradients and the
+ * grid this goes back to. Restoring it means putting real entries in that
+ * array and bringing back the grid here — not re-deriving the layout.
  */
 export function WritingSection() {
   return (
-    <Section id="writing" title={WRITING_HEADING} centred>
-      <div className="flex flex-col gap-[60px] xl:gap-[100px]">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-3">
-          {WRITING.map((card, i) => (
-            <GradientCard key={i} card={card} />
-          ))}
-        </div>
-      </div>
+    <Section id="writing" title={WRITING_HEADING}>
+      <p className="max-w-[60ch] text-xl text-muted md:text-2xl">{WRITING_NOTE}</p>
     </Section>
   );
 }
