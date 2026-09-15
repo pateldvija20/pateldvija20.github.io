@@ -1,7 +1,9 @@
 /**
  * The six case studies, in display order: published work first, then the two
- * that are still coming. This is the order the Work grid and the folder's fan
- * both read, so a visitor meets real case studies before placeholders.
+ * that are still coming, so a visitor meets real case studies before
+ * placeholders. The Work grid reads this top to bottom. The folder does not
+ * use it directly — its fan stacks back to front, so it puts the coming-soon
+ * sheets behind the published ones (`FOLDER_PROJECTS` in FileFolder).
  *
  * `thumb` files are committed under `public/assets/projects/`, downloaded from
  * the Figma fills rather than linked: the MCP asset URLs expire after ~7 days.

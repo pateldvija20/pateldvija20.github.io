@@ -5,6 +5,26 @@ import { SvgPiece, type Theme } from "./Piece";
 import { useIsTouch } from "./useIsTouch";
 import { useCenterOnPiece } from "./ScatteredFocus";
 import { PROJECTS, cardImage, type Project } from "./projects";
+
+/**
+ * The order the sheets take in the pocket, back to front.
+ *
+ * Slot 0 sits furthest back with the lowest z-index and each later slot stacks
+ * in front of it, so reading PROJECTS straight into the slots put the two
+ * unpublished case studies — last in that list — at the front of the fan,
+ * their tabs covering the real ones. The folder is a stack you look into from
+ * the front, so what is published belongs at the front and what is coming
+ * belongs behind it.
+ *
+ * A stable partition rather than a reversal: the coming-soon sheets move to
+ * the back and the published ones keep the order they already had. PROJECTS
+ * itself is untouched because the Work grid reads it top to bottom, where
+ * published-first is already right.
+ */
+const FOLDER_PROJECTS: Project[] = [
+  ...PROJECTS.filter((p) => p.wip),
+  ...PROJECTS.filter((p) => !p.wip),
+];
 import { CaseStudy } from "./CaseStudy";
 import { BILLY_AND_BUDDY_SECTIONS } from "./billyAndBuddy";
 import { HACKSVIT_SECTIONS } from "./hacksvit";
@@ -432,14 +452,17 @@ export function FileFolder({
   useLayoutEffect(() => {
     if (deepLinkProject == null && !open) return;
     if (deepLinkProject != null) {
-      const wip = PROJECTS[deepLinkProject].wip;
+      // App hands this over as an index into PROJECTS; the folder works in
+      // slots, which are in a different order (see FOLDER_PROJECTS).
+      const slot = FOLDER_PROJECTS.indexOf(PROJECTS[deepLinkProject]);
+      const wip = FOLDER_PROJECTS[slot].wip;
       if (!wip) {
         instantPullRef.current = true;
         openness.current.t = 1;
         paint(1);
-        pulledRef.current = deepLinkProject;
+        pulledRef.current = slot;
         setCardOut(true);
-        setPulled(deepLinkProject);
+        setPulled(slot);
       } else {
         // Unpublished: land on the open folder and say so. The URL hands
         // itself back to the folder since there is no page to own it.
@@ -448,7 +471,7 @@ export function FileFolder({
         if (window.location.pathname !== "/projects") {
           history.replaceState(null, "", "/projects");
         }
-        showWipNotice(PROJECTS[deepLinkProject].name);
+        showWipNotice(FOLDER_PROJECTS[slot].name);
       }
     }
     // Deferred past the stage's own mount: the scattered canvas scrolls to
@@ -477,7 +500,7 @@ export function FileFolder({
   const liftedRef = useRef<number | null>(null);
   useEffect(() => {
     const sheets = sheetRefs.current.filter(Boolean) as HTMLButtonElement[];
-    if (sheets.length !== PROJECTS.length) return;
+    if (sheets.length !== FOLDER_PROJECTS.length) return;
 
     // While a card is pulled, its sheet belongs to the pull timeline — hover
     // may not move it (or drop it back into the stack mid-pull).
@@ -680,8 +703,8 @@ export function FileFolder({
   const pullOut = async (i: number) => {
     if (pulledRef.current !== null) return;
     // Unpublished case study: lift nothing, just say so.
-    if (PROJECTS[i].wip) {
-      showWipNotice(PROJECTS[i].name);
+    if (FOLDER_PROJECTS[i].wip) {
+      showWipNotice(FOLDER_PROJECTS[i].name);
       return;
     }
     // Claimed synchronously, before the await, so a second click during the
@@ -723,7 +746,7 @@ export function FileFolder({
   // link the URL is already right, so this only fires for clicks.
   useEffect(() => {
     if (expanded === null) return;
-    const target = `/projects/${PROJECTS[expanded].slug}`;
+    const target = `/projects/${FOLDER_PROJECTS[expanded].slug}`;
     if (window.location.pathname !== target) {
       history.pushState(null, "", target);
     }
@@ -868,7 +891,7 @@ export function FileFolder({
               clipPath: "inset(-1000px 0px 0px 0px)",
             }}
           >
-            {PROJECTS.map((p, i) => (
+            {FOLDER_PROJECTS.map((p, i) => (
               <button
                 key={p.slug}
                 type="button"
@@ -925,7 +948,7 @@ export function FileFolder({
                 sheet stand down too: its body slides up beneath their bands,
                 and a strip stealing the hover mid-slide makes the two sheets
                 swap-lift in a jittering loop at the border. */}
-            {PROJECTS.map((p, i) => (
+            {FOLDER_PROJECTS.map((p, i) => (
               <div
                 key={`${p.slug}-strip`}
                 aria-hidden
@@ -943,7 +966,7 @@ export function FileFolder({
                   height:
                     (i < SHEETS.length - 1 ? SHEETS[i + 1].top : ART_FLAP_TOP) -
                     SHEETS[i].top,
-                  zIndex: PROJECTS.length + 1,
+                  zIndex: FOLDER_PROJECTS.length + 1,
                   pointerEvents:
                     shown &&
                     pulled === null &&
@@ -969,7 +992,7 @@ export function FileFolder({
                 top: ART_FLAP_TOP,
                 width: STAGE_W,
                 height: STAGE_H - ART_FLAP_TOP,
-                zIndex: PROJECTS.length + 2,
+                zIndex: FOLDER_PROJECTS.length + 2,
                 pointerEvents: shown && pulled === null ? "auto" : "none",
               }}
             />
@@ -1017,7 +1040,7 @@ export function FileFolder({
               }}
             >
               <img
-                src={cardImage(PROJECTS[pulled])}
+                src={cardImage(FOLDER_PROJECTS[pulled])}
                 alt=""
                 draggable={false}
                 className="pointer-events-none absolute inset-0 h-full w-full select-none object-cover"
@@ -1029,7 +1052,7 @@ export function FileFolder({
 
       {expanded !== null ? (
         <ExpandedPage
-          project={PROJECTS[expanded]}
+          project={FOLDER_PROJECTS[expanded]}
           theme={theme}
           from={pullCardRef.current}
           onShrunk={onShrunk}
