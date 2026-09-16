@@ -85,6 +85,17 @@ export type WritingCard = {
 
 export const WRITING_HEADING = "How I See Things";
 
+export const WRITING_NOTE =
+  "Notes on design, process and the things I keep noticing. The first pieces are being written; this section opens when they are worth reading.";
+
+/**
+ * ⚠️ PLACEHOLDER, currently unrendered — all three cards carry the same
+ * stand-in title and no link, because the writing itself does not exist yet.
+ * Drawing them put three identical "How to use icons in interfaces" tiles on
+ * the page, which reads as a bug rather than as a section awaiting content,
+ * so the section shows `WRITING_NOTE` instead. The three mesh gradients are
+ * kept: restoring the grid means replacing the entries, not the layout.
+ */
 export const WRITING: WritingCard[] = [
   { title: "How to use icons in interfaces", mesh: "/assets/gradient_card_1.svg" },
   { title: "How to use icons in interfaces", mesh: "/assets/gradient_card_2.svg" },

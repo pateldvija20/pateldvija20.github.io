@@ -19,12 +19,26 @@ const CORNER_ZONE = 170;
  * remaining margin is the yellow cover border. Corner affordances must track
  * the paper rect (rounded ~37px at the outer corners), not the canvas. */
 const PAPER = { x0: 18, y0: 20, x1: 1324, y1: 879 };
-const PAPER_CORNER_RADIUS = 36;
+/**
+ * The paper's corner radius, and it has to be the SVG's own number rather
+ * than a round one.
+ *
+ * Every spread draws its paper corner as `C1307.56 20 1324 36.4418 1324
+ * 56.7238` — a 36.72px arc, not 36. Clipping at 36 leaves each clipped layer
+ * a fraction squarer than the paper it is supposed to follow, and the
+ * leftover crescent shows whichever layer is behind: the dog-ear's white
+ * exposed-paper triangle bleeds past the paper onto the cover, and
+ * `PaperPage` (used by the turning flap) cuts inside its own paper and
+ * exposes the cover's near-black 2px rule underneath. A white corner in one
+ * place and a black one in the other, both from the same 0.72px.
+ */
+const PAPER_CORNER_RADIUS = 36.72;
 /** Rest tilt of the book on the desk; straightens to 0 while the book is open. */
 const REST_TILT = -4.73;
 
-/** The three designed spreads, one file per two-page view, in reading order:
- *  intro + photo grid → work experience + education → how I see things. */
+/** The three spreads, one file per two-page view, in reading order:
+ *  intro + photo grid → work experience + education → blank. The last one is
+ *  deliberately empty; see spread-3.svg. */
 const SPREADS = [
   "/assets/aboutme/spread-1.svg",
   "/assets/aboutme/spread-2.svg",
@@ -58,8 +72,11 @@ const PHOTOS: Photo[][] = [
     { src: "/assets/aboutme/Images/Image_5.jpg", x: 738, y: 446, w: 244.5, h: 280 },
     { src: "/assets/aboutme/Images/Image_6.jpg", x: 1012.5, y: 539, w: 244.5, h: 280 },
   ],
-  // Spread 3 — the full-bleed plate under "How I See Things".
-  [{ src: "/assets/aboutme/Images/Image_7.jpg", x: 78, y: 177, w: 533, h: 642 }],
+  // Spread 3 — none. The last spread is blank paper now (see spread-3.svg):
+  // it carried "How I See Things" and three gradient cards standing in for
+  // writing that does not exist yet, so the book was ending on a promise
+  // rather than on content. Image_7 is still in the repo for when it does.
+  [],
 ];
 
 /* ── Stickers ──
@@ -77,9 +94,8 @@ const STICKERS: StickerArt[][] = [
   [{ n: 1, cx: 237.95, cy: 659.05, w: 250, h: 236.3, rot: -4.61 }],
   // Spread 2 — none.
   [],
-  // Spread 3 — none. The sticker used to fill a hole left by a deleted note
-  // card on the old page 6; the redesigned page is three gradient cards edge
-  // to edge, so there is no hole and a sticker would land on top of them.
+  // Spread 3 — none. The page is blank now, and a sticker alone on empty
+  // paper would read as the content rather than as a note stuck to it.
   [],
 ];
 
@@ -301,22 +317,24 @@ function DogEar({ corner, size, active }: { corner: Corner; size: number; active
         transition: "transform 240ms cubic-bezier(0.22, 1, 0.36, 1)",
       }}
     >
-      <svg
-        width={s}
-        height={s}
-        viewBox={`0 0 ${s} ${s}`}
-        style={{ display: "block", filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.14))" }}
-        >
+      <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} style={{ display: "block" }}>
         <g transform={transform}>
-          {/* The corner region under the fold — plain paper behind. */}
+          {/* The corner region under the fold — plain paper behind, masking
+              whatever the page prints there so the fold reads as having
+              lifted the corner away. Casts nothing: it is flat paper, and
+              giving it the flap's shadow (which a filter on the <svg> did,
+              since that applies to the union of both paths) drew a shadow
+              along two edges that are interior to the page. */}
           <path d={`M0 0 L0 ${s} L${s} ${s} Z`} fill="#FDFEFF" />
-          {/* The folded flap, tip rounded, pointing into the page. */}
+          {/* The folded flap, tip rounded, pointing into the page. The only
+              part that is off the page, so the only part that casts. */}
           <path
             d={`M0 0 L${s} ${s} L${s} ${r} Q${s} 0 ${s - r} 0 Z`}
             fill="#FDFEFF"
             stroke="#2F2F2F"
             strokeWidth={2}
             strokeLinejoin="round"
+            style={{ filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.14))" }}
           />
         </g>
       </svg>
