@@ -68,7 +68,11 @@ export function IntroCard({ theme, className }: { theme: Theme; className?: stri
 
       <p
         className="absolute font-mono"
-        style={{ left: 290, top: 145, width: 286, fontSize: 15, lineHeight: 1.53, letterSpacing: 0.15 }}
+        // 20px DM Mono runs about 12px a character, so each half of the
+        // sentence is ~340px. The authored 286px column wrapped it to three
+        // lines; it is widened, and moved left to stay on the card, so it
+        // breaks after "feel" into two.
+        style={{ left: 240, top: 145, width: 352, fontSize: 20, fontWeight: 800, lineHeight: 1.25, letterSpacing: 0.15 }}
       >
         {INTRO.cardAside}
       </p>
