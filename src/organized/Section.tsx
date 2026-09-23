@@ -3,8 +3,8 @@ import type { ReactNode } from "react";
 /**
  * One Organised-mode section.
  *
- * Owns the page gutter, the scroll-snap target and the rule that closes the
- * section off.
+ * Owns the page gutter and the rule that closes the section off. Sections
+ * scroll freely; nothing snaps.
  *
  * The gutter steps 30 / 60 / 60 / 100 rather than Figma's 30 / 60 / 100,
  * because between 1025 and 1511 the 250px sidebar is already taking its width
@@ -12,16 +12,37 @@ import type { ReactNode } from "react";
  * around 575px. The full 100 arrives with the full 1512 frame it was drawn
  * against.
  *
- * `centred` is for the two sections whose content is shorter than a viewport
- * (About, How I See Things) — Figma gives both a full 982px frame with the
- * content sitting in the middle of it.
+ * Past the 1512 frame the section keeps widening, so its rule reaches the
+ * window's right edge, but its content stops at CONTENT_MAX, left-aligned
+ * beside the nav. The nav column takes the extra width on the left (see
+ * Sidebar), so nav and content stay together as one centred block. 1062 is
+ * what the frame gave the content (1512, less the 250 sidebar and two 100
+ * gutters), so nothing changes up to 1512.
+ *
+ * One spacing scale for every section, at every width:
+ *
+ *   section padding       30 phone / 60 tablet & laptop / 100 from 1280
+ *   heading -> content    40, 60 from 1280  (HEADING_GAP)
+ *   block -> block        40, 60 from 1280  (BLOCK_GAP)
+ *   rows, cards, items    24 phone, 32 from tablet  (ITEM_GAP)
+ *
+ * Sections size to their content. About used to be forced to a full viewport
+ * with its content centred in it, which put 179px under its heading at 1512
+ * against 60 everywhere else.
  */
+const CONTENT_MAX = 1062;
+
+/** Heading to the content under it. */
+export const HEADING_GAP = "mb-[40px] xl:mb-[60px]";
+/** Between the blocks that make up a section. */
+export const BLOCK_GAP = "gap-[40px] xl:gap-[60px]";
+/** Between repeated items: list rows, cards. */
+export const ITEM_GAP = "gap-[24px] md:gap-[32px]";
+
 export function Section({
   id,
   label,
   title,
-  lead,
-  centred = false,
   children,
 }: {
   id: string;
@@ -31,16 +52,6 @@ export function Section({
    *  one, so the page reads as a sequence of named parts rather than a run of
    *  unlabelled blocks. */
   title?: string;
-  /**
-   * Content that comes *before* the heading, inside the same section.
-   *
-   * Only Work uses it, for the introduction the page opens on. Putting that in
-   * a section of its own would have drawn a rule under it and made the visitor
-   * cross a section break before reaching any work; putting it after the
-   * heading made the page announce "Work" before saying whose work it is.
-   */
-  lead?: ReactNode;
-  centred?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -50,24 +61,19 @@ export function Section({
       // scroll-mt keeps a smooth-scrolled section clear of the sticky top bar
       // at the two widths that have one; the desktop sidebar is beside the
       // content, not over it, so it needs none.
-      className={`scroll-mt-[95px] px-[30px] py-[30px] md:scroll-mt-[107px] md:px-[60px] md:py-[60px] lg:scroll-mt-0 xl:px-[100px] xl:py-[100px] ${
-        centred ? "flex min-h-[100svh] flex-col justify-center" : ""
-      }`}
+      className="scroll-mt-[95px] px-[30px] py-[30px] md:scroll-mt-[107px] md:px-[60px] md:py-[60px] lg:scroll-mt-0 xl:px-[100px] xl:py-[100px]"
       style={{
-        // Proximity, not mandatory: Work and Archive are both several
-        // viewports tall, and mandatory snapping would make the middle of a
-        // long section impossible to rest on.
-        scrollSnapAlign: "start",
         borderBottom: "1px solid color-mix(in srgb, var(--edge) 18%, transparent)",
       }}
     >
-      {lead}
-      {title ? (
-        <div className={centred ? "mb-[60px]" : "mb-[40px] xl:mb-[60px]"}>
-          <SectionHeading>{title}</SectionHeading>
-        </div>
-      ) : null}
-      {children}
+      <div className="w-full" style={{ maxWidth: CONTENT_MAX }}>
+        {title ? (
+          <div className={HEADING_GAP}>
+            <SectionHeading>{title}</SectionHeading>
+          </div>
+        ) : null}
+        {children}
+      </div>
     </section>
   );
 }

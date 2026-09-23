@@ -72,7 +72,7 @@ function PieceShape({ piece, uid }: { piece: PuzzlePiece; uid: string }) {
           width={PUZZLE_W}
           height={PUZZLE_H}
           preserveAspectRatio="xMidYMid slice"
-          opacity={0.35}
+          opacity={0.12}
         />
       </g>
     </svg>

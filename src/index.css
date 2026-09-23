@@ -113,20 +113,19 @@ body {
   height: 100%;
 }
 
-/* Organised sections snap as you scroll past them. `proximity` rather than
-   `mandatory` on purpose: Work and Archive run several viewports tall, and
-   mandatory snapping would refuse to let the reader stop halfway down one.
-   Scoped to the attribute App sets, so the Scattered canvas — which pans
-   rather than scrolls in sections — is unaffected. */
-html[data-organised] {
-  scroll-snap-type: y proximity;
+/* The typing caret on the footer paper's tooltip, once the line is typed.
+   A hard on/off step, like a text cursor, rather than a fade. */
+@keyframes caret-blink {
+  50% {
+    opacity: 0;
+  }
 }
-
-/* A snapping scroller must not also smooth-scroll natively, or a
-   programmatic scrollIntoView fights the snap and lands short. */
+.caret-blink {
+  animation: caret-blink 1s step-end infinite;
+}
 @media (prefers-reduced-motion: reduce) {
-  html[data-organised] {
-    scroll-snap-type: none;
+  .caret-blink {
+    animation: none;
   }
 }
 

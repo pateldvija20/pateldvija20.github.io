@@ -3,11 +3,11 @@ import type { Theme } from "../pieces/Piece";
 import { PROJECTS } from "../pieces/projects";
 import { AboutSection } from "./AboutSection";
 import { ArchiveSection } from "./ArchiveSection";
-import type { SectionId } from "./content";
+import { HIDDEN_SECTIONS, type SectionId } from "./content";
 import { ProjectOverlay } from "./ProjectOverlay";
 import { ResumeSection } from "./ResumeSection";
 import { Sidebar } from "./Sidebar";
-import { WorkSection } from "./WorkSection";
+import { IntroSection, WorkSection } from "./WorkSection";
 import { WritingSection } from "./WritingSection";
 
 /**
@@ -72,14 +72,18 @@ export function OrganizedPage({
 
   return (
     <>
-      <div className="mx-auto flex w-full max-w-[1512px] flex-col lg:flex-row lg:items-start">
+      {/* Full width: the sidebar keeps to the window's left edge and each
+          section's rule runs to the right edge. What stops growing on a wide
+          screen is the content inside a section (see `Section`), not the page. */}
+      <div className="flex w-full flex-col lg:flex-row lg:items-start">
         <Sidebar />
         <main className="min-w-0 flex-1">
+          <IntroSection />
           <WorkSection onOpen={openProject} />
           <AboutSection />
-          <WritingSection />
+          {HIDDEN_SECTIONS.has("writing") ? null : <WritingSection />}
           <ResumeSection />
-          <ArchiveSection />
+          {HIDDEN_SECTIONS.has("archive") ? null : <ArchiveSection />}
         </main>
       </div>
 

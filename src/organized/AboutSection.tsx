@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ABOUT, ABOUT_PHOTOS } from "./content";
-import { Section } from "./Section";
+import { BLOCK_GAP, Section } from "./Section";
 
 /* Polaroid geometry, Figma 456:18898. */
 const FRAME_W = 483.862;
@@ -166,8 +166,8 @@ export function AboutSection() {
   }, [inView, hovered, dealing, deal]);
 
   return (
-    <Section id="about" title="About" centred>
-      <div className="flex flex-col gap-[60px] xl:flex-row xl:items-center xl:gap-[80px]">
+    <Section id="about" title="About">
+      <div className={`flex flex-col xl:flex-row xl:items-start ${BLOCK_GAP}`}>
         {/* No greeting line here any more. The page already opens on "Hello,
             Dvija here I am" above the Work grid, and repeating the
             introduction two sections later made the About section read as a

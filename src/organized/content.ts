@@ -12,12 +12,20 @@
 
 export type SectionId = "work" | "about" | "resume" | "archive";
 
-export const NAV_SECTIONS: { id: SectionId; label: string }[] = [
-  { id: "work", label: "Work" },
-  { id: "about", label: "About" },
-  { id: "resume", label: "Resume" },
-  { id: "archive", label: "Archive" },
-];
+/**
+ * Sections that are built but not shown on the site: they render nothing and
+ * drop out of the nav. Remove an id to bring its section back.
+ */
+export const HIDDEN_SECTIONS: ReadonlySet<string> = new Set(["writing", "archive"]);
+
+export const NAV_SECTIONS: { id: SectionId; label: string }[] = (
+  [
+    { id: "work", label: "Work" },
+    { id: "about", label: "About" },
+    { id: "resume", label: "Resume" },
+    { id: "archive", label: "Archive" },
+  ] satisfies { id: SectionId; label: string }[]
+).filter((s) => !HIDDEN_SECTIONS.has(s.id));
 
 /* ------------------------------------------------------------------ */
 /* Intro (Figma 1840:35880)                                             */
@@ -157,13 +165,6 @@ export const EDUCATION = [
     city: "Ahmedabad, India",
     dates: "Jun ‘19 – May ‘23",
   },
-];
-
-export const SOCIALS = [
-  { label: "Email", href: "mailto:pateldvija20@gmail.com" },
-  { label: "LinkedIn", href: "https://www.linkedin.com/in/pateldvija" },
-  { label: "Twitter", href: "https://twitter.com/pateldvija" },
-  { label: "Github", href: "https://github.com/pateldvija" },
 ];
 
 /* ------------------------------------------------------------------ */
