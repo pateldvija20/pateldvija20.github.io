@@ -20,8 +20,10 @@ export const PUZZLE_W = PUZZLE_COLS * PUZZLE_CELL;
 export const PUZZLE_H = PUZZLE_ROWS * PUZZLE_CELL;
 
 export const PUZZLE_ART = "/assets/puzzle/artwork.png";
-/** Paper grain Figma composites over the illustration. */
-export const PUZZLE_GRAIN = "/assets/puzzle/grain.png";
+/** A fine paper grain over the illustration: an SVG noise filter, dark specks
+ *  on transparent. (The export this replaced was a full lake photograph, which
+ *  showed through every piece as a second picture.) */
+export const PUZZLE_GRAIN = "/assets/puzzle/grain.svg";
 
 export type PuzzlePiece = {
   /** Stable id, also `${col}-${row}`. */

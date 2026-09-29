@@ -1,13 +1,12 @@
-import { ArrowIcon } from "./ArrowIcon";
-import { EDUCATION, EXPERIENCE, RESUME_PDF, SOCIALS } from "./content";
-import { Section, SectionHeading } from "./Section";
+import { EDUCATION, EXPERIENCE, RESUME_PDF } from "./content";
+import { BLOCK_GAP, ITEM_GAP, Section, SectionHeading } from "./Section";
 import type { ReactNode } from "react";
 
 /**
  * Résumé. Three genuinely different layouts, one per authored frame:
  *
  *   phone   (458:33380)  label above; every field on its own line
- *   tablet  (456:32780)  label above; fields in columns; contacts in a row
+ *   tablet  (456:32780)  label above; fields in columns
  *   desktop (456:18800)  label in a 200px column to the left
  *
  * Everything used to key off `xl:` (1512), which collapsed all three into the
@@ -31,13 +30,13 @@ const DATES = "shrink-0 md:w-[150px] xl:w-[180px]";
  */
 function Row({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="flex flex-col gap-[24px] md:gap-[40px] xl:flex-row">
+    <div className={`flex flex-col xl:flex-row ${ITEM_GAP} xl:gap-[40px]`}>
       <div className="shrink-0 xl:w-[200px]">
         <h3 className="text-xl font-medium tracking-[0.02em]" style={{ color: "var(--content)" }}>
           {label}
         </h3>
       </div>
-      <div className="flex min-w-0 flex-1 flex-col gap-[24px] md:gap-[40px]">{children}</div>
+      <div className={`flex min-w-0 flex-1 flex-col ${ITEM_GAP}`}>{children}</div>
     </div>
   );
 }
@@ -45,13 +44,16 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 export function ResumeSection() {
   return (
     <Section id="resume" label="Resume">
-      <div className="flex flex-col gap-[40px] md:gap-[60px] xl:gap-[80px]">
+      <div className={`flex flex-col ${BLOCK_GAP}`}>
         <div className="flex flex-wrap items-center justify-between gap-6">
           <SectionHeading>Resume</SectionHeading>
+          {/* The button is 60px tall against the heading's 34. Its extra 13px
+              above and below hang outside the row, so the heading sits the
+              same distance from its content here as in every other section. */}
           <a
             href={RESUME_PDF}
             download
-            className="rounded-xl px-6 py-4 text-lg font-medium capitalize transition-opacity duration-200 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4"
+            className="-my-[13px] rounded-xl px-6 py-4 text-lg font-medium capitalize transition-opacity duration-200 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4"
             style={{ background: "var(--color-link)", color: "#fdfeff", outlineColor: "var(--content)" }}
           >
             Download PDF
@@ -88,27 +90,6 @@ export function ResumeSection() {
               <span className={DATES}>{e.dates}</span>
             </div>
           ))}
-        </Row>
-
-        <Row label="Contact">
-          {/* Stacked on the phone, four across from tablet up (456:32790). */}
-          <div className="grid grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-4">
-            {SOCIALS.map((s) => (
-              <a
-                key={s.label}
-                href={s.href}
-                target={s.href.startsWith("mailto:") ? undefined : "_blank"}
-                rel="noreferrer"
-                className="group flex items-center justify-between gap-3 border-b pb-4 text-xl font-medium text-muted transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-4"
-                style={{ borderColor: "var(--edge)", outlineColor: "var(--content)" }}
-              >
-                <span className="transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transform-none">
-                  {s.label}
-                </span>
-                <ArrowIcon />
-              </a>
-            ))}
-          </div>
         </Row>
       </div>
     </Section>

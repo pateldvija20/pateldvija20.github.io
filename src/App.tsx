@@ -3,7 +3,7 @@ import gsap from "gsap";
 import { ControlBar, type Mode } from "./pieces/ControlBar";
 import { OrganizedPage } from "./organized/OrganizedPage";
 import type { SectionId } from "./organized/content";
-import { canScatter, MOBILE_BP, prefersScatter } from "./responsive";
+import { canScatter, MOBILE_BP } from "./responsive";
 import { Preloader } from "./pieces/Preloader";
 import {
   FocusedIdContext,
@@ -44,8 +44,8 @@ const SEEN_PRELOADER = "dp:preloader-seen";
  * rather than resetting them to Organised.
  *
  * `sessionStorage`, matching the preloader flag: it survives a refresh and a
- * bounce through the case-study routes, while a genuinely new visit falls
- * back to the width rule in `App`. Organised stays the only linkable mode.
+ * bounce through the case-study routes, while a genuinely new visit opens on
+ * Organised. Organised stays the only linkable mode.
  */
 const LAST_MODE = "dp:mode";
 
@@ -660,16 +660,23 @@ function systemTheme(): Theme {
 }
 
 function useBayClock() {
-  const [clock, setClock] = useState("Bay Area, 12:17PM");
+  const [clock, setClock] = useState("San Francisco, 12:17PM PDT");
   useEffect(() => {
     const tick = () => {
-      const t = new Date().toLocaleTimeString("en-US", {
+      const parts = new Intl.DateTimeFormat("en-US", {
         timeZone: "America/Los_Angeles",
         hour: "numeric",
         minute: "2-digit",
         hour12: true,
-      });
-      setClock(`Bay Area, ${t.replace(" ", "")}`);
+        timeZoneName: "short",
+      }).formatToParts(new Date());
+
+      const get = (type: Intl.DateTimeFormatPartTypes) =>
+        parts.find((p) => p.type === type)?.value ?? "";
+      const time = `${get("hour")}:${get("minute")}${get("dayPeriod")}`;
+      const zone = get("timeZoneName"); // "PDT" or "PST"
+
+      setClock(`San Francisco, ${time} ${zone}`);
     };
     tick();
     const iv = setInterval(tick, 15000);
@@ -693,21 +700,15 @@ export default function App() {
   //
   //   1. A deep link always resolves to Organised — that is the only mode with
   //      real URLs, so a shared link has to land where it points.
-  //   2. Whatever they chose last, if they chose. A remembered mode outranks
-  //      the width rule below: someone who switched to Organised and reloaded
-  //      meant it, and having the desk reassert itself would read as the
-  //      toggle not working.
-  //   3. On a wide enough window, the desk. Below that, Organised.
-  //
-  // Organised remains the only directly linkable mode; this changes which door
-  // a fresh visit comes through, not what a URL can address.
+  //   2. Whatever they chose last this session, if they chose. Someone who
+  //      switched to the desk and reloaded meant it, and snapping back would
+  //      read as the toggle not working.
+  //   3. Otherwise Organised, at every width. The desk is one click away on
+  //      the toggle wherever the window is wide enough for it.
   const deepLinked = initialRoute.folder || initialRoute.slug !== null || initialAboutRoute !== null;
   const [mode, setMode] = useState<Mode>(() => {
     if (deepLinked) return "organized";
-    const remembered = rememberedMode();
-    if (remembered) return remembered;
-    if (typeof window === "undefined") return "organized";
-    return prefersScatter(window.innerWidth) ? "scattered" : "organized";
+    return rememberedMode() ?? "organized";
   });
 
   useEffect(() => {
@@ -836,16 +837,6 @@ export default function App() {
   }, [scatterAllowed, mode]);
   const showScattered = mode === "scattered" && scatterAllowed;
 
-  // Scroll-snap belongs to Organised only — Scattered pans a canvas rather
-  // than scrolling through sections, and snapping would fight the pan.
-  useEffect(() => {
-    const root = document.documentElement;
-    if (showScattered) delete root.dataset.organised;
-    else root.dataset.organised = "true";
-    return () => {
-      delete root.dataset.organised;
-    };
-  }, [showScattered]);
 
 
   return (

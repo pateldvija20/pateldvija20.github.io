@@ -51,6 +51,9 @@ function useScrollSpy(ids: SectionId[]) {
 
 const IDS = NAV_SECTIONS.map((s) => s.id);
 
+/** Half of whatever the window has beyond the 1512 frame; 0 up to 1512. */
+const SPARE_HALF = "max(0px, (100% - 1512px) / 2)";
+
 /** The phone bar's one control. Matches `ControlBar`'s geometry at phone
  *  widths so the two sit together as a pair rather than as two loose
  *  buttons. */
@@ -153,14 +156,21 @@ export function Sidebar() {
   // height/direction utilities on one element: on desktop this is a
   // full-height column beside the content with the links at its foot, and
   // below that a bar across the top.
+  //
+  // Past 1512 the nav and the content move together as one centred 1512
+  // block. The nav column absorbs the left-hand half of the spare width (its
+  // links stay 60px in from its right edge, beside the content), and Section
+  // leaves the matching half empty on the right. `100%` here is the full-width
+  // page row, so the scrollbar never skews the split.
   const shell: React.CSSProperties = desktop
     ? {
-        width: 250,
+        width: `calc(250px + ${SPARE_HALF})`,
         height: "100vh",
         flexDirection: "column",
         alignItems: "flex-start",
         justifyContent: "flex-end",
         padding: 60,
+        paddingLeft: `calc(60px + ${SPARE_HALF})`,
         flexShrink: 0,
       }
     : {
