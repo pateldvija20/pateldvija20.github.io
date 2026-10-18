@@ -1,54 +1,69 @@
-import { PROJECTS } from "../pieces/projects";
-import { ProjectCard } from "../pieces/ProjectCard";
-import { INTRO } from "./content";
-import { ITEM_GAP, Section } from "./Section";
+import { cardImage, PROJECTS, type Project } from "../pieces/projects";
+import { Section } from "./Section";
 
 /**
- * The introduction the page opens on (Figma 1840:35880), in a section of its
- * own above Work: same padding and closing rule as every other section, and no
- * heading, since the greeting is the heading. Not in the nav — it is the top of
- * the page, and Work is the first place to jump to.
+ * The Work grid, after rachelchen.tech: two columns of images, each with a
+ * one-line caption under it — name in ink, then " / type year" in the quiet
+ * grey — and the project's title beneath. No card chrome: the image is the
+ * card. The cursor carries the call to action ("View project"), so the tile
+ * itself stays quiet.
  *
- * The blue pill keeps the 2.02° tilt the file gives it. That tilt is the one
- * bit of the desk's character the document borrows — everything else here is
- * square — so the tidy mode still reads as the same portfolio rather than as a
- * different site.
+ * One column on the phone.
  */
-export function IntroSection() {
-  return (
-    <Section id="intro" label="Introduction">
-      <div className="flex flex-col gap-[20px]">
-        <div className="flex flex-wrap items-center gap-x-[20px] gap-y-[12px]">
-          <p className="font-slab text-section" style={{ color: "var(--content)" }}>
-            {INTRO.greeting}
-          </p>
-          <span
-            className="font-slab text-section inline-block rotate-[2.02deg] whitespace-nowrap rounded-[12px] px-[24px] py-[8px]"
-            style={{
-              background: "var(--color-link)",
-              color: "#fdfeff",
-              border: "3px solid var(--edge)",
-            }}
-          >
-            {INTRO.role}
-          </span>
-        </div>
-        <p className="text-2xl font-medium text-muted">{INTRO.description}</p>
+function WorkTile({ project, onOpen }: { project: Project; onOpen: (el: HTMLElement) => void }) {
+  const wip = project.wip === true;
+  const qualifier = wip ? "Coming soon" : [project.type, project.year].filter(Boolean).join(" ");
+
+  const body = (
+    <>
+      <div className="w-full overflow-hidden rounded-[4px]" style={{ aspectRatio: "16 / 10", background: "var(--rule)" }}>
+        <img
+          src={cardImage(project)}
+          alt=""
+          draggable={false}
+          className="h-full w-full select-none object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02] motion-reduce:transition-none"
+        />
       </div>
-    </Section>
+      <div className="flex flex-col gap-[4px] pt-[12px] text-left">
+        <p className="text-[15px] leading-[1.4]">
+          <span style={{ color: "var(--content)" }}>{project.name}</span>
+          {qualifier ? <span style={{ color: "var(--quiet)" }}> / {qualifier}</span> : null}
+        </p>
+        {project.title ? (
+          <p className="text-[15px] leading-[1.4]" style={{ color: "var(--quiet)" }}>
+            {project.title}
+          </p>
+        ) : null}
+      </div>
+    </>
+  );
+
+  if (wip) {
+    return (
+      <div className="flex flex-col" data-cursor="Coming soon" aria-label={`${project.name}, coming soon`}>
+        {body}
+      </div>
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={(e) => onOpen(e.currentTarget)}
+      data-cursor="View project"
+      className="group flex cursor-pointer flex-col border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-4"
+      style={{ outlineColor: "var(--content)" }}
+    >
+      {body}
+    </button>
   );
 }
 
-/**
- * The Work grid (Figma 456:31740). Two columns on desktop and tablet, one on
- * the phone; the shared item gap (24 phone, 32 up).
- */
 export function WorkSection({ onOpen }: { onOpen: (slug: string, el: HTMLElement) => void }) {
   return (
     <Section id="work" title="Work">
-      <div className={`grid grid-cols-1 md:grid-cols-2 ${ITEM_GAP}`}>
+      <div className="grid grid-cols-1 gap-x-[24px] gap-y-[40px] md:grid-cols-2 xl:gap-y-[56px]">
         {PROJECTS.map((p) => (
-          <ProjectCard key={p.slug} project={p} onOpen={(el) => onOpen(p.slug, el)} />
+          <WorkTile key={p.slug} project={p} onOpen={(el) => onOpen(p.slug, el)} />
         ))}
       </div>
     </Section>

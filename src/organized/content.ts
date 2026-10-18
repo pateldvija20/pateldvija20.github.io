@@ -10,7 +10,7 @@
 /* Nav                                                                  */
 /* ------------------------------------------------------------------ */
 
-export type SectionId = "work" | "about" | "resume" | "archive";
+export type SectionId = "work" | "play" | "about" | "resume" | "archive";
 
 /**
  * Sections that are built but not shown on the site: they render nothing and
@@ -21,8 +21,10 @@ export const HIDDEN_SECTIONS: ReadonlySet<string> = new Set(["writing", "archive
 export const NAV_SECTIONS: { id: SectionId; label: string }[] = (
   [
     { id: "work", label: "Work" },
+    { id: "play", label: "Play" },
     { id: "about", label: "About" },
-    { id: "resume", label: "Resume" },
+    // The id stays `resume` so existing /work-experience links still land.
+    { id: "resume", label: "CV" },
     { id: "archive", label: "Archive" },
   ] satisfies { id: SectionId; label: string }[]
 ).filter((s) => !HIDDEN_SECTIONS.has(s.id));
@@ -63,20 +65,98 @@ export const ABOUT = {
 };
 
 /**
- * The photo deck. Three are visible at a time in the polaroid stack; clicking
- * it deals through all of them. These are the journal's own pictures — the
- * About frame ships empty placeholders, and the brief is to reuse what the
- * book already has.
+ * The four photos under the About copy, captioned "01 / Me" style. Picked
+ * from the journal's own pictures; the captions describe what is in each
+ * frame, so they change with the photo.
  */
-export const ABOUT_PHOTOS = [
-  "/assets/aboutme/Images/Image_1.jpg",
-  "/assets/aboutme/Images/Image_2.jpg",
-  "/assets/aboutme/Images/Image_3.jpg",
-  "/assets/aboutme/Images/Image_4.jpg",
-  "/assets/aboutme/Images/Image_5.jpg",
-  "/assets/aboutme/Images/Image_6.jpg",
-  "/assets/aboutme/Images/Image_7.jpg",
+export const ABOUT_PHOTOS: { src: string; caption: string }[] = [
+  { src: "/assets/aboutme/Images/Image_1.jpg", caption: "Me" },
+  { src: "/assets/aboutme/Images/Image_2.jpg", caption: "At my desk" },
+  { src: "/assets/aboutme/Images/Image_3.jpg", caption: "Kayaking" },
+  { src: "/assets/aboutme/Images/Image_5.jpg", caption: "Graduation" },
 ];
+
+/* ------------------------------------------------------------------ */
+/* Hero (Figma Homepage 2754:1044)                                      */
+/* ------------------------------------------------------------------ */
+
+export const HERO = {
+  greeting: "Hi, I’m Dvija,",
+  /** Drawn, not set: the script line is Figma's outlined lettering
+   *  (`.hero-script`), so this is its accessible text. */
+  role: "Product Designer",
+  tagline: "I bridge the gap between ambiguity and structured, scalable design.",
+};
+
+/* ------------------------------------------------------------------ */
+/* Play                                                                 */
+/* ------------------------------------------------------------------ */
+
+export type PlayItem = {
+  title: string;
+  /** "Type · Tool", the line under the title. */
+  meta: string;
+  src: string;
+  /** The art is a line drawing with a dark-theme version. */
+  srcDark?: string;
+  /** Opens the desk (Scattered mode) instead of being a static tile. */
+  playground?: boolean;
+  /** A screenshot rather than a drawing: it fills its frame edge to edge
+   *  instead of sitting inside it with a margin. */
+  bleed?: boolean;
+};
+
+/**
+ * ⚠️ PLACEHOLDER COPY — the tiles are the desk and its own drawings, so the
+ * images are real, but the titles and meta lines are stand-ins written to
+ * describe them. Replace with real side projects and explorations as they are
+ * ready; the layout takes any number of tiles.
+ *
+ * The desk screenshots are captures of Scattered mode at 1600 wide, controls
+ * cropped off. Re-capture them when the desk changes.
+ */
+export const PLAY: PlayItem[] = [
+  {
+    title: "A desk you can play with: the interactive version of this portfolio",
+    meta: "Interaction · React",
+    src: "/assets/play/desk-light.jpg",
+    srcDark: "/assets/play/desk-dark.jpg",
+    playground: true,
+    bleed: true,
+  },
+  {
+    title: "A keyboard that types along with you",
+    meta: "Illustration · Interaction",
+    src: "/assets/keyboard_light.svg",
+    srcDark: "/assets/keyboard_dark.svg",
+  },
+  {
+    title: "A pencil box with a pencil for every colour",
+    meta: "Illustration · Figma",
+    src: "/assets/pencilbox_light.svg",
+    srcDark: "/assets/pencilbox_dark.svg",
+  },
+  {
+    title: "A journal that opens into the About page",
+    meta: "Illustration · Interaction",
+    src: "/assets/aboutme_book_open.svg",
+  },
+];
+
+/* ------------------------------------------------------------------ */
+/* CV                                                                   */
+/* ------------------------------------------------------------------ */
+
+export const CV = {
+  name: "Dvija Patel",
+  summary:
+    "Product designer based in Cincinnati, with 4+ years across startups building 0→1 products and the systems that let them grow. Master of Design in Human-Centered Technology Design from the University of Cincinnati.",
+  contact: [
+    { label: "LinkedIn", value: "pateldvija", href: "https://www.linkedin.com/in/pateldvija/" },
+    { label: "GitHub", value: "pateldvija20", href: "https://github.com/pateldvija20" },
+    { label: "X", value: "@pateldvija20", href: "https://x.com/pateldvija20" },
+  ],
+};
 
 /* ------------------------------------------------------------------ */
 /* How I See Things (Figma 451:17513)                                   */

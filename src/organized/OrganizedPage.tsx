@@ -4,10 +4,13 @@ import { PROJECTS } from "../pieces/projects";
 import { AboutSection } from "./AboutSection";
 import { ArchiveSection } from "./ArchiveSection";
 import { HIDDEN_SECTIONS, type SectionId } from "./content";
+import { Cursor } from "./Cursor";
+import { HeroSection } from "./HeroSection";
+import { PlaySection } from "./PlaySection";
 import { ProjectOverlay } from "./ProjectOverlay";
 import { ResumeSection } from "./ResumeSection";
 import { Sidebar } from "./Sidebar";
-import { IntroSection, WorkSection } from "./WorkSection";
+import { WorkSection } from "./WorkSection";
 import { WritingSection } from "./WritingSection";
 
 /**
@@ -25,8 +28,11 @@ export function OrganizedPage({
   theme,
   initialSection = null,
   initialSlug = null,
+  onEnterPlayground,
 }: {
   theme: Theme;
+  /** Switches to the desk. Absent where the desk is unavailable. */
+  onEnterPlayground?: () => void;
   /** Section a deep link should land on. */
   initialSection?: SectionId | null;
   /** Project a `/projects/<slug>` deep link should open. */
@@ -78,14 +84,17 @@ export function OrganizedPage({
       <div className="flex w-full flex-col lg:flex-row lg:items-start">
         <Sidebar />
         <main className="min-w-0 flex-1">
-          <IntroSection />
+          <HeroSection />
           <WorkSection onOpen={openProject} />
+          <PlaySection onEnterPlayground={onEnterPlayground} />
           <AboutSection />
           {HIDDEN_SECTIONS.has("writing") ? null : <WritingSection />}
           <ResumeSection />
           {HIDDEN_SECTIONS.has("archive") ? null : <ArchiveSection />}
         </main>
       </div>
+
+      <Cursor />
 
       {open ? <ProjectOverlay project={open} theme={theme} from={openFrom} onClose={closeProject} /> : null}
     </>

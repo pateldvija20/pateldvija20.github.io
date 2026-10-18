@@ -81,8 +81,8 @@ export function PaperBall({
           role="tooltip"
           className={`pointer-events-none absolute -top-3 left-1/2 w-max -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-full border-2 px-4 py-2 text-[15px] font-semibold shadow-[0_8px_20px_rgba(0,0,0,0.2)] ${
             isDark
-              ? "border-[#fdfeff] bg-[#2f2f2f] text-[#fdfeff]"
-              : "border-[#2f2f2f] bg-[#fdfeff] text-[#2f2f2f]"
+              ? "border-[#fdfeff] bg-[var(--footer-ink,#2f2f2f)] text-[#fdfeff]"
+              : "border-[var(--footer-ink,#2f2f2f)] bg-[#fdfeff] text-[var(--footer-ink,#2f2f2f)]"
           }`}
         >
           {/* The invisible full line sizes the pill up front, so it doesn't

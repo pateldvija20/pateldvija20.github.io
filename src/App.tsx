@@ -816,7 +816,10 @@ export default function App() {
     setLoading(true);
   }, [mode]);
 
-  const pageBg = theme === "light" ? "#fdfeff" : "#2f2f2f";
+  // Organised mode's ink is #101010; the desk keeps the #2f2f2f its
+  // illustrations are drawn against (see `data-layout` in index.css).
+  const darkBg = mode === "organized" ? "#101010" : "#2f2f2f";
+  const pageBg = theme === "light" ? "#fdfeff" : darkBg;
   const stageProps = {
     theme,
     bookOpen,
@@ -837,6 +840,11 @@ export default function App() {
   }, [scatterAllowed, mode]);
   const showScattered = mode === "scattered" && scatterAllowed;
 
+  // Which layout is on screen, for CSS: Organised has its own palette and
+  // its own cursor, and neither may leak onto the desk.
+  useEffect(() => {
+    document.documentElement.dataset.layout = showScattered ? "scattered" : "organized";
+  }, [showScattered]);
 
 
   return (
@@ -866,10 +874,11 @@ export default function App() {
           theme={theme}
           initialSection={initialSection}
           initialSlug={initialRoute.slug}
+          onEnterPlayground={scatterAllowed ? () => setMode("scattered") : undefined}
         />
       )}
 
-      <FooterFit theme={theme} clock={clock} />
+      <FooterFit theme={theme} clock={clock} organized={!showScattered} />
     </div>
   );
 }
@@ -880,7 +889,7 @@ export default function App() {
  * at 440px the scaled desk footer would render its CONNECT card at 25%, which
  * is unreadable, and Figma's own phone footer is a different composition
  * rather than a smaller one. */
-function FooterFit({ theme, clock }: { theme: Theme; clock: string }) {
+function FooterFit({ theme, clock, organized }: { theme: Theme; clock: string; organized: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   const scale = useFit(ref, FOOTER_W);
   const [phone, setPhone] = useState(
@@ -907,7 +916,7 @@ function FooterFit({ theme, clock }: { theme: Theme; clock: string }) {
         className="absolute left-0 top-0 origin-top-left"
         style={{ width: FOOTER_W, transform: `scale(${scale})` }}
       >
-        <Footer theme={theme} clock={clock} className="h-[552px] w-[1729px]" />
+        <Footer theme={theme} clock={clock} organized={organized} className="h-[552px] w-[1729px]" />
       </div>
     </div>
   );

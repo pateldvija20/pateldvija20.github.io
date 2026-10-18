@@ -1,96 +1,139 @@
-import { EDUCATION, EXPERIENCE, RESUME_PDF } from "./content";
-import { BLOCK_GAP, ITEM_GAP, Section, SectionHeading } from "./Section";
 import type { ReactNode } from "react";
+import { CV, EDUCATION, EXPERIENCE, RESUME_PDF } from "./content";
+import { Section } from "./Section";
 
 /**
- * Résumé. Three genuinely different layouts, one per authored frame:
+ * CV, after madhurima.me/cv: one narrow column that reads like the document
+ * it is. Name and a two-line summary, a quiet Download PDF button, then
+ * labelled blocks — Contact, Work Experience, Education — of short rows:
+ * a mark and the organisation, the role, and the dates in mono.
  *
- *   phone   (458:33380)  label above; every field on its own line
- *   tablet  (456:32780)  label above; fields in columns
- *   desktop (456:18800)  label in a 200px column to the left
+ * The rows are a three-column grid from tablet up so the roles and dates line
+ * up down the page; on the phone each row stacks.
  *
- * Everything used to key off `xl:` (1512), which collapsed all three into the
- * phone layout at every width below the full frame — including ordinary
- * desktops. Columns now arrive at `md:`, where there is room for them, and only
- * the label's move to its own column waits for the full frame.
- *
- * Figma runs three columns here; the fourth is the city, added on request.
+ * The section keeps the id `resume`, which /work-experience deep links land
+ * on; only its label says CV.
  */
 
-/** One row of fields. Stacked on the phone, columns from tablet up. */
+/** Organisation, role, dates. */
 const ROW =
-  "flex flex-col gap-2 text-xl font-medium text-muted md:flex-row md:items-baseline md:gap-[40px]";
-/** The trailing date column — fixed at Figma's 180 once there are columns. */
-const DATES = "shrink-0 md:w-[150px] xl:w-[180px]";
+  "grid grid-cols-1 gap-[2px] py-[10px] text-[15px] leading-[1.4] md:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_140px] md:items-baseline md:gap-[16px]";
 
-/**
- * A labelled block. The label sits above its rows until the full 1512 frame,
- * where it moves into its own 200px column — that is the one structural
- * difference between the tablet and desktop frames.
- */
-function Row({ label, children }: { label: string; children: ReactNode }) {
+function Block({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div className={`flex flex-col xl:flex-row ${ITEM_GAP} xl:gap-[40px]`}>
-      <div className="shrink-0 xl:w-[200px]">
-        <h3 className="text-xl font-medium tracking-[0.02em]" style={{ color: "var(--content)" }}>
-          {label}
-        </h3>
-      </div>
-      <div className={`flex min-w-0 flex-1 flex-col ${ITEM_GAP}`}>{children}</div>
+    <div className="flex flex-col">
+      <h3 className="pb-[8px] text-[16px] font-medium" style={{ color: "var(--content)" }}>
+        {title}
+      </h3>
+      <div className="flex flex-col">{children}</div>
     </div>
+  );
+}
+
+/** Stand-in for a logo: the organisation's initial in a small ink square. */
+function Mark({ name }: { name: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[3px] font-slab text-[11px] font-bold"
+      style={{ background: "var(--content)", color: "var(--surface)" }}
+    >
+      {name.charAt(0)}
+    </span>
+  );
+}
+
+function Org({ name }: { name: string }) {
+  return (
+    <span className="flex min-w-0 items-center gap-[10px]" style={{ color: "var(--content)" }}>
+      <Mark name={name} />
+      <span className="min-w-0">{name}</span>
+    </span>
+  );
+}
+
+const Dates = ({ children }: { children: ReactNode }) => (
+  <span className="font-mono text-[13px] md:text-right" style={{ color: "var(--quiet)" }}>
+    {children}
+  </span>
+);
+
+function DownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <path d="M7 1.5v8M3.5 6 7 9.5 10.5 6M2 12.5h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
 export function ResumeSection() {
   return (
-    <Section id="resume" label="Resume">
-      <div className={`flex flex-col ${BLOCK_GAP}`}>
-        <div className="flex flex-wrap items-center justify-between gap-6">
-          <SectionHeading>Resume</SectionHeading>
-          {/* The button is 60px tall against the heading's 34. Its extra 13px
-              above and below hang outside the row, so the heading sits the
-              same distance from its content here as in every other section. */}
+    <Section id="resume" title="CV">
+      <div className="flex max-w-[640px] flex-col gap-[40px]">
+        <div className="flex flex-col items-start gap-[12px]">
+          <p className="text-[18px] font-medium" style={{ color: "var(--content)" }}>
+            {CV.name}
+          </p>
+          <p className="text-[15px] leading-[1.55]" style={{ color: "var(--quiet)" }}>
+            {CV.summary}
+          </p>
           <a
             href={RESUME_PDF}
             download
-            className="-my-[13px] rounded-xl px-6 py-4 text-lg font-medium capitalize transition-opacity duration-200 hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4"
-            style={{ background: "var(--color-link)", color: "#fdfeff", outlineColor: "var(--content)" }}
+            data-cursor="Download"
+            className="mt-[6px] inline-flex items-center gap-[8px] rounded-[6px] px-[12px] py-[7px] text-[14px] transition-colors duration-200 hover:bg-[color-mix(in_srgb,var(--rule)_18%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-4"
+            style={{
+              color: "var(--content)",
+              border: "1px solid color-mix(in srgb, var(--rule) 60%, transparent)",
+              outlineColor: "var(--content)",
+            }}
           >
+            <DownloadIcon />
             Download PDF
           </a>
         </div>
 
-        <Row label="Work Experience">
+        <Block title="Contact">
+          {CV.contact.map((c) => (
+            <div key={c.label} className="grid grid-cols-[110px_minmax(0,1fr)] py-[8px] text-[15px] leading-[1.4]">
+              <span style={{ color: "var(--quiet)" }}>{c.label}</span>
+              <a
+                href={c.href}
+                target="_blank"
+                rel="noreferrer"
+                className="w-fit underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{ color: "var(--content)", outlineColor: "var(--content)" }}
+              >
+                {c.value} <span aria-hidden="true">↗</span>
+              </a>
+            </div>
+          ))}
+        </Block>
+
+        <Block title="Work Experience">
           {EXPERIENCE.map((e) => (
             <div key={e.company + e.dates} className={ROW}>
-              {/* Role leads and carries the weight — it is what the row is
-                  about; the employer, the place and the span qualify it. */}
-              <span className="min-w-0 flex-1 font-semibold" style={{ color: "var(--content)" }}>
-                {e.role}
-              </span>
-              <span className="min-w-0 flex-1">{e.company}</span>
-              <span className="min-w-0 flex-1">{e.city}</span>
-              <span className={DATES}>{e.dates}</span>
+              <Org name={e.company} />
+              <span style={{ color: "var(--content)" }}>{e.role}</span>
+              <Dates>{e.dates}</Dates>
             </div>
           ))}
-        </Row>
+        </Block>
 
-        <Row label="Education">
+        <Block title="Education">
           {EDUCATION.map((e) => (
             <div key={e.school} className={ROW}>
-              <span className="min-w-0 flex-1 font-semibold" style={{ color: "var(--content)" }}>
-                {e.school}
+              <Org name={e.school} />
+              <span style={{ color: "var(--content)" }}>
+                {e.degree}
+                <span className="block text-[13px]" style={{ color: "var(--quiet)" }}>
+                  {e.details}
+                </span>
               </span>
-              {/* Degree and its focus are one column in the design, stacked —
-                  the focus qualifies the degree rather than standing beside it. */}
-              <span className="flex min-w-0 flex-1 flex-col gap-2">
-                <span>{e.degree}</span>
-                <span className="italic">{e.details}</span>
-              </span>
-              <span className={DATES}>{e.dates}</span>
+              <Dates>{e.dates}</Dates>
             </div>
           ))}
-        </Row>
+        </Block>
       </div>
     </Section>
   );

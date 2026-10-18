@@ -63,7 +63,7 @@ export function Section({
       // content, not over it, so it needs none.
       className="scroll-mt-[95px] px-[30px] py-[30px] md:scroll-mt-[107px] md:px-[60px] md:py-[60px] lg:scroll-mt-0 xl:px-[100px] xl:py-[100px]"
       style={{
-        borderBottom: "1px solid color-mix(in srgb, var(--edge) 18%, transparent)",
+        borderBottom: "1px solid color-mix(in srgb, var(--rule) 40%, transparent)",
       }}
     >
       <div className="w-full" style={{ maxWidth: CONTENT_MAX }}>

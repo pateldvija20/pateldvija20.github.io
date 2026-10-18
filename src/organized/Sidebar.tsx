@@ -168,7 +168,8 @@ export function Sidebar() {
         height: "100vh",
         flexDirection: "column",
         alignItems: "flex-start",
-        justifyContent: "flex-end",
+        // The homepage frame hangs the links at the column's middle.
+        justifyContent: "center",
         padding: 60,
         paddingLeft: `calc(60px + ${SPARE_HALF})`,
         flexShrink: 0,
@@ -193,7 +194,9 @@ export function Sidebar() {
         key={s.id}
         style={
           desktop
-            ? { width: "100%", padding: "12px 0" }
+            ? // Flex, so the item is exactly the link's 24px line plus padding
+              // — 48 baseline to baseline, as the frame spaces them.
+              { width: "100%", padding: "12px 0", display: "flex" }
             : phone
               ? { width: "100%" }
               : // Never squash a label to make the row fit.
@@ -204,11 +207,14 @@ export function Sidebar() {
           href={`#${s.id}`}
           onClick={(e) => go(e, s.id)}
           aria-current={on ? "true" : undefined}
-          className={`text-lg capitalize transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-4 ${
-            on ? "font-bold" : "font-medium"
+          // Roboto Slab at 18 on a 24 line, 48 baseline to baseline with the
+          // item padding — the homepage frame's nav. Active is ink and bold,
+          // the rest the quiet grey: no accent colour in this palette.
+          className={`font-slab text-[18px] leading-[24px] transition-colors duration-200 hover:text-[var(--content)] focus-visible:outline-2 focus-visible:outline-offset-4 ${
+            on ? "font-bold" : "font-normal"
           } ${phone ? "block" : ""}`}
           style={{
-            color: on ? "var(--color-accent)" : "var(--content)",
+            color: on ? "var(--content)" : "var(--quiet)",
             outlineColor: "var(--content)",
             // A row of text is a fine target with a mouse and a poor one with
             // a thumb, so the panel gives every link a real one.
@@ -298,7 +304,7 @@ export function Sidebar() {
         <span
           aria-hidden="true"
           className="pointer-events-none absolute right-0 top-0 h-full w-px"
-          style={{ background: "var(--edge)", opacity: 0.2 }}
+          style={{ background: "var(--rule)" }}
         />
       ) : null}
     </nav>
