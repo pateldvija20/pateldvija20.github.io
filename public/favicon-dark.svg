@@ -1,10 +1,3 @@
-<svg width="260" height="260" viewBox="-8.1 82.5 260 260" fill="none" xmlns="http://www.w3.org/2000/svg">
-<!-- The hero lamp, framed square on the shade and bulb with the cord running
-     off the top. Line weights are heavier than the hero's so they hold at
-     16px: the bulb keeps an ink rim (the export had none, so it vanished into
-     the tab bar), and the cord is thickened from 8.8 to 14. -->
-<path d="M114.9 0H128.9V140C128.9 141.5 127.6 142.8 125.9 142.8H117.9C116.2 142.8 114.9 141.5 114.9 140V0Z" fill="#FDFEFF"/>
-<circle cx="121.887" cy="259.067" r="24.5" fill="#18181A" stroke="#FDFEFF" stroke-width="9"/>
-<path d="M48.2132 182.4C49.9461 179.911 52.7872 178.427 55.8201 178.427H187.953C190.986 178.427 193.827 179.911 195.56 182.4L233.633 237.086C237.911 243.232 233.514 251.651 226.026 251.651H17.7471C10.2591 251.651 5.86172 243.232 10.1401 237.086L48.2132 182.4Z" fill="#FDFEFF"/>
-<path d="M87.1279 147.839C87.1279 142.72 91.2778 138.57 96.3969 138.57H147.376C152.495 138.57 156.645 142.72 156.645 147.839V178.427H87.1279V147.839Z" fill="#383C42"/>
+<svg width="171" height="171" viewBox="-5 -15 171 171" fill="none" xmlns="http://www.w3.org/2000/svg">
+<path d="M28.6762 13.8396C29.6128 4.67072 38.4113 -1.76976 47.3605 0.434513C82.415 9.06883 107.962 11.6247 144.346 7.32868C153.324 6.26854 161.375 13.3301 160.742 22.3488C157.845 63.6 149.457 91.565 125.477 133.489C122.706 138.334 117.274 141.063 111.722 140.478C49.8616 133.955 34.4911 127.907 10.2748 119.888C1.62064 117.023 -2.51369 107.03 1.60577 98.8972C17.8716 66.7859 25.5972 43.9835 28.6762 13.8396Z" fill="#FDFEFF"/>
 </svg>
