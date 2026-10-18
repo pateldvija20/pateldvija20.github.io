@@ -1,3 +1,4 @@
+import { FadeImg } from "./FadeImg";
 import { cardImage, PROJECTS, type Project } from "../pieces/projects";
 import { Section } from "./Section";
 
@@ -17,7 +18,7 @@ function WorkTile({ project, onOpen }: { project: Project; onOpen: (el: HTMLElem
   const body = (
     <>
       <div className="w-full overflow-hidden rounded-[4px]" style={{ aspectRatio: "16 / 10", background: "var(--rule)" }}>
-        <img
+        <FadeImg
           src={cardImage(project)}
           alt=""
           draggable={false}
@@ -50,6 +51,8 @@ function WorkTile({ project, onOpen }: { project: Project; onOpen: (el: HTMLElem
       type="button"
       onClick={(e) => onOpen(e.currentTarget)}
       data-cursor="View project"
+      // The card rises as the cursor's fill opens behind it (index.css).
+      data-cursor-frame="card"
       className="group flex cursor-pointer flex-col border-0 bg-transparent p-0 focus-visible:outline-2 focus-visible:outline-offset-4"
       style={{ outlineColor: "var(--content)" }}
     >
@@ -61,7 +64,7 @@ function WorkTile({ project, onOpen }: { project: Project; onOpen: (el: HTMLElem
 export function WorkSection({ onOpen }: { onOpen: (slug: string, el: HTMLElement) => void }) {
   return (
     <Section id="work" title="Work">
-      <div className="grid grid-cols-1 gap-x-[24px] gap-y-[40px] md:grid-cols-2 xl:gap-y-[56px]">
+      <div className="grid grid-cols-1 gap-x-[16px] gap-y-[32px] md:grid-cols-2">
         {PROJECTS.map((p) => (
           <WorkTile key={p.slug} project={p} onOpen={(el) => onOpen(p.slug, el)} />
         ))}

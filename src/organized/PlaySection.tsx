@@ -1,3 +1,4 @@
+import { FadeImg } from "./FadeImg";
 import { PLAY, type PlayItem } from "./content";
 import { Section } from "./Section";
 
@@ -21,14 +22,14 @@ function Tile({ item, onEnterPlayground }: { item: PlayItem; onEnterPlayground?:
         className={`flex w-full items-center justify-center overflow-hidden rounded-[4px] ${item.bleed ? "" : "p-[24px]"}`}
         style={{ border: "1px solid color-mix(in srgb, var(--rule) 45%, transparent)" }}
       >
-        <img
+        <FadeImg
           src={item.src}
           alt=""
           draggable={false}
           className={`h-auto w-full select-none transition-transform duration-500 ease-out group-hover:scale-[1.02] motion-reduce:transition-none ${item.srcDark ? "art-light" : ""}`}
         />
         {item.srcDark ? (
-          <img
+          <FadeImg
             src={item.srcDark}
             alt=""
             draggable={false}
@@ -47,7 +48,7 @@ function Tile({ item, onEnterPlayground }: { item: PlayItem; onEnterPlayground?:
     </>
   );
 
-  const shell = "group mb-[28px] flex w-full break-inside-avoid flex-col";
+  const shell = "group mb-[32px] flex w-full break-inside-avoid flex-col";
   if (item.playground && onEnterPlayground) {
     return (
       <button
@@ -67,7 +68,7 @@ function Tile({ item, onEnterPlayground }: { item: PlayItem; onEnterPlayground?:
 export function PlaySection({ onEnterPlayground }: { onEnterPlayground?: () => void }) {
   return (
     <Section id="play" title="Play">
-      <div className="columns-1 gap-[24px] md:columns-2">
+      <div className="columns-1 gap-[16px] md:columns-2">
         {PLAY.map((item) => (
           <Tile key={item.title} item={item} onEnterPlayground={onEnterPlayground} />
         ))}

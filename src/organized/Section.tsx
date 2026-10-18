@@ -1,43 +1,29 @@
 import type { ReactNode } from "react";
 
 /**
- * One Organised-mode section.
+ * One Organised-mode section, spaced after rachelchen.tech.
  *
- * Owns the page gutter and the rule that closes the section off. Sections
- * scroll freely; nothing snaps.
+ * Her page is mostly empty on purpose, and the emptiness does three things
+ * this layout copies:
  *
- * The gutter steps 30 / 60 / 60 / 100 rather than Figma's 30 / 60 / 100,
- * because between 1025 and 1511 the 250px sidebar is already taking its width
- * out of the same row: at 1025 a 100px gutter would leave the content column
- * around 575px. The full 100 arrives with the full 1512 frame it was drawn
- * against.
+ *   one narrow column   the content stops at 970px and centres in what the
+ *                       sidebar leaves, so at 1512 there are ~145px of paper
+ *                       either side of it (hers: ~270 with a slimmer nav)
+ *   room above          a page starts 160px down, not at the top edge
+ *   no rules            sections are separated by space alone; nothing draws
+ *                       a line between them
  *
- * Past the 1512 frame the section keeps widening, so its rule reaches the
- * window's right edge, but its content stops at CONTENT_MAX, left-aligned
- * beside the nav. The nav column takes the extra width on the left (see
- * Sidebar), so nav and content stay together as one centred block. 1062 is
- * what the frame gave the content (1512, less the 250 sidebar and two 100
- * gutters), so nothing changes up to 1512.
+ * Headings are quiet labels in Roboto Slab, the hero's and the nav's face,
+ * 20px (text-xl, the hero greeting's size) in the secondary grey — the work
+ * is what should be loud, not the name of the shelf it is on.
  *
- * One spacing scale for every section, at every width:
+ * Spacing, one scale at every width:
  *
- *   section padding       30 phone / 60 tablet & laptop / 100 from 1280
- *   heading -> content    40, 60 from 1280  (HEADING_GAP)
- *   block -> block        40, 60 from 1280  (BLOCK_GAP)
- *   rows, cards, items    24 phone, 32 from tablet  (ITEM_GAP)
- *
- * Sections size to their content. About used to be forced to a full viewport
- * with its content centred in it, which put 179px under its heading at 1512
- * against 60 everywhere else.
+ *   gutter            24 phone / 60 from tablet
+ *   above / below     64 & 80 phone, 112 & 112 tablet, 160 & 140 desktop
+ *   label -> content  32
  */
-const CONTENT_MAX = 1062;
-
-/** Heading to the content under it. */
-export const HEADING_GAP = "mb-[40px] xl:mb-[60px]";
-/** Between the blocks that make up a section. */
-export const BLOCK_GAP = "gap-[40px] xl:gap-[60px]";
-/** Between repeated items: list rows, cards. */
-export const ITEM_GAP = "gap-[24px] md:gap-[32px]";
+const CONTENT_MAX = 970;
 
 export function Section({
   id,
@@ -48,9 +34,7 @@ export function Section({
   id: string;
   /** Accessible name. Defaults to `title` when one is given. */
   label?: string;
-  /** Visible heading, rendered in Roboto Slab, Title Case. Every section has
-   *  one, so the page reads as a sequence of named parts rather than a run of
-   *  unlabelled blocks. */
+  /** Visible heading, a quiet label above the content. */
   title?: string;
   children: ReactNode;
 }) {
@@ -58,17 +42,11 @@ export function Section({
     <section
       id={id}
       aria-label={label ?? title}
-      // scroll-mt keeps a smooth-scrolled section clear of the sticky top bar
-      // at the two widths that have one; the desktop sidebar is beside the
-      // content, not over it, so it needs none.
-      className="scroll-mt-[95px] px-[30px] py-[30px] md:scroll-mt-[107px] md:px-[60px] md:py-[60px] lg:scroll-mt-0 xl:px-[100px] xl:py-[100px]"
-      style={{
-        borderBottom: "1px solid color-mix(in srgb, var(--rule) 40%, transparent)",
-      }}
+      className="px-[24px] pb-[80px] pt-[64px] md:px-[60px] md:pb-[112px] md:pt-[112px] lg:pb-[140px] lg:pt-[160px]"
     >
-      <div className="w-full" style={{ maxWidth: CONTENT_MAX }}>
+      <div className="mx-auto w-full" style={{ maxWidth: CONTENT_MAX }}>
         {title ? (
-          <div className={HEADING_GAP}>
+          <div className="mb-[32px]">
             <SectionHeading>{title}</SectionHeading>
           </div>
         ) : null}
@@ -78,22 +56,9 @@ export function Section({
   );
 }
 
-/**
- * Section heading — Roboto Slab, at the same size as the introduction it now
- * sits under (`text-section`, 28px).
- *
- * It used to be `text-page`, 40px, which made every section name louder than
- * the sentence introducing the page. Dropping to the introduction's size lets
- * the names read as labels on the parts rather than as competing headlines.
- *
- * No `capitalize` either: the titles are written in Title Case at the point
- * they are defined, so the casing is editable copy rather than something CSS
- * imposes — which also stops it forcing a capital onto words that should keep
- * their own case.
- */
 export function SectionHeading({ children }: { children: ReactNode }) {
   return (
-    <h2 className="font-slab text-section" style={{ color: "var(--content)" }}>
+    <h2 className="font-slab text-xl leading-[1.3]" style={{ color: "var(--quiet)" }}>
       {children}
     </h2>
   );

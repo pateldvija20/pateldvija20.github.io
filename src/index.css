@@ -130,13 +130,11 @@
   --art-ink: #101010;
   --art-paper: #fdfeff;
   --art-grey: #7c838b;
-  /* The footer, contact form and paper-ball tooltip are shared with the desk
-     and fall back to its #2f2f2f wherever this is unset. */
+  /* The contact form is shared with the desk and falls back to its #2f2f2f
+     wherever this is unset. */
   --footer-ink: #101010;
-}
-/* The phone footer's halftone, dotted in the same ink. */
-:root[data-layout="organized"] .halftone {
-  background-image: radial-gradient(rgba(16, 16, 16, 0.32) 1.1px, transparent 1.2px);
+  /* The cursor's hover fill (Cursor.tsx), drawn behind the item it is on. */
+  --tint: #eceef0;
 }
 :root[data-layout="organized"][data-theme="dark"] {
   --surface: #101010;
@@ -148,6 +146,7 @@
   --art-ink: #fdfeff;
   --art-paper: #101010;
   --art-grey: #383c42;
+  --tint: #26292d;
 }
 
 /* The hero's script line. The lettering is Figma's outlined artwork, kept as
@@ -159,6 +158,110 @@
   background: currentColor;
   -webkit-mask: url("/assets/hero/product-designer.svg") center / contain no-repeat;
   mask: url("/assets/hero/product-designer.svg") center / contain no-repeat;
+}
+
+/* Page and image fades, after rachelchen.tech: in from transparent and a
+   6px blur to sharp. The page runs it once as it mounts (OrganizedPage keys
+   <main> by page, so every page change replays it); an image runs it when its
+   file has loaded (FadeImg), so pictures never pop in half-drawn. Reduced
+   motion keeps a short plain fade and drops the blur. */
+@keyframes page-fade {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+.page-fade {
+  animation: page-fade 450ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.media-fade {
+  opacity: 0;
+  filter: blur(6px);
+  /* Transform is listed too: this rule is unlayered, so it outranks a tile's
+     own `transition-transform` utility, and the hover zoom would snap. */
+  transition:
+    opacity 500ms ease-in-out,
+    filter 500ms ease-in-out,
+    transform 500ms ease-out;
+}
+.media-fade[data-loaded] {
+  opacity: 1;
+  filter: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-fade {
+    animation: page-fade-plain 200ms ease-out both;
+  }
+  .media-fade {
+    filter: none;
+    transition-duration: 150ms;
+  }
+}
+@keyframes page-fade-plain {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The cursor's hover fill. An item marked `data-cursor-frame` carries its
+   own fill as a ::before *behind* its content (isolation keeps the -1 inside
+   the item), so the text and images on it are never washed over. Cursor.tsx
+   switches it on with `data-cursor-on`; the fill fades and settles in from
+   slightly smaller, growing from where the pointer came in (--cx --cy), and
+   fades back out the same way. Cursor.tsx also feeds --mx --my, the magnetic
+   lean: the whole item drifts a few px toward the pointer, fill and all.
+
+   A card also rises 6px while the fill is on. */
+[data-cursor-frame] {
+  position: relative;
+  isolation: isolate;
+  transform: translate(var(--mx, 0px), calc(var(--my, 0px) + var(--lift, 0px)));
+  transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-cursor-frame]::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  background: var(--tint);
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.94);
+  transform-origin: var(--cx, 50%) var(--cy, 50%);
+  transition:
+    opacity 280ms ease-out,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-cursor-frame="pill"]::before {
+  inset: -6px -14px;
+  border-radius: 999px;
+}
+[data-cursor-frame="card"]::before {
+  inset: -10px;
+  border-radius: 12px;
+}
+[data-cursor-frame][data-cursor-on]::before {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 220ms ease-out,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-cursor-frame="card"][data-cursor-on] {
+  --lift: -6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-cursor-frame] {
+    transform: none;
+  }
+  [data-cursor-frame]::before,
+  [data-cursor-frame][data-cursor-on]::before {
+    transform: none;
+    transition: opacity 150ms ease-out;
+  }
 }
 
 /* Art with a light and a dark file: both mounted, the theme picks. */

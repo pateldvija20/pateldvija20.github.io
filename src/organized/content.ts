@@ -1,3 +1,5 @@
+import type { Page } from "./router";
+
 /**
  * Organised-mode copy and data.
  *
@@ -10,24 +12,13 @@
 /* Nav                                                                  */
 /* ------------------------------------------------------------------ */
 
-export type SectionId = "work" | "play" | "about" | "resume" | "archive";
-
-/**
- * Sections that are built but not shown on the site: they render nothing and
- * drop out of the nav. Remove an id to bring its section back.
- */
-export const HIDDEN_SECTIONS: ReadonlySet<string> = new Set(["writing", "archive"]);
-
-export const NAV_SECTIONS: { id: SectionId; label: string }[] = (
-  [
-    { id: "work", label: "Work" },
-    { id: "play", label: "Play" },
-    { id: "about", label: "About" },
-    // The id stays `resume` so existing /work-experience links still land.
-    { id: "resume", label: "CV" },
-    { id: "archive", label: "Archive" },
-  ] satisfies { id: SectionId; label: string }[]
-).filter((s) => !HIDDEN_SECTIONS.has(s.id));
+/** The sidebar's pages, in order. Each is its own URL (see router.ts). */
+export const NAV_PAGES: { page: Page; label: string }[] = [
+  { page: "work", label: "Work" },
+  { page: "play", label: "Play" },
+  { page: "about", label: "About" },
+  { page: "cv", label: "CV" },
+];
 
 /* ------------------------------------------------------------------ */
 /* Intro (Figma 1840:35880)                                             */
@@ -204,10 +195,15 @@ export const RESUME_PDF = "/Dvija_Patel_Resume.pdf";
  */
 export const EXPERIENCE = [
   {
-    role: "UI/UX Designer",
+    role: "UX/UI Designer",
+    company: "Vidasana Wellness",
+    dates: "Sep ‘26 – Present",
+  },
+  {
+    role: "UX/UI Designer",
     company: "Hi-fi Cincy LLC",
     city: "Cincinnati, OH",
-    dates: "Mar ‘26 – Present",
+    dates: "Mar ‘26 – Aug ‘26",
   },
   {
     role: "UX Design Researcher",

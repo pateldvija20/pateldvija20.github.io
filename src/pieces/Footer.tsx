@@ -98,16 +98,10 @@ export function Footer({
   theme,
   clock,
   className,
-  organized = false,
 }: {
   theme: Theme;
   clock: string;
   className?: string;
-  /** Under the Organised page, whose ink is #101010 rather than the desk's
-   *  #2f2f2f. The art can't read a CSS variable through an <img>, so it has
-   *  its own recoloured files (`footer_organized_*`); the live HTML follows
-   *  `--footer-ink`, which only Organised sets (index.css). */
-  organized?: boolean;
 }) {
   const isDark = theme === "dark";
   const [formOpen, setFormOpen] = useState(false);
@@ -120,7 +114,7 @@ export function Footer({
 
   return (
     <div className={`relative overflow-hidden ${className ?? ""}`} style={{ width: 1729, height: 552 }}>
-      <SvgPiece src={`/assets/footer_${organized ? "organized_" : ""}${theme}.svg`} className="absolute inset-0 h-full w-full" alt="" />
+      <SvgPiece src={`/assets/footer_${theme}.svg`} className="absolute inset-0 h-full w-full" alt="" />
 
       <PaperBall
         theme={theme}

@@ -1,43 +1,46 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Theme } from "../pieces/Piece";
 import { PROJECTS } from "../pieces/projects";
 import { AboutSection } from "./AboutSection";
-import { ArchiveSection } from "./ArchiveSection";
-import { HIDDEN_SECTIONS, type SectionId } from "./content";
 import { Cursor } from "./Cursor";
 import { HeroSection } from "./HeroSection";
 import { PlaySection } from "./PlaySection";
 import { ProjectOverlay } from "./ProjectOverlay";
 import { ResumeSection } from "./ResumeSection";
+import { usePage } from "./router";
 import { Sidebar } from "./Sidebar";
+import { SiteFooter } from "./SiteFooter";
 import { WorkSection } from "./WorkSection";
-import { WritingSection } from "./WritingSection";
 
 /**
  * Organised mode: the directly linkable version of the portfolio.
  *
- * A document, not a scene — real layout, real breakpoints, one vertical
- * scroll. It replaced a horizontal carousel of desk objects; the desk lives
- * only in Scattered now, and every piece of content reachable there has a
- * destination here.
+ * A set of pages, after madhurima.me — Work (with the hero), Play, About and
+ * CV each at their own URL (see `router.ts`) — beside one persistent sidebar.
+ * The page content fades in as it arrives, after rachelchen.tech: from
+ * transparent and slightly blurred to sharp (`.page-fade` in index.css).
  *
- * Above the 1512px Figma frame the content column stops growing and centres;
- * the background keeps going.
+ * The Writing and Archive sections are built but unpublished, so they have no
+ * page yet.
  */
 export function OrganizedPage({
   theme,
-  initialSection = null,
   initialSlug = null,
   onEnterPlayground,
+  onToggleTheme,
+  clock,
 }: {
   theme: Theme;
+  /** The light switch: the hanging lamp flips the theme. */
+  onToggleTheme: () => void;
+  /** "City, time" for the footer. */
+  clock: string;
   /** Switches to the desk. Absent where the desk is unavailable. */
   onEnterPlayground?: () => void;
-  /** Section a deep link should land on. */
-  initialSection?: SectionId | null;
   /** Project a `/projects/<slug>` deep link should open. */
   initialSlug?: string | null;
 }) {
+  const page = usePage();
   const [openSlug, setOpenSlug] = useState<string | null>(initialSlug);
   /** The card the overlay should grow out of; null for a deep link, which has
    *  no card to come from and so opens without the grow. */
@@ -68,31 +71,35 @@ export function OrganizedPage({
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
-  // Land a deep link on its section. Layout effect and no smooth behaviour:
-  // this is an arrival, not a navigation, so it should already be there on
-  // the first paint rather than animating from the top.
-  useLayoutEffect(() => {
-    if (!initialSection) return;
-    document.getElementById(initialSection)?.scrollIntoView({ block: "start" });
-  }, [initialSection]);
+  // A new page starts at its top. Not on arrival, which is already there.
+  const firstPage = useRef(page);
+  useEffect(() => {
+    if (page === firstPage.current) return;
+    firstPage.current = page;
+    window.scrollTo({ top: 0 });
+  }, [page]);
 
   return (
     <>
-      {/* Full width: the sidebar keeps to the window's left edge and each
-          section's rule runs to the right edge. What stops growing on a wide
-          screen is the content inside a section (see `Section`), not the page. */}
       <div className="flex w-full flex-col lg:flex-row lg:items-start">
-        <Sidebar />
-        <main className="min-w-0 flex-1">
-          <HeroSection />
-          <WorkSection onOpen={openProject} />
-          <PlaySection onEnterPlayground={onEnterPlayground} />
-          <AboutSection />
-          {HIDDEN_SECTIONS.has("writing") ? null : <WritingSection />}
-          <ResumeSection />
-          {HIDDEN_SECTIONS.has("archive") ? null : <ArchiveSection />}
+        <Sidebar page={page} theme={theme} onToggleTheme={onToggleTheme} />
+        {/* At least a screen tall, so a short page keeps the footer below the
+            fold instead of pulling it up beside the sidebar. */}
+        <main key={page} className="page-fade flex min-h-screen min-w-0 flex-1 flex-col">
+          {page === "work" ? (
+            <>
+              <HeroSection theme={theme} onToggleTheme={onToggleTheme} />
+              <WorkSection onOpen={openProject} />
+            </>
+          ) : null}
+          {page === "play" ? <PlaySection onEnterPlayground={onEnterPlayground} /> : null}
+          {page === "about" ? <AboutSection /> : null}
+          {page === "cv" ? <ResumeSection /> : null}
         </main>
       </div>
+
+      {/* Under the sidebar and the page both, edge to edge. */}
+      <SiteFooter theme={theme} clock={clock} />
 
       <Cursor />
 

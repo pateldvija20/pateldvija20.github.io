@@ -64,6 +64,7 @@ export function ControlBar({
   onMode,
   onToggleTheme,
   showLayoutToggle = true,
+  showThemeToggle = true,
 }: {
   theme: Theme;
   mode: Mode;
@@ -73,6 +74,8 @@ export function ControlBar({
    *  keeps only the theme button rather than offering a layout that cannot
    *  be entered. */
   showLayoutToggle?: boolean;
+  /** False in Organised mode, where the hanging lamp is the light switch. */
+  showThemeToggle?: boolean;
 }) {
   const light = theme === "light";
   // The pill and its buttons share one fill and one ink colour, so the bar
@@ -105,6 +108,7 @@ export function ControlBar({
           <LayoutIcon mode={next} fg={ink} bg={face} />
         </button>
       ) : null}
+      {showThemeToggle ? (
       <button
         onClick={onToggleTheme}
         aria-label={light ? "Switch to dark mode" : "Switch to light mode"}
@@ -113,6 +117,7 @@ export function ControlBar({
       >
         <SvgPiece src={light ? "/assets/icon_moon.svg" : "/assets/icon_sun.svg"} style={{ width: ICON, height: ICON }} />
       </button>
+      ) : null}
     </div>
   );
 }
