@@ -5,6 +5,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title><!-- figma:title --></title>
+    <!-- Tab icon: the egg chair, dark on light tabs and light on dark ones.
+         Picked from the OS theme here so it is right before the app loads;
+         App.tsx then keeps it in step with the site's own theme switch. -->
+    <link id="favicon" rel="icon" type="image/svg+xml" href="/favicon-light.svg" />
+    <script>
+      try {
+        if (matchMedia("(prefers-color-scheme: dark)").matches)
+          document.getElementById("favicon").href = "/favicon-dark.svg";
+      } catch (e) {}
+    </script>
     <!-- figma:head-end -->
   </head>
   <body>

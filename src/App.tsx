@@ -702,6 +702,10 @@ export default function App() {
   // surface tokens without threading a prop through every section.
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
+    // The tab icon follows too: the dark chair on a light page, the light
+    // chair on a dark one (index.html sets the first one from the OS).
+    const icon = document.getElementById("favicon") as HTMLLinkElement | null;
+    if (icon) icon.href = theme === "dark" ? "/favicon-dark.svg" : "/favicon-light.svg";
   }, [theme]);
 
   // Folder open/close mirrors into the path (replaceState — the case study
