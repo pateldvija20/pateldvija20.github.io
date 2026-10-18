@@ -2,9 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import gsap from "gsap";
 import { ControlBar, type Mode } from "./pieces/ControlBar";
 import { OrganizedPage } from "./organized/OrganizedPage";
-import type { SectionId } from "./organized/content";
+import { pageFromPath } from "./organized/router";
 import { canScatter, MOBILE_BP } from "./responsive";
-import { Preloader } from "./pieces/Preloader";
 import {
   FocusedIdContext,
   ScatteredFocusContext,
@@ -26,24 +25,10 @@ import {
 import { PROJECTS } from "./pieces/projects";
 
 /**
- * The preloader is an entrance, not a progress bar — it counts out a fixed
- * duration rather than tracking anything real. It plays the full 1.8s intro
- * once on arrival, then replays a shorter 0.9s beat every time the viewer
- * flips between scattered and organized mode.
- *
- * `sessionStorage` rather than `localStorage`: a reload, a deep link, or a
- * bounce through the case-study routes all skip the entrance, while someone
- * coming back tomorrow still gets it. Every access is guarded — a browser
- * with site data blocked throws on the property itself, and the page must
- * still open.
- */
-const SEEN_PRELOADER = "dp:preloader-seen";
-
-/**
  * The last mode the visitor chose, so a reload puts them back where they were
  * rather than resetting them to Organised.
  *
- * `sessionStorage`, matching the preloader flag: it survives a refresh and a
+ * `sessionStorage`: it survives a refresh and a
  * bounce through the case-study routes, while a genuinely new visit opens on
  * Organised. Organised stays the only linkable mode.
  */
@@ -63,23 +48,6 @@ const rememberMode = (m: Mode) => {
     sessionStorage.setItem(LAST_MODE, m);
   } catch {
     // Storage unavailable: the mode simply will not survive a reload.
-  }
-};
-
-const preloaderSeen = () => {
-  try {
-    return sessionStorage.getItem(SEEN_PRELOADER) === "1";
-  } catch {
-    // Storage unavailable: treat it as a first visit and show the preloader.
-    return false;
-  }
-};
-
-const markPreloaderSeen = () => {
-  try {
-    sessionStorage.setItem(SEEN_PRELOADER, "1");
-  } catch {
-    // Nothing to do — worst case it plays again next reload.
   }
 };
 
@@ -705,7 +673,12 @@ export default function App() {
   //      read as the toggle not working.
   //   3. Otherwise Organised, at every width. The desk is one click away on
   //      the toggle wherever the window is wide enough for it.
-  const deepLinked = initialRoute.folder || initialRoute.slug !== null || initialAboutRoute !== null;
+  // The Organised pages (/play, /about, /cv) are deep links too.
+  const deepLinked =
+    initialRoute.folder ||
+    initialRoute.slug !== null ||
+    initialAboutRoute !== null ||
+    pageFromPath(window.location.pathname) !== "work";
   const [mode, setMode] = useState<Mode>(() => {
     if (deepLinked) return "organized";
     return rememberedMode() ?? "organized";
@@ -714,14 +687,6 @@ export default function App() {
   useEffect(() => {
     rememberMode(mode);
   }, [mode]);
-  /** Where a deep link lands on the Organised page. */
-  const initialSection: SectionId | null = initialRoute.slug
-    ? "work"
-    : initialRoute.folder
-      ? "work"
-      : initialAboutRoute
-        ? "resume"
-        : null;
   const [bookOpen, setBookOpen] = useState(initialAboutRoute !== null);
   const [fileOpen, setFileOpen] = useState(initialRoute.folder);
   const deepLinkIndex = initialRoute.slug
@@ -729,15 +694,6 @@ export default function App() {
     : -1;
   const deepLinkProject = deepLinkIndex >= 0 ? deepLinkIndex : null;
   const deepLinkSpread = initialAboutRoute?.spread ?? null;
-  const [loading, setLoading] = useState(() => !preloaderSeen());
-  // Shorter replay on a scattered/organized switch than the first-visit
-  // entrance — it's a beat of feedback, not a full intro.
-  const [loadingDuration, setLoadingDuration] = useState(1800);
-  // Flagged when it starts rather than when it finishes, so a reload part-way
-  // through the count still skips it.
-  useEffect(() => {
-    if (loading) markPreloaderSeen();
-  }, [loading]);
   const clock = useBayClock();
 
   // Mirror the theme onto the document element. `theme` stays the single
@@ -812,11 +768,20 @@ export default function App() {
     prevMode.current = mode;
     setBookOpen(false);
     setFileOpen(false);
-    setLoadingDuration(900);
-    setLoading(true);
   }, [mode]);
 
-  const pageBg = theme === "light" ? "#fdfeff" : "#2f2f2f";
+  // An explicit choice takes the OS out of the loop — otherwise the system
+  // flipping at sunset would undo it mid-visit. The desk's button and the
+  // Organised lamp both switch through this.
+  const toggleTheme = useCallback(() => {
+    themeOverridden.current = true;
+    setTheme((t) => (t === "light" ? "dark" : "light"));
+  }, []);
+
+  // Organised mode's ink is #101010; the desk keeps the #2f2f2f its
+  // illustrations are drawn against (see `data-layout` in index.css).
+  const darkBg = mode === "organized" ? "#101010" : "#2f2f2f";
+  const pageBg = theme === "light" ? "#fdfeff" : darkBg;
   const stageProps = {
     theme,
     bookOpen,
@@ -837,24 +802,22 @@ export default function App() {
   }, [scatterAllowed, mode]);
   const showScattered = mode === "scattered" && scatterAllowed;
 
+  // Which layout is on screen, for CSS: Organised has its own palette and
+  // its own cursor, and neither may leak onto the desk.
+  useEffect(() => {
+    document.documentElement.dataset.layout = showScattered ? "scattered" : "organized";
+  }, [showScattered]);
 
 
   return (
     <div className="min-h-screen w-full transition-colors duration-500" style={{ background: pageBg }}>
-      {loading ? (
-        <Preloader theme={theme} duration={loadingDuration} onDone={() => setLoading(false)} />
-      ) : null}
       <ControlBar
         theme={theme}
         mode={mode}
         onMode={setMode}
         showLayoutToggle={scatterAllowed}
-        onToggleTheme={() => {
-          // An explicit choice takes the OS out of the loop — otherwise the
-          // system flipping at sunset would undo it mid-visit.
-          themeOverridden.current = true;
-          setTheme((t) => (t === "light" ? "dark" : "light"));
-        }}
+        showThemeToggle={showScattered}
+        onToggleTheme={toggleTheme}
       />
 
       {/* Both modes scroll away with the page rather than staying pinned —
@@ -864,12 +827,15 @@ export default function App() {
       ) : (
         <OrganizedPage
           theme={theme}
-          initialSection={initialSection}
           initialSlug={initialRoute.slug}
+          clock={clock}
+          onEnterPlayground={scatterAllowed ? () => setMode("scattered") : undefined}
+          onToggleTheme={toggleTheme}
         />
       )}
 
-      <FooterFit theme={theme} clock={clock} />
+      {/* Organised mode draws its own one-line footer inside the page. */}
+      {showScattered ? <FooterFit theme={theme} clock={clock} /> : null}
     </div>
   );
 }

@@ -42,12 +42,12 @@ export function FooterMobile({ theme, clock }: { theme: Theme; clock: string }) 
   const isDark = theme === "dark";
   const [formOpen, setFormOpen] = useState(false);
   const surface = isDark
-    ? "bg-[#2f2f2f] border-[#fdfeff] text-[#fdfeff]"
-    : "bg-[rgba(253,254,255,0.85)] border-[#2f2f2f] text-[#2f2f2f]";
+    ? "bg-[var(--footer-ink,#2f2f2f)] border-[#fdfeff] text-[#fdfeff]"
+    : "bg-[rgba(253,254,255,0.85)] border-[var(--footer-ink,#2f2f2f)] text-[var(--footer-ink,#2f2f2f)]";
 
   return (
     <div
-      className={`relative w-full px-[30px] py-[30px] ${isDark ? "bg-[#2f2f2f]" : "halftone"}`}
+      className={`relative w-full px-[30px] py-[30px] ${isDark ? "bg-[var(--footer-ink,#2f2f2f)]" : "halftone"}`}
     >
       <div
         className={`flex w-full flex-col gap-8 rounded-[12px] border-2 border-solid p-6 leading-normal backdrop-blur-sm ${surface}`}
@@ -76,7 +76,7 @@ export function FooterMobile({ theme, clock }: { theme: Theme; clock: string }) 
           type="button"
           onClick={() => setFormOpen(true)}
           className={`self-start rounded-full px-6 py-3 text-[15px] font-semibold transition-opacity hover:opacity-80 ${
-            isDark ? "bg-[#fdfeff] text-[#2f2f2f]" : "bg-[#2f2f2f] text-[#fdfeff]"
+            isDark ? "bg-[#fdfeff] text-[var(--footer-ink,#2f2f2f)]" : "bg-[var(--footer-ink,#2f2f2f)] text-[#fdfeff]"
           }`}
         >
           connect
@@ -84,7 +84,7 @@ export function FooterMobile({ theme, clock }: { theme: Theme; clock: string }) 
       </div>
 
       <p
-        className={`mt-6 text-[13px] leading-normal opacity-55 ${isDark ? "text-[#fdfeff]" : "text-[#2f2f2f]"}`}
+        className={`mt-6 text-[13px] leading-normal opacity-55 ${isDark ? "text-[#fdfeff]" : "text-[var(--footer-ink,#2f2f2f)]"}`}
       >
         {COPYRIGHT}
       </p>
@@ -106,8 +106,8 @@ export function Footer({
   const isDark = theme === "dark";
   const [formOpen, setFormOpen] = useState(false);
   const surface = isDark
-    ? "bg-[#2f2f2f] border-[#fdfeff] text-[#fdfeff]"
-    : "bg-[rgba(253,254,255,0.85)] border-[#2f2f2f] text-[#2f2f2f]";
+    ? "bg-[var(--footer-ink,#2f2f2f)] border-[#fdfeff] text-[#fdfeff]"
+    : "bg-[rgba(253,254,255,0.85)] border-[var(--footer-ink,#2f2f2f)] text-[var(--footer-ink,#2f2f2f)]";
   const comma = clock.indexOf(", ");
   const city = comma === -1 ? clock : clock.slice(0, comma);
   const time = comma === -1 ? "" : clock.slice(comma + 2);
@@ -171,7 +171,7 @@ export function Footer({
           footer keeps one left edge. */}
       <p
         style={{ left: CARD.left, fontVariationSettings: '"opsz" 14' }}
-        className={`absolute bottom-[44px] whitespace-nowrap text-[14px] leading-normal opacity-55 ${isDark ? "text-[#fdfeff]" : "text-[#2f2f2f]"}`}
+        className={`absolute bottom-[44px] whitespace-nowrap text-[14px] leading-normal opacity-55 ${isDark ? "text-[#fdfeff]" : "text-[var(--footer-ink,#2f2f2f)]"}`}
       >
         {COPYRIGHT}
       </p>

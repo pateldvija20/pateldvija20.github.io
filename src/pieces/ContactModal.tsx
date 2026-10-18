@@ -70,17 +70,17 @@ export function ContactModal({ theme, onClose }: { theme: Theme; onClose: () => 
   }
 
   const surface = isDark
-    ? "border-[#fdfeff] bg-[#2f2f2f] text-[#fdfeff]"
-    : "border-[#2f2f2f] bg-[#fdfeff] text-[#2f2f2f]";
+    ? "border-[#fdfeff] bg-[var(--footer-ink,#2f2f2f)] text-[#fdfeff]"
+    : "border-[var(--footer-ink,#2f2f2f)] bg-[#fdfeff] text-[var(--footer-ink,#2f2f2f)]";
   const fieldSurface = isDark
     ? "bg-[#3a3a3a] border-[#fdfeff] text-[#fdfeff] placeholder:text-[#fdfeff]/40"
-    : "bg-[#f5f6f7] border-[#2f2f2f] text-[#2f2f2f] placeholder:text-[#2f2f2f]/40";
+    : "bg-[#f5f6f7] border-[var(--footer-ink,#2f2f2f)] text-[var(--footer-ink,#2f2f2f)] placeholder:text-[var(--footer-ink,#2f2f2f)]/40";
   /** Send (and the thank-you Close): a rounded rectangle, not a pill, filled
    *  in the theme's ink with a stroke in the same colour as the fields'. */
   const primaryButton = `inline-flex h-[52px] min-w-[220px] items-center justify-center rounded-[10px] border-2 px-8 text-[18px] font-medium transition-opacity hover:opacity-80 disabled:opacity-50 ${
     isDark
-      ? "border-[#fdfeff] bg-[#fdfeff] text-[#2f2f2f]"
-      : "border-[#2f2f2f] bg-[#2f2f2f] text-[#fdfeff]"
+      ? "border-[#fdfeff] bg-[#fdfeff] text-[var(--footer-ink,#2f2f2f)]"
+      : "border-[var(--footer-ink,#2f2f2f)] bg-[var(--footer-ink,#2f2f2f)] text-[#fdfeff]"
   }`;
   const label = "text-[15px] font-semibold";
 
@@ -107,7 +107,7 @@ export function ContactModal({ theme, onClose }: { theme: Theme; onClose: () => 
           onClick={onClose}
           aria-label="Close"
           className={`absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full border-2 text-[18px] leading-none transition-opacity hover:opacity-70 ${
-            isDark ? "border-[#fdfeff]" : "border-[#2f2f2f]"
+            isDark ? "border-[#fdfeff]" : "border-[var(--footer-ink,#2f2f2f)]"
           }`}
         >
           ×

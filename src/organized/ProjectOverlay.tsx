@@ -21,7 +21,11 @@ import type { Project } from "../pieces/projects";
  * to its final value immediately and never animated: the card widens and grows
  * in place. Only `left`, `width` and `height` are tweened.
  */
-const EXPAND_INSET = 12;
+/** The case study is a full page: it lands edge to edge with square corners.
+ *  It leaves the card at the card's own 4px radius and squares off as it
+ *  grows, so the two read as one object. */
+const EXPAND_INSET = 0;
+const CARD_RADIUS = 4;
 const EXPAND_DUR = 0.62;
 const EXPAND_EASE = "power3.inOut";
 /** The rail and body unfold over the last of the grow, so the page finishes
@@ -71,8 +75,15 @@ export function ProjectOverlay({
     gsap.set(el, { top: target.top });
     gsap.fromTo(
       el,
-      { left: r.left, width: r.width, height: r.height },
-      { left: target.left, width: target.width, height: target.height, duration: EXPAND_DUR, ease: EXPAND_EASE },
+      { left: r.left, width: r.width, height: r.height, borderRadius: CARD_RADIUS },
+      {
+        left: target.left,
+        width: target.width,
+        height: target.height,
+        borderRadius: 0,
+        duration: EXPAND_DUR,
+        ease: EXPAND_EASE,
+      },
     );
     gsap.to(chromeRef.current, {
       v: 1,
@@ -103,6 +114,7 @@ export function ProjectOverlay({
       left: r.left,
       width: r.width,
       height: r.height,
+      borderRadius: CARD_RADIUS,
       duration: EXPAND_DUR,
       ease: EXPAND_EASE,
       onComplete: onClose,
@@ -119,6 +131,15 @@ export function ProjectOverlay({
       document.body.style.overflow = prev;
       delete document.body.dataset.projectOpen;
     };
+  }, []);
+
+  // A full-page case study has to stay full page when the window changes size.
+  useEffect(() => {
+    const onResize = () => {
+      if (pageRef.current && !closingRef.current) gsap.set(pageRef.current, viewportBox());
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   useEffect(() => {
@@ -142,8 +163,7 @@ export function ProjectOverlay({
         top: EXPAND_INSET,
         left: EXPAND_INSET,
         background: "#fdfeff",
-        border: "2px solid #2f2f2f",
-        borderRadius: 24,
+        borderRadius: 0,
         boxSizing: "border-box",
       }}
     >

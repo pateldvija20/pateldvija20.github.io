@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { NAV_SECTIONS, type SectionId } from "./content";
+import { NAV_PAGES } from "./content";
+import type { Theme } from "../pieces/Piece";
+import { LampSwitch } from "./LampSwitch";
+import { navigate, PAGE_PATHS, type Page } from "./router";
 import { useBreakpoint } from "./useBreakpoint";
 
 /**
@@ -19,37 +22,6 @@ import { useBreakpoint } from "./useBreakpoint";
  * 44px control at every phone size, and the links get a full-width panel with
  * tap targets instead of a hairline row.
  */
-
-/** Which section is under the top of the viewport right now. */
-function useScrollSpy(ids: SectionId[]) {
-  const [active, setActive] = useState<SectionId>(ids[0]);
-
-  useEffect(() => {
-    const els = ids
-      .map((id) => document.getElementById(id))
-      .filter((el): el is HTMLElement => el !== null);
-    if (!els.length) return;
-
-    // rootMargin pulls the detection line down to ~a third of the viewport, so
-    // a section counts as "current" once it genuinely occupies the screen
-    // rather than the instant its top edge appears.
-    const io = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible[0]) setActive(visible[0].target.id as SectionId);
-      },
-      { rootMargin: "-33% 0px -60% 0px", threshold: 0 },
-    );
-    els.forEach((el) => io.observe(el));
-    return () => io.disconnect();
-  }, [ids]);
-
-  return active;
-}
-
-const IDS = NAV_SECTIONS.map((s) => s.id);
 
 /** Half of whatever the window has beyond the 1512 frame; 0 up to 1512. */
 const SPARE_HALF = "max(0px, (100% - 1512px) / 2)";
@@ -87,8 +59,15 @@ function MenuIcon({ open }: { open: boolean }) {
   );
 }
 
-export function Sidebar() {
-  const active = useScrollSpy(IDS);
+export function Sidebar({
+  page: active,
+  theme,
+  onToggleTheme,
+}: {
+  page: Page;
+  theme: Theme;
+  onToggleTheme: () => void;
+}) {
   const listRef = useRef<HTMLUListElement>(null);
   const navRef = useRef<HTMLElement>(null);
   const [open, setOpen] = useState(false);
@@ -130,7 +109,7 @@ export function Sidebar() {
   useEffect(() => {
     const list = listRef.current;
     if (!list || list.scrollWidth <= list.clientWidth) return;
-    const link = list.querySelector<HTMLElement>(`a[href="#${active}"]`);
+    const link = list.querySelector<HTMLElement>(`a[href="${PAGE_PATHS[active]}"]`);
     if (!link) return;
     const l = link.getBoundingClientRect();
     const b = list.getBoundingClientRect();
@@ -141,15 +120,12 @@ export function Sidebar() {
     });
   }, [active]);
 
-  const go = (e: React.MouseEvent<HTMLAnchorElement>, id: SectionId) => {
+  const go = (e: React.MouseEvent<HTMLAnchorElement>, page: Page) => {
     setOpen(false);
-    const el = document.getElementById(id);
-    if (!el) return; // let the anchor fall through to the default jump
+    // Modified clicks keep their usual meaning: a new tab gets a real URL.
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    el.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
-    // Keep the address bar honest without pushing a history entry per click.
-    history.replaceState(null, "", `#${id}`);
+    navigate(page);
   };
 
   // Structure is set explicitly rather than by stacking three conflicting
@@ -168,7 +144,8 @@ export function Sidebar() {
         height: "100vh",
         flexDirection: "column",
         alignItems: "flex-start",
-        justifyContent: "flex-end",
+        // The homepage frame hangs the links at the column's middle.
+        justifyContent: "center",
         padding: 60,
         paddingLeft: `calc(60px + ${SPARE_HALF})`,
         flexShrink: 0,
@@ -180,20 +157,22 @@ export function Sidebar() {
         alignItems: "center",
         justifyContent: "flex-end",
         paddingLeft: phone ? 24 : 40,
-        // Clears the control bar, which is pinned to the same corner. Figma's
-        // phone frame puts the links 24px from the edge but draws no control
-        // bar for them to collide with.
-        paddingRight: phone ? 80 : 104,
+        // Nothing shares this corner below 1025: the control bar's layout
+        // toggle only exists where the desk does, and the theme button gave
+        // way to the lamp — so the bar keeps Figma's own edge padding.
+        paddingRight: phone ? 24 : 40,
       };
 
-  const links = NAV_SECTIONS.map((s) => {
-    const on = active === s.id;
+  const links = NAV_PAGES.map((s) => {
+    const on = active === s.page;
     return (
       <li
-        key={s.id}
+        key={s.page}
         style={
           desktop
-            ? { width: "100%", padding: "12px 0" }
+            ? // Flex, so the item is exactly the link's 24px line plus padding
+              // — 48 baseline to baseline, as the frame spaces them.
+              { width: "100%", padding: "12px 0", display: "flex" }
             : phone
               ? { width: "100%" }
               : // Never squash a label to make the row fit.
@@ -201,14 +180,18 @@ export function Sidebar() {
         }
       >
         <a
-          href={`#${s.id}`}
-          onClick={(e) => go(e, s.id)}
-          aria-current={on ? "true" : undefined}
-          className={`text-lg capitalize transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-4 ${
-            on ? "font-bold" : "font-medium"
+          href={PAGE_PATHS[s.page]}
+          onClick={(e) => go(e, s.page)}
+          aria-current={on ? "page" : undefined}
+          data-cursor-frame="pill"
+          // Roboto Slab at 16 (text-base, one step under the frame's 18) on a
+          // 24 line, 48 baseline to baseline with the item padding. Active is ink and bold,
+          // the rest the quiet grey: no accent colour in this palette.
+          className={`font-slab text-[16px] leading-[24px] transition-colors duration-200 hover:text-[var(--content)] focus-visible:outline-2 focus-visible:outline-offset-4 ${
+            on ? "font-bold" : "font-normal"
           } ${phone ? "block" : ""}`}
           style={{
-            color: on ? "var(--color-accent)" : "var(--content)",
+            color: on ? "var(--content)" : "var(--quiet)",
             outlineColor: "var(--content)",
             // A row of text is a fine target with a mouse and a poor one with
             // a thumb, so the panel gives every link a real one.
@@ -228,6 +211,22 @@ export function Sidebar() {
       className="sticky top-0 z-30 flex"
       style={{ background: "var(--surface)", ...shell }}
     >
+      {/* The light switch. On Work from tablet up it is the hero's own lamp;
+          everywhere else this small one hangs from the top-left corner — on
+          the phone, on every page. */}
+      {phone || active !== "work" ? (
+        <LampSwitch
+          theme={theme}
+          onToggle={onToggleTheme}
+          className="absolute top-0 block"
+          style={
+            desktop
+              ? { left: 28, width: 120 }
+              : { left: phone ? 4 : 20, width: phone ? 76 : 88 }
+          }
+        />
+      ) : null}
+
       {phone ? (
         <>
           <button
@@ -285,6 +284,13 @@ export function Sidebar() {
                   marginLeft: "auto",
                   maxWidth: "100%",
                   overflowX: "auto",
+                  // A scrolling row clips whatever spills past its edges, and
+                  // the cursor's hover fill sits 14px beyond each link and 6px
+                  // above and below (index.css). Room for it inside the row,
+                  // given back outside so the links stay where they were.
+                  padding: "8px 16px",
+                  marginRight: -16,
+                  marginBlock: -8,
                 }
           }
         >
@@ -298,7 +304,7 @@ export function Sidebar() {
         <span
           aria-hidden="true"
           className="pointer-events-none absolute right-0 top-0 h-full w-px"
-          style={{ background: "var(--edge)", opacity: 0.2 }}
+          style={{ background: "var(--rule)" }}
         />
       ) : null}
     </nav>

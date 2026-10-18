@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=DM+Mono:ital,wght@0,500;1,500&family=Roboto+Slab:wght@400;500&family=Space+Mono:wght@400;700&family=Poppins:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&family=DM+Mono:ital,wght@0,500;1,500&family=Roboto+Slab:wght@400;500;700&family=Space+Mono:wght@400;700&family=Poppins:wght@500;600;700&display=swap');
 @import 'tailwindcss';
 
 /* DM Mono ships both faces on purpose: the import used to fetch only the
@@ -106,6 +106,181 @@
   --edge: #fdfeff;
   --paper: #2f2f2f;
   --ink: #fdfeff;
+}
+
+/* Organised mode's palette (Figma Homepage 2754:1044 / 2754:1176): four
+   colours and nothing else. Ink is #101010 rather than the desk's #2f2f2f —
+   the desk illustrations are drawn against #2f2f2f, so the change is scoped
+   to Organised via `data-layout` (set in App.tsx) instead of touching the
+   shared tokens above.
+
+   `--art-*` are the hero illustration's three fills. The grey is the one
+   value that is not a straight swap between themes: #7C838B in light, but
+   #383C42 in dark, where #7C838B would read as a second light source.
+   `--quiet` is secondary text, #7C838B in both themes, as the exports
+   specify. */
+:root[data-layout="organized"] {
+  --surface: #fdfeff;
+  --content: #101010;
+  --edge: #101010;
+  --paper: #fdfeff;
+  --ink: #101010;
+  --quiet: #7c838b;
+  --rule: #7c838b;
+  --art-ink: #101010;
+  --art-paper: #fdfeff;
+  --art-grey: #7c838b;
+  /* The contact form is shared with the desk and falls back to its #2f2f2f
+     wherever this is unset. */
+  --footer-ink: #101010;
+  /* The cursor's hover fill (Cursor.tsx), drawn behind the item it is on. */
+  --tint: #eceef0;
+}
+:root[data-layout="organized"][data-theme="dark"] {
+  --surface: #101010;
+  --content: #fdfeff;
+  --edge: #fdfeff;
+  --paper: #101010;
+  --ink: #fdfeff;
+  --rule: #383c42;
+  --art-ink: #fdfeff;
+  --art-paper: #101010;
+  --art-grey: #383c42;
+  --tint: #26292d;
+}
+
+/* The hero's script line. The lettering is Figma's outlined artwork, kept as
+   a path so it matches the export exactly; drawing it as a mask over
+   `currentColor` is what lets one file serve both themes. */
+.hero-script {
+  display: block;
+  aspect-ratio: 391 / 72;
+  background: currentColor;
+  -webkit-mask: url("/assets/hero/product-designer.svg") center / contain no-repeat;
+  mask: url("/assets/hero/product-designer.svg") center / contain no-repeat;
+}
+
+/* Page and image fades, after rachelchen.tech: in from transparent and a
+   6px blur to sharp. The page runs it once as it mounts (OrganizedPage keys
+   <main> by page, so every page change replays it); an image runs it when its
+   file has loaded (FadeImg), so pictures never pop in half-drawn. Reduced
+   motion keeps a short plain fade and drops the blur. */
+@keyframes page-fade {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+.page-fade {
+  animation: page-fade 450ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.media-fade {
+  opacity: 0;
+  filter: blur(6px);
+  /* Transform is listed too: this rule is unlayered, so it outranks a tile's
+     own `transition-transform` utility, and the hover zoom would snap. */
+  transition:
+    opacity 500ms ease-in-out,
+    filter 500ms ease-in-out,
+    transform 500ms ease-out;
+}
+.media-fade[data-loaded] {
+  opacity: 1;
+  filter: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-fade {
+    animation: page-fade-plain 200ms ease-out both;
+  }
+  .media-fade {
+    filter: none;
+    transition-duration: 150ms;
+  }
+}
+@keyframes page-fade-plain {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The cursor's hover fill. An item marked `data-cursor-frame` carries its
+   own fill as a ::before *behind* its content (isolation keeps the -1 inside
+   the item), so the text and images on it are never washed over. Cursor.tsx
+   switches it on with `data-cursor-on`; the fill fades and settles in from
+   slightly smaller, growing from where the pointer came in (--cx --cy), and
+   fades back out the same way. Cursor.tsx also feeds --mx --my, the magnetic
+   lean: the whole item drifts a few px toward the pointer, fill and all.
+
+   A card also rises 6px while the fill is on. */
+[data-cursor-frame] {
+  position: relative;
+  isolation: isolate;
+  transform: translate(var(--mx, 0px), calc(var(--my, 0px) + var(--lift, 0px)));
+  transition: transform 450ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-cursor-frame]::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  background: var(--tint);
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.94);
+  transform-origin: var(--cx, 50%) var(--cy, 50%);
+  transition:
+    opacity 280ms ease-out,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-cursor-frame="pill"]::before {
+  inset: -6px -14px;
+  border-radius: 999px;
+}
+[data-cursor-frame="card"]::before {
+  inset: -10px;
+  border-radius: 12px;
+}
+[data-cursor-frame][data-cursor-on]::before {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 220ms ease-out,
+    transform 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-cursor-frame="card"][data-cursor-on] {
+  --lift: -6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-cursor-frame] {
+    transform: none;
+  }
+  [data-cursor-frame]::before,
+  [data-cursor-frame][data-cursor-on]::before {
+    transform: none;
+    transition: opacity 150ms ease-out;
+  }
+}
+
+/* Art with a light and a dark file: both mounted, the theme picks. */
+.art-dark {
+  display: none;
+}
+:root[data-theme="dark"] .art-light {
+  display: none;
+}
+:root[data-theme="dark"] .art-dark {
+  display: block;
+}
+
+/* The custom cursor (see organized/Cursor.tsx) replaces the system pointer,
+   but only while it is actually running — fine pointer, Organised mode — so
+   a touch screen or the desk never ends up with no cursor at all. */
+html[data-custom-cursor],
+html[data-custom-cursor] * {
+  cursor: none !important;
 }
 
 html,

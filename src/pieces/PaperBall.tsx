@@ -20,6 +20,9 @@ import { SvgPiece, type Theme } from "./Piece";
 const TOOLTIP = "Hey, don't toss that idea away!";
 /** Per character: the whole line lands in just under a second. */
 const TYPE_MS = 60;
+/** Organised mode's custom cursor is on (see organized/Cursor.tsx). */
+const customCursor = () =>
+  typeof document !== "undefined" && document.documentElement.dataset.customCursor !== undefined;
 export function PaperBall({
   theme,
   onOpen,
@@ -76,13 +79,15 @@ export function PaperBall({
   // tooltip on that instead of on the ball. `w-max` keeps it ball-sized.
   return (
     <div className={`w-max ${className ?? "relative"}`} style={style}>
-      {hover && !isTouch && !unfolding && (
+      {/* Where Organised mode's cursor is running, the cursor itself becomes
+          this tooltip (`data-cursor-bubble` below), so this copy stands down. */}
+      {hover && !isTouch && !unfolding && !customCursor() && (
         <div
           role="tooltip"
           className={`pointer-events-none absolute -top-3 left-1/2 w-max -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-full border-2 px-4 py-2 text-[15px] font-semibold shadow-[0_8px_20px_rgba(0,0,0,0.2)] ${
             isDark
-              ? "border-[#fdfeff] bg-[#2f2f2f] text-[#fdfeff]"
-              : "border-[#2f2f2f] bg-[#fdfeff] text-[#2f2f2f]"
+              ? "border-[#fdfeff] bg-[var(--footer-ink,#2f2f2f)] text-[#fdfeff]"
+              : "border-[var(--footer-ink,#2f2f2f)] bg-[#fdfeff] text-[var(--footer-ink,#2f2f2f)]"
           }`}
         >
           {/* The invisible full line sizes the pill up front, so it doesn't
@@ -107,6 +112,7 @@ export function PaperBall({
       <button
         type="button"
         aria-label="Open the contact form"
+        data-cursor-bubble={TOOLTIP}
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         onFocus={() => setHover(true)}
