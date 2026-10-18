@@ -33,7 +33,10 @@ export function LampSwitch({
       // Wide enough either side for the shade to swing without clipping.
       viewBox="420 0 345 300"
       className={className}
-      style={style}
+      // Not clipped to its box: a pull stretches the lamp up to 70 units below
+      // the drawing's foot, and that has to show. Above the box is the top of
+      // the window, so the cord running up there is never seen anyway.
+      style={{ overflow: "visible", ...style }}
       lampRef={lamp}
       lampProps={{
         role: "button",
