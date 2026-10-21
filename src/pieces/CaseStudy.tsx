@@ -296,11 +296,11 @@ export function CaseStudy({
           width: SIDEBAR_W * chrome,
           opacity: chrome,
           borderRight: chrome > 0.02 ? `1px solid ${divider}` : "none",
-          // Placed as Organised mode's nav is: the links at the column's
-          // middle, 60 in — the middle of what the lamp leaves. `safe`: a list
-          // taller than that space starts under the lamp instead of centring
-          // up into it, and the rail scrolls for the rest.
-          justifyContent: "safe center",
+          // The links sit at the foot of the column, 60 in, clear of the
+          // lamp at the top. `safe`: a list taller than the space starts
+          // under the lamp instead of running up into it, and the rail
+          // scrolls for the rest.
+          justifyContent: "safe flex-end",
           overflowY: chrome > 0.99 ? "auto" : "hidden",
           gap: NAV_GAP,
           paddingLeft: NAV_PAD * chrome,

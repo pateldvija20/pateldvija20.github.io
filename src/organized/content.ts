@@ -193,10 +193,11 @@ export const RESUME_PDF = "/Dvija_Patel_Resume.pdf";
  * Roles, companies and cities all follow the CV artwork, which is the source
  * of truth where it and the Figma frame disagree.
  */
-export const EXPERIENCE = [
+export const EXPERIENCE: { role: string; company: string; logo?: string; city?: string; dates: string }[] = [
   {
     role: "UX/UI Designer",
     company: "Vidasana Wellness",
+    logo: "/assets/logos/vidasana.jpg",
     dates: "Sep ‘26 – Present",
   },
   {
@@ -208,27 +209,34 @@ export const EXPERIENCE = [
   {
     role: "UX Design Researcher",
     company: "The Livewell Collaborative",
+    logo: "/assets/logos/livewell.jpg",
     city: "Cincinnati, OH",
     dates: "May ‘25 – Aug ‘25",
   },
   {
     role: "Graphic Designer",
     company: "University of Cincinnati - Graduate college",
+    logo: "/assets/logos/uc-grad.jpg",
     city: "Cincinnati, OH",
     dates: "Sep ‘24 – May ‘25",
   },
   {
     role: "Visual Designer",
     company: "Bluelearn.in",
+    logo: "/assets/logos/bluelearn.jpg",
     city: "Bangalore, India",
     dates: "Jun ‘22 – Jun ‘23",
   },
 ];
 
-/** Four columns: school, degree, details, dates. */
+/** Four columns: school, degree, details, dates.
+ *
+ * `logo`: each organisation's LinkedIn logo (public/assets/logos). Without
+ * one, the row falls back to the initial in an ink square. */
 export const EDUCATION = [
   {
     school: "University of Cincinnati",
+    logo: "/assets/logos/uc.jpg",
     degree: "Master of Design",
     details: "Human-Centered Technology Design",
     city: "Cincinnati, OH",
@@ -236,6 +244,7 @@ export const EDUCATION = [
   },
   {
     school: "Gujarati Technological University",
+    logo: "/assets/logos/gtu.jpg",
     degree: "Bachelor of Engineering",
     details: "Computer Engineering",
     city: "Ahmedabad, India",

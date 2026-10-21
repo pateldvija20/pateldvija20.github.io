@@ -241,11 +241,13 @@ export function Sidebar({
       {/* Desktop: the lamp hangs from the top of the sidebar, above the
           links, whenever the page's own lamp is out of sight — always off
           Work, and on Work once the hero lamp has scrolled away, when it
-          drops in on its cord. */}
+          drops in on its cord. Pinned to the window rather than the
+          column: the column is only sticky while its row is on screen, so
+          as the footer arrives it scrolls up, and the lamp stays put. */}
       {desktop ? (
         <div
           aria-hidden={!lampAway}
-          className="absolute top-0 motion-reduce:transition-none"
+          className="fixed top-0 motion-reduce:transition-none"
           style={{
             left: 24,
             width: 120,

@@ -69,3 +69,15 @@ export function SectionHeading({ children }: { children: ReactNode }) {
     </h2>
   );
 }
+
+/** The opening copy of a page (About, CV): one measure, one type style (grey,
+ *  like the rest of the page's supporting copy), so the pages read as a set. Paragraphs take `INTRO_TEXT`. */
+export const INTRO_TEXT = "text-[16px] leading-[1.6]";
+
+export function Intro({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex max-w-[560px] flex-col items-start gap-[16px]" style={{ color: "var(--quiet)" }}>
+      {children}
+    </div>
+  );
+}

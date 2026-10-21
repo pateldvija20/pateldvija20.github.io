@@ -700,8 +700,27 @@ export default function App() {
   // source of truth and still reaches every Scattered piece as a prop; this
   // only gives CSS the same fact, so the Organised page can flip its
   // surface tokens without threading a prop through every section.
-  useEffect(() => {
-    document.documentElement.dataset.theme = theme;
+  //
+  // A layout effect, so the tokens flip in the same frame React paints the
+  // theme props; and every transition is held off for that frame, so the
+  // whole page changes at once instead of each surface fading on its own
+  // clock.
+  const firstTheme = useRef(true);
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    if (firstTheme.current) {
+      firstTheme.current = false;
+      root.dataset.theme = theme;
+      return;
+    }
+    root.setAttribute("data-theme-switching", "");
+    root.dataset.theme = theme;
+    // A timer rather than animation frames, which a background tab may hold.
+    const t = window.setTimeout(() => root.removeAttribute("data-theme-switching"), 60);
+    return () => {
+      window.clearTimeout(t);
+      root.removeAttribute("data-theme-switching");
+    };
   }, [theme]);
 
   // Folder open/close mirrors into the path (replaceState — the case study
@@ -810,7 +829,10 @@ export default function App() {
 
 
   return (
-    <div className="min-h-screen w-full transition-colors duration-500" style={{ background: pageBg }}>
+    <div
+      className={`min-h-screen w-full ${mode === "organized" ? "" : "transition-colors duration-500"}`}
+      style={{ background: pageBg }}
+    >
       <ControlBar
         theme={theme}
         mode={mode}
