@@ -8,7 +8,8 @@ import { useSwing } from "./useSwing";
  * tablet bar, and the top of the desktop sidebar on pages other than Work.
  *
  * Same drawing and same behaviour as the big one: it swings when brushed,
- * and a tap, click or pull flips the theme (see `useSwing`).
+ * and a tap, click or pull flips the theme (see `useSwing`). Left alone, it
+ * drifts a little now and then.
  */
 export function LampSwitch({
   theme,
@@ -25,6 +26,9 @@ export function LampSwitch({
     pivot: LAMP_PIVOT,
     stiffness: 22,
     damping: 1.1,
+    // Sways a degree or three on its own every few seconds, so it reads as
+    // something hanging rather than a fixed icon.
+    drift: { min: 3, max: 9, force: 45 },
     pull: { max: 60, threshold: 20, onPull: onToggle },
   });
   return (

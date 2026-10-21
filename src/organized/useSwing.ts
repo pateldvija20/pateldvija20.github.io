@@ -14,6 +14,8 @@ import { useEffect, useRef } from "react";
  *           on its cord, which springs back
  *   drag    press and drag sideways to hold it at an angle; let go and it
  *           swings back through
+ *   drift   (`drift` set) left alone, it gets a small push now and then, a
+ *           random size and way at a random interval, as if from a draught
  *   pull    (`pull` set) dragging down stretches it down its cord, and on
  *           release it springs back up with a bounce. A pull past
  *           `pull.threshold`, or a plain click, calls `pull.onPull` — the lamp
@@ -40,6 +42,9 @@ type Options = {
   /** Called every frame with the SVG rotation (degrees, clockwise) and the
    *  pull, so something attached can follow — the lamp's light cone. */
   onFrame?: (deg: number, dy: number) => void;
+  /** Idle sway: every `min`–`max` seconds, a push of `force`–2×`force`
+   *  deg/s² either way. */
+  drift?: { min: number; max: number; force: number };
   pull?: {
     /** Furthest it stretches, in drawing units. */
     max: number;
@@ -234,6 +239,25 @@ export function useSwing<T extends SVGGraphicsElement>(opts: Options) {
       }
     };
 
+    // The draught. Paused while it is held, and while the tab is hidden so a
+    // returning visitor doesn't find it mid-swing from pushes nobody saw.
+    let draught = 0;
+    const breathe = () => {
+      const d = optsRef.current.drift;
+      if (!d) return;
+      draught = window.setTimeout(
+        () => {
+          if (!drag && !document.hidden) {
+            push += (Math.random() < 0.5 ? -1 : 1) * d.force * (1 + Math.random());
+            wake();
+          }
+          breathe();
+        },
+        (d.min + Math.random() * (d.max - d.min)) * 1000,
+      );
+    };
+    if (!reduced) breathe();
+
     el.addEventListener("pointermove", onMove);
     el.addEventListener("pointerleave", onLeave);
     el.addEventListener("pointerdown", onDown);
@@ -242,6 +266,7 @@ export function useSwing<T extends SVGGraphicsElement>(opts: Options) {
     el.addEventListener("keydown", onKey);
     return () => {
       cancelAnimationFrame(raf);
+      window.clearTimeout(draught);
       el.removeEventListener("pointermove", onMove);
       el.removeEventListener("pointerleave", onLeave);
       el.removeEventListener("pointerdown", onDown);

@@ -319,6 +319,26 @@ html[data-layout="organized"] body {
 [data-cursor-frame="card"][data-cursor-on] {
   --lift: -6px;
 }
+/* The button's fill is the cursor itself growing: a circle the size of the
+   resting cursor opens from the pointer until it covers the button, and
+   closes back into the pointer where it leaves. 150% of the clip's reference
+   radius reaches the farthest corner from anywhere inside. */
+[data-cursor-frame="button"]::before,
+[data-cursor-frame="button"][data-cursor-on]::before {
+  opacity: 1;
+  transform: none;
+}
+[data-cursor-frame="button"]::before {
+  clip-path: circle(0px at var(--cx, 50%) var(--cy, 50%));
+  transition: clip-path 380ms cubic-bezier(0.55, 0, 0.45, 1);
+}
+[data-cursor-frame="button"][data-cursor-on]::before {
+  clip-path: circle(150% at var(--cx, 50%) var(--cy, 50%));
+  transition: clip-path 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-cursor-frame="button"][data-cursor-snap]::before {
+  transition: none;
+}
 @media (prefers-reduced-motion: reduce) {
   [data-cursor-frame] {
     transform: none;
@@ -327,6 +347,13 @@ html[data-layout="organized"] body {
   [data-cursor-frame][data-cursor-on]::before {
     transform: none;
     transition: opacity 150ms ease-out;
+  }
+  [data-cursor-frame="button"]::before {
+    clip-path: none;
+    opacity: 0;
+  }
+  [data-cursor-frame="button"][data-cursor-on]::before {
+    opacity: 1;
   }
 }
 
@@ -450,4 +477,13 @@ body[data-project-open] #root {
   [data-cs-body] img:not([data-site-scroller] *) {
     max-width: 100%;
   }
+}
+
+/* The theme switch lands on every surface in the same frame: nothing fades
+   on its own clock while the tokens flip (App.tsx sets the flag for a
+   moment). */
+:root[data-layout="organized"][data-theme-switching] *,
+:root[data-layout="organized"][data-theme-switching] *::before,
+:root[data-layout="organized"][data-theme-switching] *::after {
+  transition: none !important;
 }

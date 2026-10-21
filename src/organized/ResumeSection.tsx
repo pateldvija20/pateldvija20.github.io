@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { CV, EDUCATION, EXPERIENCE, RESUME_PDF } from "./content";
-import { Section } from "./Section";
+import { Intro, INTRO_TEXT, Section } from "./Section";
 
 /**
  * CV, after madhurima.me/cv: one narrow column that reads like the document
@@ -30,12 +30,26 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-/** Stand-in for a logo: the organisation's initial in a small ink square. */
-function Mark({ name }: { name: string }) {
+/** The organisation's logo, as LinkedIn shows it: a small rounded square.
+ *  Without one, its initial in an ink square stands in. */
+function Mark({ name, logo }: { name: string; logo?: string }) {
+  if (logo) {
+    return (
+      <img
+        src={logo}
+        alt=""
+        aria-hidden="true"
+        width={24}
+        height={24}
+        loading="lazy"
+        className="mt-[-1.5px] h-[24px] w-[24px] shrink-0 rounded-[4px] bg-white object-cover"
+      />
+    );
+  }
   return (
     <span
       aria-hidden="true"
-      className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[3px] font-slab text-[11px] font-bold"
+      className="mt-[-1.5px] inline-flex h-[24px] w-[24px] shrink-0 items-center justify-center rounded-[4px] font-slab text-[13px] font-bold"
       style={{ background: "var(--content)", color: "var(--surface)" }}
     >
       {name.charAt(0)}
@@ -43,11 +57,14 @@ function Mark({ name }: { name: string }) {
   );
 }
 
-function Org({ name }: { name: string }) {
+function Org({ name, logo }: { name: string; logo?: string }) {
   return (
-    <span className="flex min-w-0 items-center gap-[10px]" style={{ color: "var(--content)" }}>
-      <Mark name={name} />
-      <span className="min-w-0">{name}</span>
+    // The row lines its columns up on the text baseline. An image's baseline
+    // is its bottom edge, so the name alone sets this one (`self-baseline`),
+    // and the mark sits centred on the name's first line beside it.
+    <span className="flex min-w-0 items-start gap-[10px]" style={{ color: "var(--content)" }}>
+      <Mark name={name} logo={logo} />
+      <span className="min-w-0 self-baseline">{name}</span>
     </span>
   );
 }
@@ -61,7 +78,13 @@ const Dates = ({ children }: { children: ReactNode }) => (
 function DownloadIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M7 1.5v8M3.5 6 7 9.5 10.5 6M2 12.5h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M7 1.5v8M3.5 6 7 9.5 10.5 6M2 12.5h10"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -69,20 +92,16 @@ function DownloadIcon() {
 export function ResumeSection() {
   return (
     <Section id="resume" title="CV">
-      <div className="flex max-w-[640px] flex-col gap-[40px]">
-        <div className="flex flex-col items-start gap-[12px]">
-          <p className="text-[18px] font-medium" style={{ color: "var(--content)" }}>
-            {CV.name}
-          </p>
-          <p className="text-[15px] leading-[1.55]" style={{ color: "var(--quiet)" }}>
-            {CV.summary}
-          </p>
+      <div className="flex flex-col gap-[64px]">
+        {/* Opens the way About does: the same measure and type. */}
+        <Intro>
+          <p className={INTRO_TEXT}>{CV.summary}</p>
           <a
             href={RESUME_PDF}
             download
             // The cursor's fill snaps to the whole button (index.css).
             data-cursor-frame="button"
-            className="mt-[6px] inline-flex items-center gap-[8px] rounded-[6px] px-[12px] py-[7px] text-[14px] focus-visible:outline-2 focus-visible:outline-offset-4"
+            className="mt-[8px] inline-flex items-center gap-[8px] rounded-[6px] px-[12px] py-[7px] text-[14px] focus-visible:outline-2 focus-visible:outline-offset-4"
             style={{
               color: "var(--content)",
               border: "1px solid color-mix(in srgb, var(--rule) 60%, transparent)",
@@ -92,32 +111,34 @@ export function ResumeSection() {
             <DownloadIcon />
             Download resume
           </a>
-        </div>
+        </Intro>
 
-        <Block title="Work Experience">
-          {EXPERIENCE.map((e) => (
-            <div key={e.company + e.dates} className={ROW}>
-              <Org name={e.company} />
-              <span style={{ color: "var(--content)" }}>{e.role}</span>
-              <Dates>{e.dates}</Dates>
-            </div>
-          ))}
-        </Block>
+        <div className="flex max-w-[640px] flex-col gap-[40px]">
+          <Block title="Work Experience">
+            {EXPERIENCE.map((e) => (
+              <div key={e.company + e.dates} className={ROW}>
+                <Org name={e.company} logo={e.logo} />
+                <span style={{ color: "var(--content)" }}>{e.role}</span>
+                <Dates>{e.dates}</Dates>
+              </div>
+            ))}
+          </Block>
 
-        <Block title="Education">
-          {EDUCATION.map((e) => (
-            <div key={e.school} className={ROW}>
-              <Org name={e.school} />
-              <span style={{ color: "var(--content)" }}>
-                {e.degree}
-                <span className="block text-[13px]" style={{ color: "var(--quiet)" }}>
-                  {e.details}
+          <Block title="Education">
+            {EDUCATION.map((e) => (
+              <div key={e.school} className={ROW}>
+                <Org name={e.school} logo={e.logo} />
+                <span style={{ color: "var(--content)" }}>
+                  {e.degree}
+                  <span className="block text-[13px]" style={{ color: "var(--quiet)" }}>
+                    {e.details}
+                  </span>
                 </span>
-              </span>
-              <Dates>{e.dates}</Dates>
-            </div>
-          ))}
-        </Block>
+                <Dates>{e.dates}</Dates>
+              </div>
+            ))}
+          </Block>
+        </div>
       </div>
     </Section>
   );

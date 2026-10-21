@@ -202,6 +202,14 @@ export function Cursor() {
       const inset = INSET[shape];
       el.style.setProperty("--cx", `${x - r.left + inset.x}px`);
       el.style.setProperty("--cy", `${y - r.top + inset.y}px`);
+      if (shape === "button") {
+        // The button's fill grows out of the pointer, so its closed circle
+        // jumps to the entry point first rather than sliding over from
+        // wherever the pointer last left.
+        el.dataset.cursorSnap = "";
+        void getComputedStyle(el, "::before").clipPath;
+        delete el.dataset.cursorSnap;
+      }
       el.dataset.cursorOn = "";
       framed = { el, shape, mx: 0, my: 0 };
     };
