@@ -20,16 +20,19 @@ import { PROJECTS, cardImage, type Project } from "./projects";
  * the back and the published ones keep the order they already had. PROJECTS
  * itself is untouched because the Work grid reads it top to bottom, where
  * published-first is already right.
+ *
+ * The pocket is drawn for exactly six sheets (SHEETS, CLOSED_SHEETS and the
+ * hover tops are six Figma reads each), and there are seven projects since
+ * Bind Desk. One coming-soon sheet sits out of the folder to keep the fan as
+ * authored; it still shows on the Work grid.
  */
+const NOT_IN_FOLDER = new Set(["nearby"]);
 const FOLDER_PROJECTS: Project[] = [
-  ...PROJECTS.filter((p) => p.wip),
+  ...PROJECTS.filter((p) => p.wip && !NOT_IN_FOLDER.has(p.slug)),
   ...PROJECTS.filter((p) => !p.wip),
 ];
 import { CaseStudy } from "./CaseStudy";
-import { BILLY_AND_BUDDY_SECTIONS } from "./billyAndBuddy";
-import { HACKSVIT_SECTIONS } from "./hacksvit";
-import { GREENERA_SECTIONS } from "./greenera";
-import { THE_FAMILY_TABLE_SECTIONS } from "./theFamilyTable";
+import { sectionsFor } from "./caseStudySections";
 
 /**
  * The case-studies folder.
@@ -455,7 +458,9 @@ export function FileFolder({
       // App hands this over as an index into PROJECTS; the folder works in
       // slots, which are in a different order (see FOLDER_PROJECTS).
       const slot = FOLDER_PROJECTS.indexOf(PROJECTS[deepLinkProject]);
-      const wip = FOLDER_PROJECTS[slot].wip;
+      // A project with no sheet here (NOT_IN_FOLDER) is unpublished, so it
+      // takes the same path as one that is.
+      const wip = slot < 0 || FOLDER_PROJECTS[slot].wip;
       if (!wip) {
         instantPullRef.current = true;
         openness.current.t = 1;
@@ -471,7 +476,7 @@ export function FileFolder({
         if (window.location.pathname !== "/projects") {
           history.replaceState(null, "", "/projects");
         }
-        showWipNotice(FOLDER_PROJECTS[slot].name);
+        showWipNotice(PROJECTS[deepLinkProject].name);
       }
     }
     // Deferred past the stage's own mount: the scattered canvas scrolls to
@@ -1273,17 +1278,7 @@ function ExpandedPage({
           project={project}
           theme={theme}
           chrome={chrome}
-          sections={
-            project.slug === "hacksvit"
-              ? HACKSVIT_SECTIONS
-              : project.slug === "greenera"
-                ? GREENERA_SECTIONS
-                : project.slug === "the-family-table"
-                  ? THE_FAMILY_TABLE_SECTIONS
-                  : project.slug === "billy-and-buddy"
-                    ? BILLY_AND_BUDDY_SECTIONS
-                    : undefined
-          }
+          sections={sectionsFor(project.slug)}
         />
       </div>
 

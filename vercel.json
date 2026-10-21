@@ -1,3 +1,6 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/bind-desk/(.*)", "destination": "/bind-desk/index.html" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

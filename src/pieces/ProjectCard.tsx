@@ -1,3 +1,4 @@
+import { LoopMedia } from "./LoopMedia";
 import { cardImage, type Project } from "./projects";
 
 /**
@@ -52,12 +53,7 @@ function CardBody({ project, tone, src }: { project: Project; tone: CardTone; sr
         className="w-full shrink-0 overflow-hidden"
         style={{ aspectRatio: IMAGE_RATIO, background: t.well }}
       >
-        <img
-          src={src ?? cardImage(project)}
-          alt=""
-          draggable={false}
-          className="h-full w-full select-none object-cover"
-        />
+        <LoopMedia still={src ?? cardImage(project)} video={project.heroVideo} className="h-full w-full" />
       </div>
 
       <div className="flex w-full flex-col" style={{ padding: PAD, gap: STACK_GAP }}>

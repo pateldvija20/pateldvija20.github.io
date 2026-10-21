@@ -23,6 +23,7 @@ export default defineConfig(({ mode }) => {
       figmaErrorOverlayReplay(),
       figmaReactRefreshBoundaryFallback(),
       figmaMakeKitPlugin({ storiesGlob: '/src/**/*.stories.{ts,tsx,js,jsx}' }),
+      bindDeskPrototype(),
     ],
     resolve: {
       alias: {
@@ -351,6 +352,29 @@ function figmaMakeKitPlugin(options: { storiesGlob: string | string[] }): Plugin
           next(err as Error)
         }
       })
+    },
+  }
+}
+
+/**
+ * The Bind Desk prototype is a separate prebuilt app under public/bind-desk/.
+ * Vercel serves it through the /bind-desk/(.*) rewrite in vercel.json; this
+ * does the same locally, so /bind-desk/ opens the prototype in dev and
+ * preview instead of falling back to the portfolio's own index.html.
+ */
+function bindDeskPrototype(): Plugin {
+  const rewrite = (req: { url?: string }, _res: unknown, next: () => void) => {
+    const [pathname, rest = ''] = (req.url ?? '').split(/(?=[?#])/)
+    if (pathname === '/bind-desk' || pathname === '/bind-desk/') req.url = `/bind-desk/index.html${rest}`
+    next()
+  }
+  return {
+    name: 'bind-desk-prototype',
+    configureServer(server) {
+      server.middlewares.use(rewrite)
+    },
+    configurePreviewServer(server) {
+      server.middlewares.use(rewrite)
     },
   }
 }

@@ -1,5 +1,5 @@
 /**
- * The six case studies, in display order: published work first, then the two
+ * The seven case studies, in display order: published work first, then the two
  * that are still coming, so a visitor meets real case studies before
  * placeholders. The Work grid reads this top to bottom. The folder does not
  * use it directly — its fan stacks back to front, so it puts the coming-soon
@@ -30,6 +30,13 @@ export type Project = {
    * would scale it up and clip the outer two phones off the lineup.
    */
   heroAspect?: number;
+  /**
+   * A silent loop shown wherever `hero` is (Work tile, related cards, the case
+   * study's own hero), as a path stem with `.webm` and `.mp4` beside it. Its
+   * first frame is `hero`, so the still stays the poster, the folder sheet and
+   * the morph image.
+   */
+  heroVideo?: string;
 };
 
 export const PROJECTS: Project[] = [
@@ -62,6 +69,19 @@ export const PROJECTS: Project[] = [
     title: "A Product Page That Tells You Which Sustainability Claims To Trust",
     hero: "/assets/projects/greenera/hero-lineup.png",
     heroAspect: 600 / 1212,
+  },
+  {
+    slug: "bind-desk",
+    name: "Bind Desk",
+    thumb: "/assets/projects/bind-desk/peek.jpg",
+    type: "Product Design",
+    year: "2026",
+    title: "Fixing the slow work around a checklist that was already fast",
+    // A sneak peek, shaped like the Work tile (1800x1170 at source): the
+    // product window on a tinted backdrop, cropped off the bottom edge.
+    hero: "/assets/projects/bind-desk/peek.jpg",
+    heroVideo: "/assets/projects/bind-desk/peek",
+    heroAspect: 936 / 1440,
   },
   {
     slug: "hacksvit",

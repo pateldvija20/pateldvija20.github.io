@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { LoopMedia } from "./LoopMedia";
 import { cardImage, type Project } from "./projects";
 import type { Theme } from "./Piece";
 
@@ -84,8 +85,8 @@ const META_FONT = "clamp(13px, 1.22vw, 18.469px)";
 const SECTION_FONT = "clamp(15px, calc(1.22vw + 2px), 20.469px)";
 const META_GAP = "clamp(14px, 1.9vw, 28.628px)";
 const META_PY = 7.388;
-const TITLE_FONT = "clamp(28px, 2.93vw, 44.327px)";
-const TITLE_TRACK = 0.8865;
+export const TITLE_FONT = "clamp(28px, 2.93vw, 44.327px)";
+export const TITLE_TRACK = 0.8865;
 /**
  * The phone/tablet section picker's height, and the left inset that keeps it
  * clear of the overlay's floating back button (36px square, pinned to the
@@ -271,6 +272,7 @@ export function CaseStudy({
   })();
 
   const heroSrc = cardImage(project);
+  const introBlock = sections.find((s) => s.id === "intro")?.children;
   // The file crops the hero to 16:9 (1301.168 x 731.907) rather than letting
   // the asset's own proportions decide, so the header always lands in the
   // same place. `heroAspect` is still measured — it is the fallback for an
@@ -363,15 +365,11 @@ export function CaseStudy({
           id={`${project.slug}-intro`}
           style={{ height: heroH, overflow: "hidden" }}
         >
-          <img
-            src={heroSrc}
-            alt=""
-            draggable={false}
-            onLoad={(e) => {
-              const img = e.currentTarget;
-              if (img.naturalWidth) setHeroAspect(img.naturalHeight / img.naturalWidth);
-            }}
-            className="block h-full w-full select-none object-cover"
+          <LoopMedia
+            still={heroSrc}
+            video={project.heroVideo}
+            onAspect={setHeroAspect}
+            className="block h-full w-full"
           />
         </div>
 
@@ -476,9 +474,15 @@ export function CaseStudy({
               {project.type ? <span>{project.type}</span> : null}
               {project.year ? <span>{project.year}</span> : null}
             </div>
-            {/* No `capitalize`: the file sets this in sentence case
+            {/* An "intro" section with content of its own replaces the
+                default title line: the project authors its whole title
+                block (Bind Desk sets its title beside a lede and buttons). */}
+            {introBlock != null ? (
+              <div style={{ marginTop: RAIL_GAP }}>{introBlock}</div>
+            ) : (
+            /* No `capitalize`: the file sets this in sentence case
                 ("…Identity for Hackathons"), and the utility was forcing a
-                capital F onto the preposition. */}
+                capital F onto the preposition. */
             <h1
               className="font-['Roboto_Slab'] font-normal"
               style={{
@@ -491,6 +495,7 @@ export function CaseStudy({
             >
               {project.title ?? project.name}
             </h1>
+            )}
           </header>
 
           {sections.map((s) =>
