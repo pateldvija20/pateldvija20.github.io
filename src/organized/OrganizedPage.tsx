@@ -85,7 +85,7 @@ export function OrganizedPage({
         <Sidebar page={page} theme={theme} onToggleTheme={onToggleTheme} />
         {/* At least a screen tall, so a short page keeps the footer below the
             fold instead of pulling it up beside the sidebar. */}
-        <main key={page} className="page-fade flex min-h-screen min-w-0 flex-1 flex-col">
+        <main key={page} className="page-fade relative flex min-h-screen min-w-0 flex-1 flex-col">
           {page === "work" ? (
             <>
               <HeroSection theme={theme} onToggleTheme={onToggleTheme} />
@@ -103,7 +103,15 @@ export function OrganizedPage({
 
       <Cursor />
 
-      {open ? <ProjectOverlay project={open} theme={theme} from={openFrom} onClose={closeProject} /> : null}
+      {open ? (
+        <ProjectOverlay
+          project={open}
+          theme={theme}
+          from={openFrom}
+          onClose={closeProject}
+          onToggleTheme={onToggleTheme}
+        />
+      ) : null}
     </>
   );
 }

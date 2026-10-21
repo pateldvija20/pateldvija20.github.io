@@ -37,6 +37,9 @@ type Options = {
   maxAngle?: number;
   /** How much a brush bobs it on its cord. 0 for none. */
   bob?: number;
+  /** Called every frame with the SVG rotation (degrees, clockwise) and the
+   *  pull, so something attached can follow — the lamp's light cone. */
+  onFrame?: (deg: number, dy: number) => void;
   pull?: {
     /** Furthest it stretches, in drawing units. */
     max: number;
@@ -48,10 +51,14 @@ type Options = {
 
 const RAD = 180 / Math.PI;
 /** Push force (deg/s²) added per (drawing unit / ms) of pointer speed, per
- *  move event. A brisk pass across the lamp swings it ~12°. */
-const PUSH_GAIN = 55;
-/** How long a push keeps acting, as a decay time constant. */
-const PUSH_TAU = 0.09;
+ *  move event, after smoothing. A brisk pass across the lamp swings it ~6°. */
+const PUSH_GAIN = 26;
+/** How long a push keeps acting, as a decay time constant. Long enough that
+ *  a pass reads as one push rather than a burst of taps. */
+const PUSH_TAU = 0.16;
+/** Pointer speed is smoothed across move events (exponential average), so
+ *  uneven event timing cannot jolt the swing. */
+const VX_SMOOTH = 0.35;
 const PUSH_MAX = 1200;
 /** The soft stop past `maxAngle`: extra stiffness, as a multiple. */
 const STOP_STIFFNESS = 6;
@@ -95,6 +102,7 @@ export function useSwing<T extends SVGGraphicsElement>(opts: Options) {
     const cordExt = el.querySelector<SVGElement>("[data-cord-ext]");
     const write = () => {
       cordExt?.setAttribute("opacity", y > 0.3 ? "1" : "0");
+      optsRef.current.onFrame?.(-angle, y);
       el.setAttribute(
         "transform",
         // SVG's positive rotation is clockwise, which swings a hanging thing's
@@ -145,7 +153,7 @@ export function useSwing<T extends SVGGraphicsElement>(opts: Options) {
       if (!raf && !reduced) raf = requestAnimationFrame(step);
     };
 
-    let brush: { x: number; t: number } | null = null;
+    let brush: { x: number; t: number; vx: number } | null = null;
     const onMove = (e: PointerEvent) => {
       if (reduced) return;
       if (drag && e.pointerId === drag.id) {
@@ -171,12 +179,15 @@ export function useSwing<T extends SVGGraphicsElement>(opts: Options) {
       }
       const now = performance.now();
       if (brush) {
-        const vx = (e.clientX - brush.x) / unit() / Math.max(1, now - brush.t);
+        const raw = (e.clientX - brush.x) / unit() / Math.max(8, now - brush.t);
+        const vx = brush.vx + (raw - brush.vx) * VX_SMOOTH;
         push = Math.max(-PUSH_MAX, Math.min(PUSH_MAX, push + vx * PUSH_GAIN));
-        fall += Math.abs(vx) * (optsRef.current.bob ?? 6);
+        fall += Math.abs(vx) * (optsRef.current.bob ?? 2);
+        brush = { x: e.clientX, t: now, vx };
         wake();
+        return;
       }
-      brush = { x: e.clientX, t: now };
+      brush = { x: e.clientX, t: now, vx: 0 };
     };
     const onLeave = () => {
       brush = null;

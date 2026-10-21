@@ -778,9 +778,9 @@ export default function App() {
     setTheme((t) => (t === "light" ? "dark" : "light"));
   }, []);
 
-  // Organised mode's ink is #101010; the desk keeps the #2f2f2f its
+  // Organised mode's ink is #212121; the desk keeps the #2f2f2f its
   // illustrations are drawn against (see `data-layout` in index.css).
-  const darkBg = mode === "organized" ? "#101010" : "#2f2f2f";
+  const darkBg = mode === "organized" ? "#212121" : "#2f2f2f";
   const pageBg = theme === "light" ? "#fdfeff" : darkBg;
   const stageProps = {
     theme,
@@ -815,7 +815,9 @@ export default function App() {
         theme={theme}
         mode={mode}
         onMode={setMode}
-        showLayoutToggle={scatterAllowed}
+        // Hidden in Organised mode for now: the playground is not open yet,
+        // so there is no switch to it from the recruiter pages.
+        showLayoutToggle={scatterAllowed && showScattered}
         showThemeToggle={showScattered}
         onToggleTheme={toggleTheme}
       />

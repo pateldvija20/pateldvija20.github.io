@@ -32,7 +32,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
  * cleared on unmount, so there is never a moment with neither.
  */
 
-type Frame = "pill" | "card";
+type Frame = "pill" | "card" | "button";
 type State =
   | { kind: "frame"; el: HTMLElement; shape: Frame; label: string }
   | { kind: "rest" }
@@ -44,12 +44,16 @@ const INTERACTIVE = "a, button, [role='button'], label, summary, input, select, 
 const TEXTY = "p, h1, h2, h3, h4, h5, li, dt, dd, figcaption, blockquote, span, time";
 const LABEL_MS = 28;
 const BUBBLE_MS = 45;
-/** The pill: 44 tall, 16px either side of the text, a 2px rim. */
-const PILL_H = 44;
-const PILL_PAD = 16;
-const PILL_RIM = 2;
+/** The pill hugs its 13px label: 10px either side and 5px above and below,
+ *  a 26px box round a 16px line, with the text and caret centred on it. */
+const PILL_H = 26;
+const PILL_PAD = 10;
+const PILL_TEXT = "flex items-center whitespace-nowrap font-sans text-[13px] font-medium leading-[16px]";
+const CARET = "ml-[2px] block h-[12px] w-[1.5px] shrink-0 bg-current";
+/** No rim: the pill is a plain grey fill (`--pill`) with paper type. */
+const PILL_RIM = 0;
 /** How far above the pointer the pill's bottom edge sits. */
-const PILL_LIFT = 18;
+const PILL_LIFT = 14;
 const MORPH = "280ms cubic-bezier(0.22, 1, 0.36, 1)";
 
 /** The caret shows only when the pointer is on a run of text, measured per
@@ -70,6 +74,11 @@ function textUnder(el: Element, x: number, y: number): number | null {
   return null;
 }
 
+const shapeOf = (el: HTMLElement): Frame => {
+  const f = el.dataset.cursorFrame;
+  return f === "card" || f === "button" ? f : "pill";
+};
+
 function read(el: Element | null, x: number, y: number): State {
   if (!el) return { kind: "rest" };
   const bubble = el.closest<HTMLElement>("[data-cursor-bubble]");
@@ -82,17 +91,27 @@ function read(el: Element | null, x: number, y: number): State {
       frame: bubble.closest<HTMLElement>("[data-cursor-frame]"),
     };
   }
+  // A labelled thing gets the same speech pill, typing its label, and keeps
+  // its own hover fill if it has one (a project card).
+  const labelled = el.closest<HTMLElement>("[data-cursor]");
+  if (labelled) {
+    return {
+      kind: "bubble",
+      line: labelled.dataset.cursor ?? "",
+      frame: labelled.closest<HTMLElement>("[data-cursor-frame]"),
+    };
+  }
+  // An unlabelled item with a fill of its own (nav links, footer links,
+  // the CV button).
   const framed = el.closest<HTMLElement>("[data-cursor-frame]");
   if (framed) {
     return {
       kind: "frame",
       el: framed,
-      shape: framed.dataset.cursorFrame === "card" ? "card" : "pill",
+      shape: shapeOf(framed),
       label: framed.dataset.cursor ?? "",
     };
   }
-  const labelled = el.closest<HTMLElement>("[data-cursor]");
-  if (labelled) return { kind: "target", label: labelled.dataset.cursor ?? "" };
   if (el.closest(INTERACTIVE)) return { kind: "target", label: "" };
   const h = textUnder(el, x, y);
   return h ? { kind: "text", h } : { kind: "rest" };
@@ -108,10 +127,14 @@ const idOf = (el: Element) => {
 
 /** How far an item leans toward the pointer, as a share of the pointer's
  *  offset from its centre: a nav link drifts a few px, a card about 6. */
-const LEAN: Record<Frame, number> = { pill: 0.1, card: 0.02 };
+const LEAN: Record<Frame, number> = { pill: 0.1, card: 0.02, button: 0.06 };
 /** Where the fill's ::before sits outside the item (index.css), so it can
  *  grow from the pointer in the fill's own coordinates. */
-const INSET: Record<Frame, { x: number; y: number }> = { pill: { x: 14, y: 6 }, card: { x: 10, y: 10 } };
+const INSET: Record<Frame, { x: number; y: number }> = {
+  pill: { x: 14, y: 6 },
+  card: { x: 10, y: 10 },
+  button: { x: 0, y: 0 },
+};
 
 const key = (s: State) =>
   s.kind === "frame"
@@ -221,7 +244,7 @@ export function Cursor() {
         current = k;
         leave(x, y);
         if (next.kind === "frame") enter(next.el, next.shape, x, y);
-        if (next.kind === "bubble" && next.frame) enter(next.frame, "pill", x, y);
+        if (next.kind === "bubble" && next.frame) enter(next.frame, shapeOf(next.frame), x, y);
         setState(next);
       }
       if (!reduced) lean(x, y);
@@ -270,9 +293,9 @@ export function Cursor() {
   if (!enabled) return null;
 
   const bubble = state.kind === "bubble";
-  /** A nav pill's outline is the whole cursor; a card keeps the small
-   *  circle and its label inside the outline. */
-  const hideDot = state.kind === "frame" && state.shape === "pill";
+  /** A nav pill's or a button's fill is the whole cursor, so the dot goes;
+   *  elsewhere the small circle stays. */
+  const hideDot = state.kind === "frame" && (state.shape === "pill" || state.shape === "button");
   const shape =
     state.kind === "text"
       ? { w: 3, h: state.h, x: -1.5, y: -state.h / 2, r: 2 }
@@ -294,9 +317,11 @@ export function Cursor() {
         mixBlendMode: bubble ? "normal" : "difference",
       }}
     >
-      {/* Off-screen copy of the line in the pill's type, for its width. */}
-      <span ref={measure} className="invisible absolute whitespace-nowrap text-[15px] font-semibold">
+      {/* Off-screen copy of the line in the pill's type, caret included, for
+          its width — so the space either side of the text is even. */}
+      <span ref={measure} className={`invisible absolute ${PILL_TEXT}`}>
         {line}
+        <span className={CARET} />
       </span>
 
       <div
@@ -314,10 +339,9 @@ export function Cursor() {
             height: shape.h,
             borderRadius: shape.r,
             boxSizing: "border-box",
-            background: bubble ? "var(--surface)" : "#fdfeff",
-            border: bubble ? `${PILL_RIM}px solid var(--content)` : "0px solid transparent",
-            boxShadow: bubble ? "0 8px 20px rgba(0,0,0,0.2)" : "none",
-            color: "var(--content)",
+            background: bubble ? "var(--pill)" : "#fdfeff",
+            boxShadow: bubble ? "0 8px 20px rgba(0,0,0,0.18)" : "none",
+            color: "#fdfeff",
             paddingInline: bubble ? PILL_PAD : 0,
             transition:
               state.kind === "text"
@@ -326,13 +350,9 @@ export function Cursor() {
           }}
         >
           {bubble ? (
-            <span className="text-[15px] font-semibold leading-none">
+            <span className={PILL_TEXT}>
               {typedLine}
-              <span
-                className={`ml-px inline-block h-[1em] w-[1.5px] translate-y-[2px] bg-current ${
-                  typedLine.length >= line.length ? "caret-blink" : ""
-                }`}
-              />
+              <span className={`${CARET} ${typedLine.length >= line.length ? "caret-blink" : ""}`} />
             </span>
           ) : null}
         </span>

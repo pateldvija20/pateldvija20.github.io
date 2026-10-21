@@ -315,7 +315,7 @@ export const GREENERA_SECTIONS: CaseStudySection[] = [
             draggable faces. Bordered like the Figma Personas Container. */}
         <div
           className="overflow-hidden"
-          style={{ background: "#fdfeff", border: `1px solid ${DIVIDER}`, borderRadius: 12 }}
+          style={{ background: "var(--cs-face, #fdfeff)", border: `1px solid ${DIVIDER}`, borderRadius: 12 }}
         >
           <PersonaBoard />
         </div>

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import gsap from "gsap";
 import { BackControl } from "../pieces/BackControl";
 import { CaseStudy } from "../pieces/CaseStudy";
+import { LampSwitch } from "./LampSwitch";
 import { sectionsFor } from "../pieces/caseStudySections";
 import type { Theme } from "../pieces/Piece";
 import type { Project } from "../pieces/projects";
@@ -37,12 +38,15 @@ export function ProjectOverlay({
   theme,
   from,
   onClose,
+  onToggleTheme,
 }: {
   project: Project;
   theme: Theme;
   /** The clicked card, used as the box the page grows out of. */
   from: HTMLElement | null;
   onClose: () => void;
+  /** The light switch, so the lamp hangs over the case study's rail too. */
+  onToggleTheme?: () => void;
 }) {
   const pageRef = useRef<HTMLDivElement>(null);
   const [chrome, setChrome] = useState(0);
@@ -162,13 +166,21 @@ export function ProjectOverlay({
         position: "fixed",
         top: EXPAND_INSET,
         left: EXPAND_INSET,
-        background: "#fdfeff",
+        background: "var(--cs-face, #fdfeff)",
         borderRadius: 0,
         boxSizing: "border-box",
       }}
     >
       <div className="h-full w-full">
-        <CaseStudy project={project} theme={theme} chrome={chrome} sections={sectionsFor(project.slug)} />
+        <CaseStudy
+          project={project}
+          theme={theme}
+          chrome={chrome}
+          sections={sectionsFor(project.slug)}
+          railTop={
+            onToggleTheme ? <LampSwitch theme={theme} onToggle={onToggleTheme} className="block w-full" /> : undefined
+          }
+        />
       </div>
 
       <BackControl

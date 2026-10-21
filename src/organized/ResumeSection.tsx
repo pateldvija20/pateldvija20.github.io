@@ -4,8 +4,8 @@ import { Section } from "./Section";
 
 /**
  * CV, after madhurima.me/cv: one narrow column that reads like the document
- * it is. Name and a two-line summary, a quiet Download PDF button, then
- * labelled blocks — Contact, Work Experience, Education — of short rows:
+ * it is. Name and a two-line summary, a quiet Download resume button, then
+ * labelled blocks — Work Experience, Education — of short rows:
  * a mark and the organisation, the role, and the dates in mono.
  *
  * The rows are a three-column grid from tablet up so the roles and dates line
@@ -80,8 +80,9 @@ export function ResumeSection() {
           <a
             href={RESUME_PDF}
             download
-            data-cursor="Download"
-            className="mt-[6px] inline-flex items-center gap-[8px] rounded-[6px] px-[12px] py-[7px] text-[14px] transition-colors duration-200 hover:bg-[color-mix(in_srgb,var(--rule)_18%,transparent)] focus-visible:outline-2 focus-visible:outline-offset-4"
+            // The cursor's fill snaps to the whole button (index.css).
+            data-cursor-frame="button"
+            className="mt-[6px] inline-flex items-center gap-[8px] rounded-[6px] px-[12px] py-[7px] text-[14px] focus-visible:outline-2 focus-visible:outline-offset-4"
             style={{
               color: "var(--content)",
               border: "1px solid color-mix(in srgb, var(--rule) 60%, transparent)",
@@ -89,26 +90,9 @@ export function ResumeSection() {
             }}
           >
             <DownloadIcon />
-            Download PDF
+            Download resume
           </a>
         </div>
-
-        <Block title="Contact">
-          {CV.contact.map((c) => (
-            <div key={c.label} className="grid grid-cols-[110px_minmax(0,1fr)] py-[8px] text-[15px] leading-[1.4]">
-              <span style={{ color: "var(--quiet)" }}>{c.label}</span>
-              <a
-                href={c.href}
-                target="_blank"
-                rel="noreferrer"
-                className="w-fit underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
-                style={{ color: "var(--content)", outlineColor: "var(--content)" }}
-              >
-                {c.value} <span aria-hidden="true">↗</span>
-              </a>
-            </div>
-          ))}
-        </Block>
 
         <Block title="Work Experience">
           {EXPERIENCE.map((e) => (

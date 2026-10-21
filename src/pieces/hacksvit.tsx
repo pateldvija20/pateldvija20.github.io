@@ -707,7 +707,9 @@ function MascotCard({ m }: { m: Mascot; }) {
         ref={rootRef}
         className="absolute inset-0 touch-none"
         style={{
-          background: "var(--paper, #fff)",
+          // The tile the mascot sits on: paper on the light page, grey on
+          // the dark one, so it never sinks into the page behind it.
+          background: "var(--cs-tile, #fff)",
           // Fixed px, not the cqw the rest of the card is drawn in: the corner
           // should read the same whatever width the row gives each card.
           borderRadius: 12,
@@ -747,7 +749,7 @@ function MascotCard({ m }: { m: Mascot; }) {
             fontSize: "11cqw",
             lineHeight: 1,
             letterSpacing: "-0.035em",
-            color: "#141414",
+            color: "var(--cs-ink, #141414)",
           }}
         >
           <span ref={textRef} />
@@ -757,7 +759,7 @@ function MascotCard({ m }: { m: Mascot; }) {
               display: "block",
               width: "1.5cqw",
               height: "9.5cqw",
-              background: "#141414",
+              background: "var(--cs-ink, #141414)",
               opacity: 0,
             }}
           />
@@ -866,7 +868,7 @@ function MascotRow() {
  */
 const BODY_FONT = "clamp(16px, 1.466vw, 22.163px)";
 const BODY_TRACK = 0.2216;
-const MUTED = "#7c838b";
+const MUTED = "var(--cs-muted, #7c838b)";
 
 function SectionLead({ children }: { children: ReactNode; }) {
   return (
@@ -918,7 +920,7 @@ function Figure({
   return (
     <div
       className={`relative overflow-hidden ${className}`}
-      style={{ aspectRatio: ratio, borderRadius: radius, background: "#e9ecf0", ...style }}
+      style={{ aspectRatio: ratio, borderRadius: radius, background: "var(--cs-well, #e9ecf0)", ...style }}
     >
       {ok ? (
         <img
@@ -931,7 +933,7 @@ function Figure({
       ) : fallback ? (
         fallback
       ) : (
-        <div className="absolute inset-0 bg-[#e9ecf0]" style={{ borderRadius: radius }} />
+        <div className="absolute inset-0 bg-[var(--cs-well,#e9ecf0)]" style={{ borderRadius: radius }} />
       )}
     </div>
   );
@@ -959,7 +961,8 @@ function IdentityShowcase() {
           {/* The section's own label — see `hideTitle` on this entry. */}
           <p
             className="uppercase"
-            style={{ fontFamily: MONO, fontSize: 22.922, color: MUTED }}
+            // The shared section-title size, +2px with the rest.
+            style={{ fontFamily: MONO, fontSize: 24.922, color: MUTED }}
           >
             identity
           </p>
@@ -999,7 +1002,7 @@ function StickerSheet() {
   return (
     <div
       className="sticker-sheet relative overflow-hidden"
-      style={{ borderRadius: 16, height: "100%", background: "#fff7e3" }}
+      style={{ borderRadius: 16, height: "100%", background: "var(--cs-card, #fff7e3)" }}
     >
       <style>{`
         .sticker-sheet svg { width: 100%; height: 100%; display: block; }
@@ -1047,7 +1050,7 @@ export const HACKSVIT_SECTIONS: CaseStudySection[] = [
             gap: 22.163,
             padding: 22.163,
             borderRadius: 11.082,
-            border: "0.923px solid #e3e5e8",
+            border: "0.923px solid var(--cs-divider, #e3e5e8)",
           }}
         >
           <SectionLead>

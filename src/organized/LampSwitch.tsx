@@ -25,15 +25,18 @@ export function LampSwitch({
     pivot: LAMP_PIVOT,
     stiffness: 22,
     damping: 1.1,
-    pull: { max: 70, threshold: 24, onPull: onToggle },
+    pull: { max: 60, threshold: 20, onPull: onToggle },
   });
   return (
     <HeroArt
       part="lamp"
-      // Wide enough either side for the shade to swing without clipping.
-      viewBox="420 0 345 300"
+      // The lamp alone, wide enough either side for the shade to swing, and
+      // starting 60 units down its cord so it fits the phone and tablet bars
+      // (95 and 107px). The cord carries on up past the box regardless.
+      viewBox="222 60 241 270"
+      cone={false}
       className={className}
-      // Not clipped to its box: a pull stretches the lamp up to 70 units below
+      // Not clipped to its box: a pull stretches the lamp up to 60 units below
       // the drawing's foot, and that has to show. Above the box is the top of
       // the window, so the cord running up there is never seen anyway.
       style={{ overflow: "visible", ...style }}
