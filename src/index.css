@@ -108,45 +108,95 @@
   --ink: #fdfeff;
 }
 
-/* Organised mode's palette (Figma Homepage 2754:1044 / 2754:1176): four
-   colours and nothing else. Ink is #101010 rather than the desk's #2f2f2f —
-   the desk illustrations are drawn against #2f2f2f, so the change is scoped
-   to Organised via `data-layout` (set in App.tsx) instead of touching the
-   shared tokens above.
+/* Organised mode's palette (Figma Homepage 2232:4847 light / 2232:4729
+   dark). Ink #212121, paper #FDFEFF, one grey per theme, and two accents
+   that only the illustration uses. Scoped to Organised via `data-layout`
+   (set in App.tsx): the desk keeps its own #2f2f2f, which its drawings are
+   made against.
 
-   `--art-*` are the hero illustration's three fills. The grey is the one
-   value that is not a straight swap between themes: #7C838B in light, but
-   #383C42 in dark, where #7C838B would read as a second light source.
-   `--quiet` is secondary text, #7C838B in both themes, as the exports
-   specify. */
+   The grey is the one value that is not a straight swap between themes:
+   #888888 on paper, #525252 on ink. `--rule` follows it; `--quiet`
+   (secondary text) does on paper but is #8A8A8A on ink, for legibility.
+
+   `--art-*` are the hero drawing's fills (HeroArt.tsx). `--art-bulb` is the
+   lamp's bulb: grey and off in light mode, lit in dark, where the lamp also
+   casts the yellow cone (`.hero-cone`). */
 :root[data-layout="organized"] {
   --surface: #fdfeff;
-  --content: #101010;
-  --edge: #101010;
+  --content: #212121;
+  --edge: #212121;
   --paper: #fdfeff;
-  --ink: #101010;
-  --quiet: #7c838b;
-  --rule: #7c838b;
-  --art-ink: #101010;
+  --ink: #212121;
+  --quiet: #888888;
+  --rule: #888888;
+  --art-ink: #212121;
   --art-paper: #fdfeff;
-  --art-grey: #7c838b;
+  --art-grey: #888888;
+  --art-bulb: #888888;
+  --accent-yellow: #ffd104;
+  --accent-blue: #87dbff;
   /* The contact form is shared with the desk and falls back to its #2f2f2f
      wherever this is unset. */
-  --footer-ink: #101010;
+  --footer-ink: #212121;
   /* The cursor's hover fill (Cursor.tsx), drawn behind the item it is on. */
-  --tint: #eceef0;
+  --tint: #eeeeef;
+  /* Filled grey for the cursor's speech pill and the phone menu button,
+     with paper type: the same in both themes. */
+  --pill: #525252;
 }
 :root[data-layout="organized"][data-theme="dark"] {
-  --surface: #101010;
+  --surface: #212121;
   --content: #fdfeff;
   --edge: #fdfeff;
-  --paper: #101010;
+  --paper: #212121;
   --ink: #fdfeff;
-  --rule: #383c42;
+  /* Secondary text is lighter than the frame's #525252, which reads at only
+     2.3:1 on #212121; the drawing, rules and placeholders keep #525252. */
+  --quiet: #8a8a8a;
+  --rule: #525252;
   --art-ink: #fdfeff;
-  --art-paper: #101010;
-  --art-grey: #383c42;
-  --tint: #26292d;
+  --art-paper: #212121;
+  --art-grey: #525252;
+  --art-bulb: #ffe884;
+  --tint: #333333;
+  /* Case studies (CaseStudy.tsx and the project files) follow the theme in
+     Organised mode: the homepage's dark page, white and grey type, and every
+     panel, tile and image well a grey a step up from the page, so the
+     mascots and screenshots sit on grey rather than sinking into the dark.
+     Light mode keeps each file's own sheet colours (the fallbacks). */
+  --cs-face: #212121;
+  --cs-ink: #fdfeff;
+  --cs-muted: #8a8a8a;
+  --cs-divider: #3a3a3a;
+  --cs-well: #333333;
+  --cs-card: #2c2c2c;
+  --cs-tile: #3a3a3a;
+  --cs-chip: #333333;
+}
+
+/* The hero copy that the lamp's light falls on (HeroSection): only in dark
+   mode, where there is a cone to be lit by. */
+.hero-lit {
+  display: none;
+}
+:root[data-layout="organized"][data-theme="dark"] .hero-lit {
+  display: block;
+}
+
+/* The page ends at the footer. Without this, a trackpad's rubber-band
+   overscroll pulls the page past its end and shows the bare page colour
+   under the footer band, which reads as a gap the page does not have. */
+html[data-layout="organized"],
+html[data-layout="organized"] body {
+  overscroll-behavior-y: none;
+}
+
+/* The dark mode's light cone, cast by the hero lamp. */
+.hero-cone {
+  display: none;
+}
+:root[data-theme="dark"] .hero-cone {
+  display: inline;
 }
 
 /* The hero's script line. The lettering is Figma's outlined artwork, kept as
@@ -238,6 +288,22 @@
 [data-cursor-frame="pill"]::before {
   inset: -6px -14px;
   border-radius: 999px;
+}
+/* A button the cursor fills is filled in the cursor's own colour — ink on
+   paper, paper on ink — and its label and icon invert, so it reads as the
+   cursor having become the button. */
+[data-cursor-frame="button"]::before {
+  inset: 0;
+  border-radius: 6px;
+  background: var(--content);
+}
+[data-cursor-frame="button"] {
+  transition:
+    transform 450ms cubic-bezier(0.22, 1, 0.36, 1),
+    color 220ms ease-out;
+}
+[data-cursor-frame="button"][data-cursor-on] {
+  color: var(--surface) !important;
 }
 [data-cursor-frame="card"]::before {
   inset: -10px;

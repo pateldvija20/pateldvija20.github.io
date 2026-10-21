@@ -8,10 +8,10 @@ import { useBreakpoint } from "./useBreakpoint";
 /**
  * Section nav (Figma 451:17489 desktop, 456:32660 tablet, 458:33098 phone).
  *
- * One component, three arrangements: a 250px sidebar with the links parked at
- * the bottom on desktop, an inline right-aligned row on tablet, and a menu
- * behind a button on the phone. The links are 18px at all three widths — that
- * is the design's stepped type scale, and it is also what forces the phone to
+ * One component, three arrangements: a 167px sidebar with the links at its
+ * top on desktop, an inline right-aligned row on tablet, and a menu behind a
+ * button on the phone. The links are 16px at all three widths — that is the
+ * design's stepped type scale, and it is also what forces the phone to
  * collapse rather than reflow.
  *
  * Four labels at 18px come to 325px. The phone bar's content box is 303px at
@@ -22,6 +22,28 @@ import { useBreakpoint } from "./useBreakpoint";
  * 44px control at every phone size, and the links get a full-width panel with
  * tap targets instead of a hairline row.
  */
+
+/**
+ * Whether the page's own lamp is out of sight, so the sidebar should hang
+ * one. Always true off Work; on Work, true once the hero lamp's foot
+ * (`[data-lamp-sentinel]`) has scrolled up past the top of the window.
+ */
+function useLampAway(page: Page) {
+  const [away, setAway] = useState(page !== "work");
+  useEffect(() => {
+    if (page !== "work") {
+      setAway(true);
+      return;
+    }
+    setAway(false);
+    const el = document.querySelector("[data-lamp-sentinel]");
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setAway(!e.isIntersecting && e.boundingClientRect.top < 0));
+    io.observe(el);
+    return () => io.disconnect();
+  }, [page]);
+  return away;
+}
 
 /** Half of whatever the window has beyond the 1512 frame; 0 up to 1512. */
 const SPARE_HALF = "max(0px, (100% - 1512px) / 2)";
@@ -45,7 +67,7 @@ function MenuIcon({ open }: { open: boolean }) {
     width: "100%",
     height: 2,
     borderRadius: 2,
-    background: "var(--content)",
+    background: "var(--menu-bar, var(--content))",
     transition: "transform 220ms ease, opacity 140ms ease",
   };
   return (
@@ -73,6 +95,7 @@ export function Sidebar({
   const [open, setOpen] = useState(false);
 
   const bp = useBreakpoint();
+  const lampAway = useLampAway(active);
   const desktop = bp === "desktop";
   const phone = bp === "mobile";
 
@@ -140,13 +163,18 @@ export function Sidebar({
   // page row, so the scrollbar never skews the split.
   const shell: React.CSSProperties = desktop
     ? {
-        width: `calc(250px + ${SPARE_HALF})`,
+        // Figma Homepage 2232:4847: a 167px column, links at the top.
+        width: `calc(167px + ${SPARE_HALF})`,
         height: "100vh",
         flexDirection: "column",
         alignItems: "flex-start",
-        // The homepage frame hangs the links at the column's middle.
-        justifyContent: "center",
+        // The links sit at the column's middle, under the lamp that hangs
+        // from its top.
+        justifyContent: "safe center",
         padding: 60,
+        // The lamp hangs over the top ~134px; the links centre in what is
+        // left, so a short window cannot push them up under it.
+        paddingTop: 170,
         paddingLeft: `calc(60px + ${SPARE_HALF})`,
         flexShrink: 0,
       }
@@ -170,9 +198,9 @@ export function Sidebar({
         key={s.page}
         style={
           desktop
-            ? // Flex, so the item is exactly the link's 24px line plus padding
-              // — 48 baseline to baseline, as the frame spaces them.
-              { width: "100%", padding: "12px 0", display: "flex" }
+            ? // Flex, so the item is exactly the link's 21px line; the list's
+              // 24px gap makes Figma's 45 top to top.
+              { width: "100%", display: "flex" }
             : phone
               ? { width: "100%" }
               : // Never squash a label to make the row fit.
@@ -184,10 +212,9 @@ export function Sidebar({
           onClick={(e) => go(e, s.page)}
           aria-current={on ? "page" : undefined}
           data-cursor-frame="pill"
-          // Roboto Slab at 16 (text-base, one step under the frame's 18) on a
-          // 24 line, 48 baseline to baseline with the item padding. Active is ink and bold,
-          // the rest the quiet grey: no accent colour in this palette.
-          className={`font-slab text-[16px] leading-[24px] transition-colors duration-200 hover:text-[var(--content)] focus-visible:outline-2 focus-visible:outline-offset-4 ${
+          // DM Sans 16 on a 21 line, as the frame sets it. Active is ink and
+          // bold, the rest the quiet grey.
+          className={`font-sans text-[16px] leading-[21px] transition-colors duration-200 hover:text-[var(--content)] focus-visible:outline-2 focus-visible:outline-offset-4 ${
             on ? "font-bold" : "font-normal"
           } ${phone ? "block" : ""}`}
           style={{
@@ -211,19 +238,36 @@ export function Sidebar({
       className="sticky top-0 z-30 flex"
       style={{ background: "var(--surface)", ...shell }}
     >
-      {/* The light switch. On Work from tablet up it is the hero's own lamp;
-          everywhere else this small one hangs from the top-left corner — on
-          the phone, on every page. */}
-      {phone || active !== "work" ? (
+      {/* Desktop: the lamp hangs from the top of the sidebar, above the
+          links, whenever the page's own lamp is out of sight — always off
+          Work, and on Work once the hero lamp has scrolled away, when it
+          drops in on its cord. */}
+      {desktop ? (
+        <div
+          aria-hidden={!lampAway}
+          className="absolute top-0 motion-reduce:transition-none"
+          style={{
+            left: 24,
+            width: 120,
+            transform: lampAway ? "none" : "translateY(-110%)",
+            opacity: lampAway ? 1 : 0,
+            pointerEvents: lampAway ? "auto" : "none",
+            transition: "transform 650ms cubic-bezier(0.34, 1.4, 0.64, 1), opacity 250ms ease-out",
+          }}
+        >
+          <LampSwitch theme={theme} onToggle={onToggleTheme} className="block w-full" />
+        </div>
+      ) : null}
+
+      {/* Phone and tablet: in the bar's top-left corner — on the phone on
+          every page, and on tablet wherever the hero's own lamp is not on
+          screen. */}
+      {!desktop && (phone || active !== "work") ? (
         <LampSwitch
           theme={theme}
           onToggle={onToggleTheme}
           className="absolute top-0 block"
-          style={
-            desktop
-              ? { left: 28, width: 120 }
-              : { left: phone ? 4 : 20, width: phone ? 76 : 88 }
-          }
+          style={{ left: phone ? 4 : 20, width: phone ? 76 : 88 }}
         />
       ) : null}
 
@@ -240,9 +284,12 @@ export function Sidebar({
               width: MENU_BUTTON,
               height: MENU_BUTTON,
               borderRadius: 10,
-              background: "var(--surface)",
-              border: "2px solid var(--content)",
+              // Filled grey with paper bars and no outline, like the
+              // cursor's speech pill.
+              background: "var(--pill)",
+              border: 0,
               outlineColor: "var(--content)",
+              ["--menu-bar" as string]: "#fdfeff",
             }}
           >
             <MenuIcon open={open} />
@@ -272,7 +319,7 @@ export function Sidebar({
           className={desktop ? "flex" : "no-scrollbar flex"}
           style={
             desktop
-              ? { flexDirection: "column", alignItems: "flex-start", gap: 0 }
+              ? { flexDirection: "column", alignItems: "flex-start", gap: 24 }
               : {
                   flexDirection: "row",
                   alignItems: "center",
@@ -298,15 +345,6 @@ export function Sidebar({
         </ul>
       )}
 
-      {/* The 0.2px rule Figma draws down the sidebar's right edge. Desktop
-          only — the top bar has no rule in any frame. */}
-      {desktop ? (
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute right-0 top-0 h-full w-px"
-          style={{ background: "var(--rule)" }}
-        />
-      ) : null}
     </nav>
   );
 }

@@ -34,7 +34,12 @@ const TONES: Record<CardTone, { edge: string; ink: string; muted: string; well: 
     well: "var(--color-well)",
   },
   // The case-study sheet does not invert with the desk, so nor does this.
-  sheet: { edge: "#e3e5e8", ink: "#18191a", muted: "#626262", well: "#e9ecf0" },
+  sheet: {
+    edge: "var(--cs-divider, #e3e5e8)",
+    ink: "var(--cs-ink, #18191a)",
+    muted: "var(--cs-muted, #626262)",
+    well: "var(--cs-well, #e9ecf0)",
+  },
 };
 
 function CardBody({ project, tone, src }: { project: Project; tone: CardTone; src?: string }) {

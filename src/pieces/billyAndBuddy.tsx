@@ -391,7 +391,7 @@ function Tag({ children, tone }: { children: ReactNode; tone: "untested" | "mine
         fontSize: 12,
         letterSpacing: 0.6,
         color: untested ? "#8a6d1f" : "#1f5f8a",
-        background: untested ? "#fbf0d6" : "#dceaf5",
+        background: untested ? "var(--cs-card, #fbf0d6)" : "var(--cs-card, #dceaf5)",
         borderRadius: 999,
         padding: "3px 10px",
       }}
@@ -437,8 +437,8 @@ function Finding({
       style={{
         padding: 24,
         borderRadius: 12,
-        background: accent ? "#eff7f6" : "#fbfaf7",
-        border: `1px solid ${accent ? "#c9e5e3" : DIVIDER}`,
+        background: accent ? "var(--cs-card, #eff7f6)" : "var(--cs-card, #fbfaf7)",
+        border: `1px solid ${accent ? "var(--cs-divider, #c9e5e3)" : DIVIDER}`,
       }}
     >
       <Label>{label}</Label>

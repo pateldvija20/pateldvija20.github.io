@@ -144,7 +144,7 @@ export const CV = {
     "Product designer based in Cincinnati, with 4+ years across startups building 0→1 products and the systems that let them grow. Master of Design in Human-Centered Technology Design from the University of Cincinnati.",
   contact: [
     { label: "LinkedIn", value: "pateldvija", href: "https://www.linkedin.com/in/pateldvija/" },
-    { label: "GitHub", value: "pateldvija20", href: "https://github.com/pateldvija20" },
+    { label: "Github", value: "pateldvija20", href: "https://github.com/pateldvija20" },
     { label: "X", value: "@pateldvija20", href: "https://x.com/pateldvija20" },
   ],
 };

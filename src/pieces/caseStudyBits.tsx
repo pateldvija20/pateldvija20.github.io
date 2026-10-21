@@ -29,9 +29,9 @@ import { PROJECTS } from "./projects";
  */
 export const BODY_FONT = "clamp(16px, 1.466vw, 22.163px)";
 export const BODY_TRACK = 0.2216;
-export const MUTED = "#626262";
-export const INK = "#18191a";
-export const DIVIDER = "#e3e5e8";
+export const MUTED = "var(--cs-muted, #626262)";
+export const INK = "var(--cs-ink, #18191a)";
+export const DIVIDER = "var(--cs-divider, #e3e5e8)";
 export const MONO = "'DM Mono', monospace";
 /** The eyebrow size `CaseStudy` sets its own section headings in. */
 export const LABEL_FONT = "clamp(13px, 1.099vw, 16.622px)";
@@ -110,7 +110,7 @@ export function Figure({
   return (
     <div
       className={`relative overflow-hidden ${className}`}
-      style={{ aspectRatio: ratio, borderRadius: radius, background: "#e9ecf0", ...style }}
+      style={{ aspectRatio: ratio, borderRadius: radius, background: "var(--cs-well, #e9ecf0)", ...style }}
     >
       {ok ? (
         <img
@@ -121,7 +121,7 @@ export function Figure({
           className="absolute inset-0 h-full w-full select-none object-cover"
         />
       ) : (
-        <div className="absolute inset-0 bg-[#e9ecf0]" style={{ borderRadius: radius }} />
+        <div className="absolute inset-0 bg-[var(--cs-well,#e9ecf0)]" style={{ borderRadius: radius }} />
       )}
     </div>
   );
@@ -184,7 +184,7 @@ export function IconTile({ glyph }: { glyph: string }) {
       style={{
         width: size,
         height: size,
-        background: "#ccdeff",
+        background: "var(--cs-chip, #ccdeff)",
         border: `0.727px solid ${DIVIDER}`,
         borderRadius: 17.438,
         fontSize: "clamp(30px, 4.23vw, 64px)",
@@ -364,8 +364,8 @@ export function RelatedProjects({ slugs }: { slugs: string[] }) {
   return (
     <div className="grid grid-cols-1 gap-[24px] md:grid-cols-2 md:gap-[40px]">
       {related.map((p) => (
-        // The same card the Work grid uses, in the sheet palette — a case
-        // study stays paper-white in both themes, so its cards do too.
+        // The same card the Work grid uses, in the sheet palette, which
+        // follows the case study's own (dark-mode aware) tokens.
         <ProjectCard
           key={p.slug}
           project={p}

@@ -35,12 +35,20 @@ import type { Theme } from "./Piece";
 /** `Sidebar` 67:12760, and the inset its `Sections Container` sits at. */
 const SIDEBAR_W = 253;
 const SIDEBAR_PAD = 40;
-/** `Section Link` 67:13042 — padding, the gap between links, and the accent
- *  bar the active one carries. */
-const RAIL_PY = 11.082;
+/** The gap under the header's meta row. */
 const RAIL_GAP = 11.082;
-const RAIL_FONT = 14;
-const RAIL_BAR = 2.77;
+/**
+ * The section rail is the same component as Organised mode's own nav
+ * (Sidebar): DM Sans 16 on a 21 line, 24 apart, the quiet grey, and the
+ * section the reader is in set in bold ink rather than picked out in blue.
+ */
+const NAV_FONT = 16;
+const NAV_LINE = 21;
+const NAV_GAP = 24;
+const NAV_PAD = 60;
+/** Height kept clear at the rail's top for the hanging lamp (LampSwitch at
+ *  120 wide is ~134 tall), plus breathing room under its bulb. */
+const LAMP_ROOM = 170;
 /** `Project Header` 67:13060 inside `Main Content` 67:13056. */
 const BODY_PAD_X = 110.816;
 const BODY_W = 1079.536;
@@ -72,6 +80,8 @@ const HERO_ASPECT = 731.907 / 1301.168;
  * both cases, so nothing about the desktop rendering changes.
  */
 const META_FONT = "clamp(13px, 1.22vw, 18.469px)";
+/** Section headings ("TL;DR", "Identity"…): the meta size plus 2px. */
+const SECTION_FONT = "clamp(15px, calc(1.22vw + 2px), 20.469px)";
 const META_GAP = "clamp(14px, 1.9vw, 28.628px)";
 const META_PY = 7.388;
 const TITLE_FONT = "clamp(28px, 2.93vw, 44.327px)";
@@ -118,8 +128,12 @@ export function CaseStudy({
   project,
   sections = DEFAULT_SECTIONS,
   chrome = 1,
+  railTop,
 }: {
   project: Project;
+  /** Hung at the top of the section rail — Organised mode's lamp switch, as
+   *  its own sidebar has. The desk passes nothing. */
+  railTop?: React.ReactNode;
   /** Still threaded from the desk, but the page no longer inverts with it. */
   theme: Theme;
   sections?: CaseStudySection[];
@@ -134,14 +148,14 @@ export function CaseStudy({
    */
   chrome?: number;
 }) {
-  // The case study page is a printed sheet: it keeps the same paper white in
-  // both themes rather than inverting with the desk around it, so the ink and
-  // rule that sit on it are fixed to match.
-  const face = "#fdfeff";
-  const ink = "#18191a";
-  const muted = "#626262";
-  const divider = "#e3e5e8";
-  const accent = "#0059ff";
+  // The page's palette. On the desk it is a printed sheet that stays paper
+  // white in both themes; in Organised mode it follows the theme, through the
+  // `--cs-*` tokens index.css sets there (dark mode only — light keeps these
+  // fallbacks).
+  const face = "var(--cs-face, #fdfeff)";
+  const ink = "var(--cs-ink, #18191a)";
+  const muted = "var(--cs-muted, #626262)";
+  const divider = "var(--cs-divider, #e3e5e8)";
 
   // Scroll-spy: whichever section the reader is in lights up on the rail.
   // A rail click pins its section for the duration of the smooth scroll —
@@ -275,25 +289,33 @@ export function CaseStudy({
       {/* Section rail. A fixed column, outside the scroll — only the body
           column moves, exactly as authored in the Figma file. */}
       <nav
-        className="hidden shrink-0 flex-col overflow-hidden lg:flex"
+        className="no-scrollbar relative hidden shrink-0 flex-col overflow-x-hidden lg:flex"
         style={{
           // Folds out of nothing rather than fading in: at chrome 0 it has no
           // width at all, so the hero genuinely owns the whole card.
           width: SIDEBAR_W * chrome,
           opacity: chrome,
           borderRight: chrome > 0.02 ? `1px solid ${divider}` : "none",
-          // The file bottom-anchors the list rather than centring it: the
-          // container sits at y 557.861 in a 982-tall sidebar, which is
-          // exactly 982 - 375.633 - 48.506. Same inset on the left.
-          justifyContent: "flex-end",
-          gap: RAIL_GAP,
-          paddingLeft: SIDEBAR_PAD * chrome,
+          // Placed as Organised mode's nav is: the links at the column's
+          // middle, 60 in — the middle of what the lamp leaves. `safe`: a list
+          // taller than that space starts under the lamp instead of centring
+          // up into it, and the rail scrolls for the rest.
+          justifyContent: "safe center",
+          overflowY: chrome > 0.99 ? "auto" : "hidden",
+          gap: NAV_GAP,
+          paddingLeft: NAV_PAD * chrome,
           paddingRight: SIDEBAR_PAD * chrome,
+          paddingTop: railTop ? LAMP_ROOM : 0,
           paddingBottom: SIDEBAR_PAD,
         }}
         aria-hidden={chrome < 0.5}
         aria-label={`${project.name} sections`}
       >
+        {railTop ? (
+          <div className="absolute top-0" style={{ left: 24, width: 120, opacity: chrome }}>
+            {railTop}
+          </div>
+        ) : null}
         {sections.map((s) =>
           s.inRail === false ? null : (
             <a
@@ -305,20 +327,15 @@ export function CaseStudy({
               e.preventDefault();
               goToSection(s.id);
             }}
-            className="whitespace-nowrap uppercase transition-colors duration-200"
+            aria-current={active === s.id ? "true" : undefined}
+            data-cursor-frame="pill"
+            className="w-fit whitespace-nowrap font-sans transition-colors duration-200"
             style={{
-              // Only the active link carries the bar and the indent — the
-              // rest sit flush at the rail's own inset, so the current
-              // section steps out of the column rather than merely
-              // recolouring. That step is the design (67:13042 vs 67:13044),
-              // not an oversight.
-              color: active === s.id ? accent : muted,
-              borderLeft: active === s.id ? `${RAIL_BAR}px solid ${accent}` : "none",
-              paddingLeft: active === s.id ? RAIL_PY : 0,
-              paddingBlock: RAIL_PY,
-              fontFamily: "'DM Mono', monospace",
-              fontWeight: 500,
-              fontSize: RAIL_FONT,
+              // The section in view is bold ink; the rest the quiet grey.
+              color: active === s.id ? ink : muted,
+              fontWeight: active === s.id ? 700 : 400,
+              fontSize: NAV_FONT,
+              lineHeight: `${NAV_LINE}px`,
             }}
           >
             {s.title}
@@ -394,12 +411,12 @@ export function CaseStudy({
         >
           <div className="relative h-full">
             <select
-              className="h-full w-full cursor-pointer appearance-none bg-transparent pr-[24px] uppercase outline-none"
+              className="h-full w-full cursor-pointer appearance-none bg-transparent pr-[24px] font-sans font-bold outline-none"
               style={{
-                color: accent,
-                fontFamily: "'DM Mono', monospace",
-                fontWeight: 500,
-                fontSize: RAIL_FONT,
+                // The phone's version of the rail: the current section, in
+                // the nav's own type.
+                color: ink,
+                fontSize: NAV_FONT,
               }}
               value={pickerValue}
               onChange={(e) => goToSection(e.target.value)}
@@ -423,7 +440,7 @@ export function CaseStudy({
             >
               <path
                 d="m6 9 6 6 6-6"
-                stroke={accent}
+                stroke={ink}
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -493,7 +510,7 @@ export function CaseStudy({
                   style={{
                     fontFamily: "'DM Mono', monospace",
                     fontWeight: 500,
-                    fontSize: META_FONT,
+                    fontSize: SECTION_FONT,
                     color: muted,
                     paddingBlock: META_PY,
                     marginBottom: HEAD_GAP,
