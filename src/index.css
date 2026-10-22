@@ -457,10 +457,9 @@ body[data-project-open] #root {
      than stacked — a pair of screenshots meant to be compared, where making
      each one full-width separates the two things being compared by a
      screenful. Those hold at two columns instead.
-   - `[data-site-scroller]` is the Hacksvit site mock, which is a scaled
-     replica of a real page inside a browser frame. It shrinks as one object
-     via its own transform, so reflowing its interior would break the very
-     thing it is showing. */
+   - `[data-site-scroller]` marks a scaled replica of a real page inside a
+     browser frame. It shrinks as one object via its own transform, so
+     reflowing its interior would break the very thing it is showing. */
 @media (max-width: 767px) {
   [data-cs-body] .grid:not([data-cs-cols], [data-site-scroller] *),
   [data-cs-body]
@@ -486,4 +485,75 @@ body[data-project-open] #root {
 :root[data-layout="organized"][data-theme-switching] *::before,
 :root[data-layout="organized"][data-theme-switching] *::after {
   transition: none !important;
+}
+
+
+/* ==========================================================================
+   Design tokens
+   One small set, named the way design systems name them (W3C design-token
+   style: category-role) and sized like Tailwind's scales. Mirrored in
+   src/pieces/tokens.ts and in Figma's "Design tokens" page.
+
+   Colour is semantic and defined for both modes here, side by side: light is
+   the default, dark applies in Organised mode only (the desk keeps its own
+   printed-paper palette).
+   ========================================================================== */
+:root {
+  /* colour · surface */
+  --color-surface-page: #fdfeff;
+  --color-surface-raised: #f6f7f9; /* cards, full-bleed sections */
+  --color-surface-sunken: #e9ecf0; /* chart tracks, image wells */
+  --color-surface-media: #525252; /* behind hero and tile media, both modes */
+  /* colour · border */
+  --color-border-subtle: #e3e5e8;
+  /* colour · text */
+  --color-text-primary: #18191a;
+  --color-text-secondary: #626262;
+  /* colour · action (primary button) */
+  --color-action-bg: var(--color-text-primary);
+  --color-action-fg: var(--color-surface-page);
+
+  /* space · 4px base, Tailwind steps (space-N = N x 4px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-32: 128px;
+
+  /* radius */
+  --radius-sm: 4px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* border width */
+  --border-1: 1px;
+  --border-2: 2px;
+
+  /* font weight */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+}
+:root[data-layout="organized"][data-theme="dark"] {
+  --color-surface-page: #212121;
+  --color-surface-raised: #2c2c2c;
+  --color-surface-sunken: #333333;
+  --color-border-subtle: #3a3a3a;
+  --color-text-primary: #fdfeff;
+  --color-text-secondary: #8a8a8a;
+}
+
+/* The UI inspector (src/dev/Inspector.tsx): a crosshair in place of the site's
+   own cursor while it is on. */
+html[data-inspect],
+html[data-inspect] * {
+  cursor: crosshair !important;
+}
+html[data-inspect] [data-app-cursor] {
+  display: none !important;
 }

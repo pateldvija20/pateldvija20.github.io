@@ -318,6 +318,7 @@ export function Cursor() {
     <div
       ref={box}
       aria-hidden="true"
+      data-app-cursor
       className="pointer-events-none fixed left-0 top-0 z-[9999]"
       style={{
         opacity: visible ? 1 : 0,

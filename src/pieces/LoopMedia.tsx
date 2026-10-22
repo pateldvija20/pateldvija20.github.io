@@ -13,12 +13,14 @@ export function LoopMedia({
   still,
   video,
   className = "",
+  style,
   onAspect,
 }: {
   still: string;
   /** Path stem: `${video}.webm` and `${video}.mp4` are both expected. */
   video?: string;
   className?: string;
+  style?: React.CSSProperties;
   /** Height/width of the art once known, for callers that size to it. */
   onAspect?: (aspect: number) => void;
 }) {
@@ -52,6 +54,7 @@ export function LoopMedia({
           if (img.naturalWidth) onAspect?.(img.naturalHeight / img.naturalWidth);
         }}
         className={`select-none object-cover ${className}`}
+        style={style}
       />
     );
   }
@@ -69,6 +72,7 @@ export function LoopMedia({
         if (v.videoWidth) onAspect?.(v.videoHeight / v.videoWidth);
       }}
       className={`select-none object-cover ${className}`}
+      style={style}
     >
       <source src={`${video}.webm`} type="video/webm" />
       <source src={`${video}.mp4`} type="video/mp4" />

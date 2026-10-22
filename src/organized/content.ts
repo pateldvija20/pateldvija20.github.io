@@ -87,10 +87,16 @@ export type PlayItem = {
   title: string;
   /** "Type · Tool", the line under the title. */
   meta: string;
-  src: string;
+  /**
+   * What the tile is. `desk` opens the desk (Scattered mode); `image` is a
+   * picture that opens large; `stickers` and `mascots` are live components,
+   * shown still in the grid and interactive once opened.
+   */
+  kind: "desk" | "image" | "stickers" | "mascots";
+  src?: string;
   /** The art is a line drawing with a dark-theme version. */
   srcDark?: string;
-  /** Opens the desk (Scattered mode) instead of being a static tile. */
+  /** Opens the desk (Scattered mode) instead of the lightbox. */
   playground?: boolean;
   /** A screenshot rather than a drawing: it fills its frame edge to edge
    *  instead of sitting inside it with a margin. */
@@ -98,10 +104,11 @@ export type PlayItem = {
 };
 
 /**
- * ⚠️ PLACEHOLDER COPY — the tiles are the desk and its own drawings, so the
- * images are real, but the titles and meta lines are stand-ins written to
- * describe them. Replace with real side projects and explorations as they are
- * ready; the layout takes any number of tiles.
+ * The tiles: the desk, then pieces from the HackSVIT 2022 identity (the
+ * hackathon's return to in-person events after two years online). Titles and
+ * meta lines are written from that project's own copy: the posters, the
+ * five-mascot identity ("each character represents a different problem-solving
+ * mindset") and the sticker sheet.
  *
  * The desk screenshots are captures of Scattered mode at 1600 wide, controls
  * cropped off. Re-capture them when the desk changes.
@@ -110,27 +117,42 @@ export const PLAY: PlayItem[] = [
   {
     title: "A desk you can play with: the interactive version of this portfolio",
     meta: "Interaction · React",
+    kind: "desk",
     src: "/assets/play/desk-light.jpg",
     srcDark: "/assets/play/desk-dark.jpg",
     playground: true,
     bleed: true,
   },
   {
-    title: "A keyboard that types along with you",
-    meta: "Illustration · Interaction",
-    src: "/assets/keyboard_light.svg",
-    srcDark: "/assets/keyboard_dark.svg",
+    title: "Five mascots, five ways to solve a problem",
+    meta: "Brand identity · Interaction",
+    kind: "mascots",
   },
   {
-    title: "A pencil box with a pencil for every colour",
-    meta: "Illustration · Figma",
-    src: "/assets/pencilbox_light.svg",
-    srcDark: "/assets/pencilbox_dark.svg",
+    title: "Posters for the return to in-person hackathons",
+    meta: "Poster design · Brand identity",
+    kind: "image",
+    src: "/assets/play/hacksvit/posters.png",
+    bleed: true,
   },
   {
-    title: "A journal that opens into the About page",
+    title: "A sticker sheet that wiggles when you touch it",
     meta: "Illustration · Interaction",
-    src: "/assets/aboutme_book_open.svg",
+    kind: "stickers",
+  },
+  {
+    title: "A poster for a hackathon that feels like a community",
+    meta: "Poster design · Brand identity",
+    kind: "image",
+    src: "/assets/play/hacksvit/challenge-poster.png",
+    bleed: true,
+  },
+  {
+    title: "A poster that introduces the five characters",
+    meta: "Poster design · Brand identity",
+    kind: "image",
+    src: "/assets/play/hacksvit/identity-poster.png",
+    bleed: true,
   },
 ];
 

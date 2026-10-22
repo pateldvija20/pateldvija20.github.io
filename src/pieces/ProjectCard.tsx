@@ -51,9 +51,14 @@ function CardBody({ project, tone, src }: { project: Project; tone: CardTone; sr
     <>
       <div
         className="w-full shrink-0 overflow-hidden"
-        style={{ aspectRatio: IMAGE_RATIO, background: t.well }}
+        style={{ aspectRatio: IMAGE_RATIO, background: (!src && project.heroBg) || t.well }}
       >
-        <LoopMedia still={src ?? cardImage(project)} video={project.heroVideo} className="h-full w-full" />
+        <LoopMedia
+          still={src ?? cardImage(project)}
+          video={project.heroVideo}
+          className="h-full w-full"
+          style={!src && project.heroClip ? { clipPath: project.heroClip } : undefined}
+        />
       </div>
 
       <div className="flex w-full flex-col" style={{ padding: PAD, gap: STACK_GAP }}>

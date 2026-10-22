@@ -2,7 +2,8 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { CaseStudySection } from "./CaseStudy";
 import { ArrowIcon } from "../organized/ArrowIcon";
 import { COPYRIGHT } from "../organized/SiteFooter";
-import { DIVIDER, INK, MONO, MUTED, RelatedProjects } from "./caseStudyBits";
+import { MONO, RelatedProjects } from "./caseStudyBits";
+import { COLOR, OVERLINE, TYPE } from "./tokens";
 
 /**
  * The Bind Desk case study, authored as CaseStudy sections.
@@ -24,18 +25,27 @@ const ART = "/assets/projects/bind-desk";
 const PROTOTYPE = "/bind-desk/#/prototype";
 const TOUR = `${PROTOTYPE}?tour=1`;
 
-/* The original's palette, mapped onto the portfolio's tokens. */
-const FACE = "var(--cs-face, #fdfeff)";
-/** Cards sit a step off the page, as the original's white cards did. */
-const SURFACE = "var(--cs-card, #f6f7f9)";
-/** Bar tracks and table heads. */
-const WELL = "var(--cs-well, #e9ecf0)";
+/* Colour comes from the semantic tokens in index.css (light and dark), type
+ * from the roles in tokens.ts. Local aliases keep the JSX short. */
+const FACE = COLOR.surfacePage;
+/** Cards and full-bleed sections sit a step off the page. */
+const SURFACE = COLOR.surfaceRaised;
+/** Chart tracks and image wells. */
+const WELL = COLOR.surfaceSunken;
+const INK = COLOR.textPrimary;
+const MUTED = COLOR.textSecondary;
+const DIVIDER = COLOR.borderSubtle;
 
 const DISPLAY = "font-['Roboto_Slab'] font-normal";
-/** The original's text-md: body copy. */
-const MD = "text-[16px] leading-[24px]";
-const SM = "text-[13px] leading-[18px]";
-const XS = "text-[12px] leading-[16px]";
+const MD = TYPE.body;
+const SM = TYPE.bodySm;
+const XS = TYPE.bodySm;
+const STATEMENT = TYPE.headline;
+const H3 = TYPE.title;
+/** A card's heading: body size, medium weight. */
+const H4 = `${TYPE.body} font-medium`;
+const TITLE = TYPE.display;
+const LABEL = OVERLINE;
 
 /* ------------------------------ copy ------------------------------ */
 
@@ -147,12 +157,14 @@ const SCENARIOS: Scenario[] = [
 
 const ink = { color: INK };
 const ink2 = { color: MUTED };
-const card = { background: SURFACE, border: `1px solid ${DIVIDER}` };
+/* Components, as on madhurima.me/work/loan-servicing: 24px padding, a soft 12px radius,
+ * no fill, held by a 1px ring rather than a border. */
+const card = { background: "transparent", boxShadow: `0 0 0 1px ${DIVIDER}` };
 
 /** The original's small uppercase eyebrow, in the portfolio's mono. */
 function Eyebrow({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <p className={`uppercase tracking-[0.08em] ${XS} ${className}`} style={{ fontFamily: MONO, fontWeight: 500, color: MUTED }}>
+    <p data-ui="Overline" data-src="src/pieces/bindDesk.tsx › Eyebrow" className={`uppercase ${className}`} style={{ ...LABEL, color: MUTED }}>
       {children}
     </p>
   );
@@ -161,10 +173,10 @@ function Eyebrow({ children, className = "" }: { children: ReactNode; className?
 /** A section's display title and lede, as the original's Section header. */
 function SectionHead({ title, lede }: { title: string; lede?: ReactNode }) {
   return (
-    <div className="mb-10 md:mb-16">
-      <h3 className={`max-w-3xl ${DISPLAY} text-[30px] leading-9 tracking-[-0.01em] md:text-[40px] md:leading-[46px]`}>{title}</h3>
+    <div data-ui="Section header" data-src="src/pieces/bindDesk.tsx › SectionHead" className="mb-8">
+      <h3 data-ui="Headline" data-src="src/pieces/bindDesk.tsx › SectionHead" className={`max-w-3xl ${STATEMENT}`}>{title}</h3>
       {lede ? (
-        <p className={`mt-3 max-w-2xl ${MD}`} style={ink2}>
+        <p data-ui="Body" data-src="src/pieces/bindDesk.tsx › SectionHead" className={`mt-3 max-w-2xl ${MD}`} style={ink2}>
           {lede}
         </p>
       ) : null}
@@ -175,18 +187,40 @@ function SectionHead({ title, lede }: { title: string; lede?: ReactNode }) {
 function Sub({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
-      <h4 className={`mb-6 ${DISPLAY} text-[24px] leading-8 md:text-[26px]`}>{title}</h4>
+      <h4 data-ui="Title" data-src="src/pieces/bindDesk.tsx › Sub" className={`mb-6 ${H3}`}>{title}</h4>
       {children}
     </div>
   );
 }
 
-function Callout({ title, children, footer, left = false }: { title: string; children: ReactNode; footer?: ReactNode; left?: boolean }) {
+/**
+ * A band that breaks the page's flow: it runs the full width of the scrolling
+ * column, past the body's side padding, with its own content back inside that
+ * padding so the text still lines up with everything else.
+ */
+const BODY_PAD = "clamp(24px, 6vw, 110.816px)";
+function Band({ label, title, children }: { label: string; title?: string; children: ReactNode }) {
   return (
-    <div className={`rounded-[14px] px-6 py-7 md:px-12 md:py-8 ${left ? "text-left" : "text-center"}`} style={card}>
-      <h4 className={`${DISPLAY} text-[24px] leading-8 md:text-[28px] md:leading-9`}>{title}</h4>
-      <div className={`mt-3 max-w-2xl ${left ? "" : "mx-auto"}`}>{children}</div>
-      {footer}
+    <div
+      data-ui="Full-bleed section" data-src="src/pieces/bindDesk.tsx › Band"
+      className="py-10 md:py-12"
+      style={{
+        // `cqw` is the scroller's own width (CaseStudy makes it a size container).
+        width: "100cqw",
+        // Centred on the column whatever its own width: half the section, less half the container.
+        marginLeft: "calc(50% - 50cqw)",
+        // At least the body's side padding; on a wide screen the 800px column is centred,
+        // so the text starts where that column does, in line with everything else.
+        paddingInline: `max(${BODY_PAD}, calc(50cqw - 400px))`,
+        background: SURFACE,
+        borderBlock: `1px solid ${DIVIDER}`,
+      }}
+    >
+      <p data-ui="Overline" data-src="src/pieces/bindDesk.tsx › Band" className="mb-3 uppercase" style={{ ...LABEL, color: MUTED }}>
+        {label}
+      </p>
+      {title ? <h4 data-ui="Headline" data-src="src/pieces/bindDesk.tsx › Band" className={`mb-3 ${STATEMENT}`}>{title}</h4> : null}
+      <div className="max-w-3xl">{children}</div>
     </div>
   );
 }
@@ -201,6 +235,7 @@ function PrototypeLink({ href = PROTOTYPE, children, outline = false }: { href?:
       target="_blank"
       rel="noreferrer"
       data-cursor-frame="pill"
+      data-ui={outline ? "Button · outlined" : "Button · filled"} data-src="src/pieces/bindDesk.tsx › PrototypeLink"
       className={BTN}
       style={{
         outlineColor: INK,
@@ -256,12 +291,12 @@ function Clip({ name, label, href }: { name: string; label: string; href?: strin
   );
   return (
     // Just the clip: no card surface, rule or well behind it.
-    <div className="group relative overflow-hidden rounded-[14px]">
+    <div data-ui="Video" data-src="src/pieces/bindDesk.tsx › Clip" className="group relative overflow-hidden rounded-[12px]">
       {href ? (
         <a href={href} target="_blank" rel="noreferrer" aria-label={`${label} (opens in a new tab)`} className="block">
           {video}
           <span
-            className={`absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-3 py-1.5 font-medium opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 ${XS}`}
+            className={`absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-3 py-2 font-medium opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 ${XS}`}
             style={{ background: INK, color: FACE }}
           >
             Open the prototype <ArrowIcon size={13} />
@@ -292,63 +327,218 @@ const ALERT = (
 
 /* ---------------------------- the journey ---------------------------- */
 
-function Journey() {
+type Stage = (typeof JOURNEY)[number];
+
+/**
+ * The journey as a map: stage names along a timeline, a row each for what
+ * happens, the evidence and what the person does. A hollow dot is a gap; the
+ * one filled dot, Bind, is where the design agrees and leaves the checklist alone,
+ * so that column is lifted off the page.
+ */
+const MAP_ROWS: { label: string; get: (s: Stage) => string; strong?: boolean }[] = [
+  { label: "What happens", get: (s) => s.happens },
+  { label: "Evidence", get: (s) => s.evidence },
+  { label: "You", get: (s) => s.check, strong: true },
+];
+const MAP_COLS = "84px repeat(6, minmax(0, 1fr))";
+
+const Dot = ({ agrees }: { agrees: boolean }) => (
+  <span
+    aria-hidden
+    className="relative z-10 block h-2.5 w-2.5 shrink-0 rounded-full"
+    style={{ background: agrees ? INK : FACE, boxShadow: `0 0 0 2px ${INK}` }}
+  />
+);
+
+const monoLabel = { ...ink2, fontFamily: MONO, letterSpacing: "0.4px" } as const;
+
+/** One stage on the phone: the same rows, stacked under its name. */
+function StageCard({ s }: { s: Stage }) {
   return (
-    <div className="relative">
-      <div aria-hidden className="absolute left-0 right-0 top-[15px] hidden h-px md:block" style={{ background: DIVIDER }} />
-      <ol className="grid gap-8 md:grid-cols-6 md:gap-4">
+    <>
+      <p className="flex items-center gap-2 uppercase" style={{ ...monoLabel, color: INK, fontSize: 14 }}>
+        <Dot agrees={s.agrees} />
+        {s.stage}
+      </p>
+      <dl className="mt-4 space-y-3">
+        {MAP_ROWS.map((r) => (
+          <div key={r.label}>
+            <dt className={`uppercase ${XS}`} style={monoLabel}>
+              {r.label}
+            </dt>
+            <dd className={`mt-1 ${SM} ${r.strong ? "font-medium" : ""}`} style={r.strong ? ink : ink2}>
+              {r.get(s)}
+            </dd>
+          </div>
+        ))}
+      </dl>
+      {s.agrees ? (
+        <p className={`mt-4 ${SM} font-medium`} style={ink}>
+          {s.fitNote}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+/**
+ * The phone's journey: one stage at a time, swiped sideways. Each card hugs its
+ * own content; only the centred card is filled and outlined, and the
+ * neighbours peek in either side with neither.
+ */
+function JourneyCards() {
+  const track = useRef<HTMLUListElement>(null);
+  const [at, setAt] = useState(0);
+  /** Distance between two cards' left edges: the card's width plus the gap. */
+  const stride = () => {
+    const kids = track.current?.children;
+    return kids && kids.length > 1 ? (kids[1] as HTMLElement).offsetLeft - (kids[0] as HTMLElement).offsetLeft : 0;
+  };
+  const go = (i: number) => track.current?.scrollTo({ left: i * stride(), behavior: "smooth" });
+  return (
+    <div data-ui="Carousel" data-src="src/pieces/bindDesk.tsx › JourneyCards" className="md:hidden">
+      <ul
+        ref={track}
+        onScroll={(e) => {
+          const st = stride();
+          if (st) setAt(Math.round(e.currentTarget.scrollLeft / st));
+        }}
+        className="no-scrollbar m-0 flex list-none snap-x snap-mandatory items-start gap-3 overflow-x-auto p-0 px-[9%] [scroll-padding-inline:9%]"
+        aria-label="Journey stages, swipe sideways"
+      >
         {JOURNEY.map((s, i) => (
-          <li key={s.stage} className="relative flex gap-3 md:block">
-            <span
-              className={`relative z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full ${XS}`}
-              style={{ border: `1px solid ${INK}`, background: INK, color: FACE, fontFamily: MONO }}
+          <li key={s.stage} data-ui="Carousel item" data-src="src/pieces/bindDesk.tsx › JourneyCards" className="w-full shrink-0 snap-center" aria-label={`Stage ${i + 1} of ${JOURNEY.length}`}>
+            <div
+              data-ui="Card" data-src="src/pieces/bindDesk.tsx › JourneyCards"
+              className="rounded-[12px] p-6 transition-[background-color,box-shadow] duration-200"
+              style={at === i ? { background: SURFACE, boxShadow: `0 0 0 1px ${DIVIDER}` } : { background: "transparent", boxShadow: "0 0 0 1px transparent" }}
             >
-              {i + 1}
-            </span>
-            <div className="md:mt-4">
-              <h5 className={`${MD} font-semibold`}>{s.stage}</h5>
-              <p className={`mt-1 ${SM}`} style={ink2}>
-                {s.happens}
-              </p>
-              <p className={`mt-2 border-l-2 pl-2 ${XS}`} style={{ ...ink2, borderColor: MUTED }}>
-                {s.evidence}
-              </p>
-              <p
-                className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${XS}`}
-                style={s.agrees ? { background: INK, color: FACE, border: `1px solid ${INK}` } : { color: INK, border: `1px solid ${MUTED}` }}
-              >
-                <Icon d={s.agrees ? CHECK : ALERT} />
-                {s.agrees ? "Agrees" : "Gap"}
-                <span className="sr-only">: </span>
-              </p>
-              <p className={`mt-1 ${XS}`} style={ink2}>
-                {s.fitNote}
-              </p>
-              <p className={`mt-2 font-medium ${XS}`} style={ink}>
-                <span style={ink2}>You: </span>
-                {s.check}
-              </p>
+              <StageCard s={s} />
             </div>
           </li>
         ))}
-      </ol>
+      </ul>
+      <div data-ui="Pagination" data-src="src/pieces/bindDesk.tsx › JourneyCards" className="mt-4 flex justify-center gap-2" role="group" aria-label="Choose a stage">
+        {JOURNEY.map((s, i) => (
+          <button
+            key={s.stage}
+            type="button"
+            onClick={() => go(i)}
+            aria-label={`Stage ${i + 1}: ${s.stage}`}
+            aria-current={at === i ? "true" : undefined}
+            className="h-2 rounded-full p-0 transition-all duration-200"
+            style={{ width: at === i ? 20 : 8, background: at === i ? INK : DIVIDER }}
+          />
+        ))}
+      </div>
     </div>
+  );
+}
+
+function Journey() {
+  const last = JOURNEY.length - 1;
+  /** The column the design agrees with is lifted: a soft panel, rounded top and bottom. */
+  const lift = (i: number, row: number, rows: number) =>
+    JOURNEY[i].agrees
+      ? ({
+          background: WELL,
+          borderTopLeftRadius: row === 0 ? 12 : 0,
+          borderTopRightRadius: row === 0 ? 12 : 0,
+          borderBottomLeftRadius: row === rows - 1 ? 12 : 0,
+          borderBottomRightRadius: row === rows - 1 ? 12 : 0,
+        } as const)
+      : undefined;
+  const rows = MAP_ROWS.length + 2;
+  return (
+    <>
+      <JourneyCards />
+      <div data-ui="Timeline" data-src="src/pieces/bindDesk.tsx › Journey" className="hidden md:block">
+        <div className="grid" style={{ gridTemplateColumns: MAP_COLS, columnGap: 8 }}>
+          {/* Stage names, each with a tick down to its dot. */}
+          <span />
+          {JOURNEY.map((s, i) => (
+            <div key={s.stage} className="px-2 pt-3" style={lift(i, 0, rows)}>
+              <p className="uppercase" style={{ ...monoLabel, color: INK, fontSize: 13, lineHeight: "16px" }}>
+                {s.stage}
+              </p>
+              <span aria-hidden className="mt-3 block h-4 w-px" style={{ background: INK }} />
+            </div>
+          ))}
+          {/* The timeline: a hairline through every dot. */}
+          <span className="relative h-5">
+            <span aria-hidden className="absolute -right-1 left-0 top-1/2 h-px" style={{ background: DIVIDER }} />
+          </span>
+          {JOURNEY.map((s, i) => (
+            <div key={s.stage} className="relative h-5 px-2" style={lift(i, 1, rows)}>
+              <span aria-hidden className="absolute -left-1 top-1/2 h-px" style={{ background: DIVIDER, right: i === last ? 0 : -4 }} />
+              <span className="absolute left-2 top-1/2 -translate-y-1/2">
+                <Dot agrees={s.agrees} />
+              </span>
+            </div>
+          ))}
+          {MAP_ROWS.map((r, ri) => (
+            <div key={r.label} className="contents">
+              <p className={`pt-4 ${SM}`} style={{ ...ink, fontFamily: "'Roboto Slab', serif" }}>
+                {r.label}
+              </p>
+              {JOURNEY.map((s, i) => (
+                <p
+                  key={s.stage}
+                  className={`px-2 pt-4 ${SM} ${r.strong ? "font-medium" : ""}`}
+                  style={{ ...(r.strong ? ink : ink2), ...lift(i, ri + 2, rows), paddingBottom: ri === MAP_ROWS.length - 1 ? 16 : 0 }}
+                >
+                  {r.get(s)}
+                </p>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+      <p className={`mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 ${SM}`} style={ink2}>
+        <span className="inline-flex items-center gap-2">
+          <Dot agrees={false} /> A gap, not on the wishlist
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <Dot agrees /> Agrees: leave the checklist alone
+        </span>
+      </p>
+    </>
   );
 }
 
 /* ------------------------------ charts ------------------------------ */
 
-function Bar({ label, value, max, display, quiet = false }: { label: string; value: number; max: number; display: string; quiet?: boolean }) {
+function Bar({
+  label,
+  value,
+  max,
+  display,
+  inside,
+  quiet = false,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  display: string;
+  /** Text set inside the filled bar. The bar is never narrower than this text. */
+  inside?: string;
+  quiet?: boolean;
+}) {
   return (
-    <div className={`flex items-center gap-3 ${SM}`}>
+    <div data-ui="Bar" data-src="src/pieces/bindDesk.tsx › Bar" className={`flex items-center gap-3 ${SM}`}>
       <span className="w-[112px] shrink-0 sm:w-[150px]" style={ink2}>
         {label}
       </span>
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <div className="h-6 flex-1 rounded-[6px]" style={{ background: WELL }}>
-          <div className="h-6 rounded-[6px]" style={{ width: `${(value / max) * 100}%`, background: quiet ? MUTED : INK }} />
+        <div className="h-6 flex-1 rounded-[4px]" style={{ background: WELL }}>
+          <div
+            className="flex h-6 items-center whitespace-nowrap rounded-[4px] px-2"
+            style={{ width: `${(value / max) * 100}%`, minWidth: inside ? "max-content" : undefined, background: quiet ? MUTED : INK, color: FACE }}
+          >
+            {inside ? <span className={XS}>{inside}</span> : null}
+          </div>
         </div>
-        <span className="w-[56px] shrink-0 text-[13px]" style={{ ...ink, fontFamily: MONO }}>
+        <span className="w-[56px] shrink-0 text-[14px]" style={{ ...ink, fontFamily: MONO }}>
           {display}
         </span>
       </div>
@@ -358,33 +548,26 @@ function Bar({ label, value, max, display, quiet = false }: { label: string; val
 
 function MismatchChart() {
   return (
-    <figure className="mt-6 rounded-[14px] p-5" style={card}>
+    <figure data-ui="Bar chart" data-src="src/pieces/bindDesk.tsx › MismatchChart" className="mt-6 rounded-[12px] p-6" style={card}>
       <figcaption className={`mb-4 font-medium ${SM}`}>Submissions with a mismatch, 30 days</figcaption>
       <div className="space-y-3">
-        <Bar label="Assistant A" value={23} max={61} display="38%" />
-        <Bar label="Assistant B" value={19} max={54} display="35%" />
+        <Bar label="Assistant A" value={23} max={61} display="38%" inside="23 of 61" />
+        <Bar label="Assistant B" value={19} max={54} display="35%" inside="19 of 54" />
+        <Bar label="B’s guess" value={33} max={100} display="33%" inside="guess" quiet />
       </div>
-      <p className={`mt-3 ${XS}`} style={ink2}>
-        23 of 61 and 19 of 54. Assistant B&rsquo;s guess: 33%.
-      </p>
     </figure>
   );
 }
 
 function MinutesChart({ compact = false }: { compact?: boolean }) {
   return (
-    <figure className={compact ? "mt-4" : "mt-6 rounded-[14px] p-5"} style={compact ? undefined : card}>
+    <figure data-ui="Bar chart" data-src="src/pieces/bindDesk.tsx › MinutesChart" className={compact ? "mt-4" : "mt-6 rounded-[12px] p-6"} style={compact ? undefined : card}>
       {compact ? null : <figcaption className={`mb-4 font-medium ${SM}`}>Minutes per submission</figcaption>}
       <div className="space-y-3">
         <Bar label="Find documents (Assistant B)" value={11} max={14} display="11 min" />
         <Bar label="First flag (Assistant A)" value={14} max={14} display="14 min" />
         <Bar label="Checklist (Assistant B)" value={3} max={14} display="3 min" quiet />
       </div>
-      {compact ? null : (
-        <p className={`mt-3 ${XS}`} style={ink2}>
-          Different people, so the bars aren&rsquo;t added.
-        </p>
-      )}
     </figure>
   );
 }
@@ -394,12 +577,12 @@ function MinutesChart({ compact = false }: { compact?: boolean }) {
 /** A real table from md up. Below it each row stacks, with its own labels. */
 function ResponsiveTable({ head, rows }: { head: string[]; rows: string[][] }) {
   return (
-    <div className="overflow-hidden rounded-[14px]" style={card}>
+    <div data-ui="Data table" data-src="src/pieces/bindDesk.tsx › ResponsiveTable" className="overflow-hidden rounded-[12px]" style={card}>
       <table className={`w-full text-left ${SM}`}>
         <thead className={`hidden md:table-header-group ${XS}`} style={{ background: WELL, color: MUTED }}>
           <tr>
             {head.map((h) => (
-              <th key={h} scope="col" className="px-5 py-2.5 font-medium" style={{ borderBottom: `1px solid ${DIVIDER}` }}>
+              <th key={h} scope="col" className="px-6 py-3 font-medium" style={{ borderBottom: `1px solid ${DIVIDER}` }}>
                 {h}
               </th>
             ))}
@@ -407,11 +590,11 @@ function ResponsiveTable({ head, rows }: { head: string[]; rows: string[][] }) {
         </thead>
         <tbody>
           {rows.map((r, ri) => (
-            <tr key={ri} className="block px-5 py-4 md:table-row md:p-0" style={{ borderBottom: ri === rows.length - 1 ? "none" : `1px solid ${DIVIDER}` }}>
+            <tr key={ri} className="block px-6 py-4 md:table-row md:p-0" style={{ borderBottom: ri === rows.length - 1 ? "none" : `1px solid ${DIVIDER}` }}>
               {r.map((c, i) => (
                 <td
                   key={i}
-                  className={`block md:table-cell md:px-5 md:py-3.5 md:align-top ${i === 0 ? `${MD} font-semibold md:w-[30%]` : "mt-1 md:mt-0"}`}
+                  className={`block md:table-cell md:px-6 md:py-3 md:align-top ${i === 0 ? `${H4} md:w-[30%]` : "mt-1 md:mt-0"}`}
                   style={i === 0 ? ink : ink2}
                 >
                   {i > 0 ? (
@@ -434,13 +617,13 @@ function ResponsiveTable({ head, rows }: { head: string[]; rows: string[][] }) {
 
 function PhaseCards({ items, label }: { items: [string, string][]; label: string }) {
   return (
-    <ol className="grid gap-4 md:grid-cols-3">
+    <ol data-ui="Card grid" data-src="src/pieces/bindDesk.tsx › PhaseCards" className="grid gap-6 md:grid-cols-3">
       {items.map(([title, rest], i) => (
-        <li key={title} className="rounded-[14px] p-5" style={card}>
+        <li key={title} data-ui="Card" data-src="src/pieces/bindDesk.tsx › PhaseCards" className="rounded-[12px] p-6" style={card}>
           <p className={XS} style={{ ...ink2, fontFamily: MONO }}>
             {label} {i + 1}
           </p>
-          <h5 className={`mt-1 font-semibold ${MD}`}>{title}</h5>
+          <h5 className={`mt-1 ${H4}`}>{title}</h5>
           <p className={`mt-1 ${SM}`} style={ink2}>
             {rest}
           </p>
@@ -450,15 +633,17 @@ function PhaseCards({ items, label }: { items: [string, string][]; label: string
   );
 }
 
+/* ---------------------------- scenarios ---------------------------- */
+
 function QuestionCards() {
   return (
-    <ol className="grid gap-4 md:grid-cols-2">
+    <ol data-ui="Card grid" data-src="src/pieces/bindDesk.tsx › QuestionCards" className="grid gap-6 md:grid-cols-2">
       {QUESTIONS.map((q, i) => (
-        <li key={q.q} className="flex flex-col rounded-[14px] p-5" style={card}>
+        <li key={q.q} data-ui="Card" data-src="src/pieces/bindDesk.tsx › QuestionCards" className="flex flex-col rounded-[12px] p-6" style={card}>
           <span className={XS} style={{ ...ink2, fontFamily: MONO }}>
             Q{i + 1}
           </span>
-          <p className={`mt-1 font-semibold ${MD}`}>{q.q}</p>
+          <p className={`mt-1 ${H4}`}>{q.q}</p>
           <dl className={`mt-3 flex-1 space-y-2 pt-3 ${SM}`} style={{ borderTop: `1px solid ${DIVIDER}` }}>
             {(
               [
@@ -483,15 +668,13 @@ function QuestionCards() {
   );
 }
 
-/* ---------------------------- scenarios ---------------------------- */
-
 /** The copy beside its clip. Alternate rows swap sides; on the phone the copy comes first. */
 function ScenarioCard({ s, flip }: { s: Scenario; flip: boolean }) {
   return (
-    <article className={`grid gap-6 md:items-center md:gap-12 ${flip ? "md:grid-cols-[1.45fr_1fr]" : "md:grid-cols-[1fr_1.45fr]"}`}>
+    <article data-ui="Media object" data-src="src/pieces/bindDesk.tsx › ScenarioCard" className={`grid gap-6 md:items-center md:gap-10 ${flip ? "md:grid-cols-[1.45fr_1fr]" : "md:grid-cols-[1fr_1.45fr]"}`}>
       <div className={flip ? "md:order-2" : ""}>
-        <h4 className={`${DISPLAY} text-[26px] leading-8`}>{s.title}</h4>
-        <div className="mt-5 space-y-4 text-[16px] leading-7" style={ink2}>
+        <h4 className={STATEMENT}>{s.title}</h4>
+        <div className={`mt-3 space-y-4 ${MD}`} style={ink2}>
           <p>
             <strong className="font-semibold" style={ink}>
               {s.pain}
@@ -502,7 +685,7 @@ function ScenarioCard({ s, flip }: { s: Scenario; flip: boolean }) {
             <span style={ink}>{s.decide}</span> {s.outcome}
           </p>
           {s.assumes ? (
-            <p className={`border-l-2 pl-3 text-[13px] leading-6`} style={{ ...ink2, borderColor: DIVIDER }}>
+            <p className={`border-l-2 pl-3 ${SM}`} style={{ ...ink2, borderColor: DIVIDER }}>
               {s.assumes} {s.ifWrong}
             </p>
           ) : null}
@@ -576,13 +759,13 @@ function AiTag({
   ];
   return (
     <div className={`flex flex-col items-start gap-1 ${XS}`}>
-      <span className="inline-flex items-center gap-1 font-semibold" style={ink}>
+      <span className="inline-flex items-center gap-1 font-medium" style={ink}>
         <Icon d={AI_ICON[variant]} size={13} />
         {variant}
       </span>
       <span style={ink2}>{did}</span>
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex h-5 items-center rounded-full px-1.5 text-[11px] font-medium" style={pill}>
+        <span className="inline-flex h-6 items-center rounded-full px-2 text-[14px] font-medium" style={pill}>
           {review}
         </span>
         <button
@@ -597,11 +780,11 @@ function AiTag({
         </button>
       </div>
       {open ? (
-        <dl id={id} className="mt-2 w-full space-y-2.5 pt-2" style={{ borderTop: `1px solid ${DIVIDER}` }}>
+        <dl id={id} className="mt-2 w-full space-y-3 pt-2" style={{ borderTop: `1px solid ${DIVIDER}` }}>
           {rows.map(([k, v]) =>
             v.length ? (
               <div key={k}>
-                <dt className="mb-0.5 font-semibold" style={ink}>
+                <dt className="mb-1 font-medium" style={ink}>
                   {k}
                 </dt>
                 {v.map((line) => (
@@ -662,15 +845,128 @@ const TAGS: { variant: string; did: string; review: Review; why: Parameters<type
   },
 ];
 
-function AiTagGrid() {
+/* ---------------------------- design decisions ---------------------------- */
+
+/**
+ * The key design decisions, taken from the prototype's own "Design decision"
+ * panel (the text the demo shows on hover), each with a capture of the
+ * component it is about. The scenarios above say what each scenario does; these
+ * say why the interface is shaped the way it is.
+ */
+type Decision = {
+  title: string;
+  /** The decision, as the prototype words it. */
+  decision: string;
+  /** The evidence behind it. */
+  why: string;
+  /** The human checkpoint it keeps. */
+  checkpoint: string;
+  /** Which AI tags (indexes into TAGS) this decision carries, shown as small callouts. */
+  ai?: number[];
+  img: string;
+  alt: string;
+  /** Tall captures sit narrow, centred on a well, rather than stretched wide. */
+  tall?: boolean;
+};
+
+const DECISIONS: Decision[] = [
+  {
+    title: "Group the week by what blocks binding",
+    decision: "Home groups work as Mismatch, Missing, Overdue and Waiting, and each row says in words what to do next, so the list reads as a to-do list, not a report.",
+    why: "It took 14 minutes to reach the first flag. Mismatches and stuck brokers now surface before routine work.",
+    checkpoint: "You choose what to open.",
+    img: "home",
+    alt: "The Home screen, with the week's applications grouped into Mismatch, Missing and Overdue bands, each row ending in a next step.",
+  },
+  {
+    title: "Pick documents up where they already arrive",
+    decision: "A capture panel reads the inbox and portal notices, and only reads. When a match is unsure it says so and asks.",
+    why: "17 of 54 submissions arrived off the portal, and finding them took 11 minutes.",
+    checkpoint: "You confirm any match under 80%.",
+    ai: [2, 3],
+    img: "capture",
+    alt: "The capture panel listing four documents found in an inbox, one at 40% confidence marked Needs review.",
+    tall: true,
+  },
+  {
+    title: "The tool highlights, a person decides",
+    decision: "Both values sit side by side. The tool only highlights; a person marks every difference real or acceptable.",
+    why: "35–38% of submissions have a mismatch, and today it is found by careful reading.",
+    checkpoint: "You mark each difference.",
+    ai: [0],
+    img: "differences",
+    alt: "The Differences column, showing each occurrence of $2,000,000 against $1,000,000 and a Real mismatch or Acceptable choice.",
+    tall: true,
+  },
+  {
+    title: "Draft the email from your decisions",
+    decision: "The draft cites the exact values you marked, and nothing leaves the company until you press Send.",
+    why: "Broker replies already take days, so the first email has to be right.",
+    checkpoint: "You edit and send.",
+    ai: [1],
+    img: "email",
+    alt: "A drafted email to the broker quoting the certificate and application values, with Edit and Send buttons.",
+  },
+  {
+    title: "Make waiting visible",
+    decision: "Waiting shows on the application, and the threshold is set per policy. You choose to chase, call or wait.",
+    why: "The median reply is 2.1 days, and 9 submissions waited over 4.",
+    checkpoint: "You chase, call or wait.",
+    img: "followup",
+    alt: "The follow-up step of an application, showing how long the broker has been silent and the options to follow up or call.",
+  },
+  {
+    title: "Show what was verified before an irreversible bind",
+    decision: "Binding can’t be undone, so a summary shows what was verified and asks for explicit approval.",
+    why: "A missed mismatch “comes back to bite us later.”",
+    checkpoint: "You approve the bind.",
+    img: "bind",
+    alt: "A verification summary of four checks beside a Ready to bind card with an Approve and bind button.",
+  },
+];
+
+function DecisionCard({ d, i }: { d: Decision; i: number }) {
   return (
-    <ul className="mt-6 grid items-start gap-3 text-left sm:grid-cols-2 lg:grid-cols-4">
-      {TAGS.map((t) => (
-        <li key={t.variant} className="rounded-[10px] p-3" style={{ background: FACE, border: `1px solid ${DIVIDER}` }}>
-          <AiTag {...t} />
-        </li>
-      ))}
-    </ul>
+    <article data-ui="Media object" data-src="src/pieces/bindDesk.tsx › DecisionCard" className={`grid gap-6 md:items-center md:gap-10 ${d.tall ? (i % 2 ? "md:grid-cols-[1.45fr_1fr]" : "md:grid-cols-[1fr_1.45fr]") : ""}`}>
+      <div className={d.tall && i % 2 ? "md:order-2" : ""}>
+        <Eyebrow>Decision {i + 1}</Eyebrow>
+        <h4 className={`mt-2 ${STATEMENT}`}>{d.title}</h4>
+        <div className={`mt-3 space-y-4 ${MD}`} style={ink2}>
+          <p>
+            <strong className="font-semibold" style={ink}>
+              {d.decision}
+            </strong>
+          </p>
+          <p>{d.why}</p>
+          <p className={`border-l-2 pl-3 ${SM}`} style={{ ...ink2, borderColor: DIVIDER }}>
+            Human checkpoint: <span style={ink}>{d.checkpoint}</span>
+          </p>
+          {d.ai?.map((n) => (
+            <div key={TAGS[n].variant} data-ui="Tag (AI disclosure)" data-src="src/pieces/bindDesk.tsx › DecisionCard" className="rounded-[12px] p-3" style={{ background: SURFACE, border: `1px solid ${DIVIDER}` }}>
+              <p className={`mb-2 uppercase ${XS}`} style={{ ...ink2, fontFamily: MONO }}>
+                AI tag
+              </p>
+              <AiTag {...TAGS[n]} />
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className={d.tall && i % 2 ? "md:order-1" : ""}>
+        <div
+          data-ui="Figure" data-src="src/pieces/bindDesk.tsx › DecisionCard"
+          className={`overflow-hidden rounded-[12px] ${d.tall ? "p-6 md:p-8" : ""}`}
+          style={{ background: d.tall ? WELL : undefined, border: `1px solid ${DIVIDER}` }}
+        >
+          <img
+            src={`${ART}/design/${d.img}.png`}
+            alt={d.alt}
+            loading="lazy"
+            decoding="async"
+            className={`block h-auto ${d.tall ? "mx-auto w-full max-w-[300px] rounded-[12px]" : "w-full"}`}
+          />
+        </div>
+      </div>
+    </article>
   );
 }
 
@@ -679,25 +975,33 @@ function AiTagGrid() {
 /**
  * The hero. CaseStudy renders this under the meta row in place of its
  * default title line: title on the left, buttons on the right, then the loop.
+ * The summary lives in the TL;DR card below, not here.
  */
 const INTRO = (
   <div>
-    <div className="grid gap-10 md:grid-cols-[1.5fr_1fr] md:items-end">
-      <h1 className={`${DISPLAY} text-[40px] leading-[44px] tracking-[-0.02em] md:text-[56px] md:leading-[60px]`}>
-        Bridging the gap between stakeholder expectations and user pain points
+    <div>
+      <h1 className={`max-w-3xl ${TITLE}`}>
+        Redesigning the brokerage workflow so assistants decide instead of hunt
       </h1>
-      <div className="flex flex-wrap gap-2">
+      <div className="mt-6 flex flex-wrap gap-2">
         <PrototypeLink>Open the prototype</PrototypeLink>
         <PrototypeLink href={TOUR} outline>
           Start the guided tour
         </PrototypeLink>
       </div>
     </div>
-    <div className="mt-14">
+    <div className="mt-16">
       <Clip name="bind-desk" label="Open the prototype: product walkthrough video" href={PROTOTYPE} />
     </div>
   </div>
 );
+
+const OUTCOME: string[][] = [
+  ["Finding documents", "11 min to find them. 17 of 54 off-portal.", "The hunt becomes a short review of matches."],
+  ["Spotting mismatches", "14 min before the first flag. 35–38% have one.", "Flags and broker emails come faster."],
+  ["Chasing brokers", "Median reply 2.1 days. 9 waited over 4.", "Stalled work surfaces before day four."],
+  ["Binding", "Checklist: 3 min, and people know it cold.", "Unchanged, with a final check before approval."],
+];
 
 export const BIND_DESK_SECTIONS: CaseStudySection[] = [
   {
@@ -708,90 +1012,19 @@ export const BIND_DESK_SECTIONS: CaseStudySection[] = [
   {
     id: "tldr",
     title: "TL;DR",
+    // The label sits inside the band, so the section draws no heading of its own.
+    hideTitle: true,
     children: (
-      <p className={`max-w-3xl ${DISPLAY} text-[24px] leading-8 md:text-[28px] md:leading-9`}>
-        The operations director asked for a faster checklist. The logs show the
-        checklist takes 3 minutes. Bind Desk leaves it alone and fixes the slow
-        work around it, with a person approving each decision that matters.
-      </p>
-    ),
-  },
-  {
-    id: "problem",
-    title: "The Problem",
-    children: (
-      <div>
-        <SectionHead
-          title="A fast checklist inside a slow week"
-          lede="At a 40-person brokerage, assistants can’t bind a policy until every document is in and every coverage limit matches. Two interviews and 30 days of logs from the legacy checklist spreadsheet show where their time goes."
-        />
-        <div className="space-y-24 md:space-y-32">
-          <Sub title="Today’s journey">
-            <Journey />
-          </Sub>
-          <Callout title="The problem" left>
-            <p className={MD} style={ink2}>
-              <strong className="font-semibold" style={ink}>
-                The checklist is the fastest step.
-              </strong>{" "}
-              Finding documents and spotting mismatches take longer, and broker
-              replies take days. About one in three submissions has a mismatch.
-            </p>
-          </Callout>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "findings",
-    title: "Findings",
-    children: (
-      <div className="space-y-24 md:space-y-32">
-        <div className="grid gap-10 md:grid-cols-2">
-          <div>
-            <Eyebrow>Where the sources agree</Eyebrow>
-            <p className={`mt-2 ${DISPLAY} text-[24px] leading-8`}>Mismatches are frequent.</p>
-            <p className={`mt-2 ${MD}`} style={ink2}>
-              Assistant B guessed &ldquo;maybe a third&rdquo;. The logs show 35&ndash;38%.
-            </p>
-            <MismatchChart />
-          </div>
-          <div>
-            <Eyebrow>Where they disagree</Eyebrow>
-            <p className={`mt-2 ${DISPLAY} text-[24px] leading-8`}>Assistant A wants autofill. Their log points elsewhere.</p>
-            <p className={`mt-2 ${MD}`} style={ink2}>
-              Their time goes to mismatches and broker waits.
-            </p>
-            <MinutesChart />
-          </div>
-        </div>
-
-        <Sub title="Stakeholder expectations">
-          <ResponsiveTable head={["Asked for", "How it appears", "Evidence"]} rows={EXPECTATIONS} />
-        </Sub>
-
-        <div>
-          <Eyebrow>Pushback</Eyebrow>
-          <div className="mt-2 grid gap-10 md:grid-cols-[1.3fr_1fr] md:gap-12">
-            <div>
-              <h4 className={`${DISPLAY} text-[26px] leading-9 md:text-[32px] md:leading-10`}>
-                &ldquo;Our users asked for the wishlist. Why are you showing me something else?&rdquo;
-              </h4>
-              <p className={`mt-6 text-[16px] leading-7`} style={ink2}>
-                <strong className="font-semibold" style={ink}>
-                  The checklist is 3 minutes of the work.
-                </strong>{" "}
-                The rest of the week goes to the steps around it. Every wishlist
-                item still has a place, sized to its evidence.
-              </p>
-            </div>
-            <aside className="self-start rounded-[14px] p-5" style={card}>
-              <Eyebrow>Where the minutes go, per submission</Eyebrow>
-              <MinutesChart compact />
-            </aside>
-          </div>
-        </div>
-      </div>
+      <Band label="TL;DR">
+        <p className={MD} style={ink2}>
+          <strong className="font-semibold" style={ink}>
+            The operations director asked for a faster checklist.
+          </strong>{" "}
+          The logs show the checklist takes 3 minutes. Bind Desk leaves it alone
+          and fixes the slow work around it, with a person approving each
+          decision that matters.
+        </p>
+      </Band>
     ),
   },
   {
@@ -803,12 +1036,12 @@ export const BIND_DESK_SECTIONS: CaseStudySection[] = [
           title="Five scenarios, one human checkpoint each"
           lede="Each scenario fixes one slow step. Each video is recorded from the prototype."
         />
-        <div className="space-y-20 md:space-y-28">
+        <div className="space-y-16">
           {SCENARIOS.map((s, i) => (
             <ScenarioCard key={s.id} s={s} flip={i % 2 === 1} />
           ))}
         </div>
-        <div className="mt-16 md:mt-20">
+        <div className="mt-16">
           <PrototypeLink>
             Try the prototype <ArrowIcon size={16} />
           </PrototypeLink>
@@ -817,49 +1050,172 @@ export const BIND_DESK_SECTIONS: CaseStudySection[] = [
     ),
   },
   {
-    id: "human-in-the-loop",
-    title: "Human in the Loop",
+    id: "overview",
+    title: "Overview",
     children: (
-      <div className="space-y-24 md:space-y-32">
-        <Callout title="AI tag" footer={<AiTagGrid />}>
+      <div className="max-w-4xl">
+        <p className={STATEMENT} style={ink}>
+          Bind Desk is a prototype that redesigns the workflow of a 40-person
+          brokerage, so assistants spend their time deciding instead of hunting
+          for documents.
+        </p>
+        <p className={`mt-3 ${MD}`} style={ink2}>
+          Assistants can’t bind a policy until every document is in and every
+          coverage limit matches. I analyzed 30 days of logs from the legacy
+          checklist spreadsheet, read two interviews and mapped the journey,
+          then defined the flow and set the layout for an interactive prototype
+          of five scenarios, each with one human checkpoint.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "problem",
+    title: "The Problem",
+    hideTitle: true,
+    children: (
+      <div className="space-y-16">
+        <Band label="The Problem" title="A fast checklist inside a slow week">
           <p className={MD} style={ink2}>
-            Marks anything AI changed, with a review state and a &ldquo;Why?&rdquo; link to the source.
+            At a 40-person brokerage, assistants can’t bind a policy until every
+            document is in and every coverage limit matches. Two interviews and
+            30 days of logs from the legacy checklist spreadsheet show where
+            their time goes.
           </p>
-        </Callout>
-        <div>
-          <SectionHead
-            title="How I used AI"
-            lede={
-              <>
-                <strong className="font-semibold" style={ink}>
-                  I made the design decisions.
-                </strong>{" "}
-                AI helped me carry them out.
-              </>
-            }
-          />
-          <PhaseCards items={AI_USE} label="Area" />
+          <p className={`mt-4 ${MD}`} style={ink2}>
+            <strong className="font-semibold" style={ink}>
+              The checklist is the fastest step.
+            </strong>{" "}
+            Finding documents and spotting mismatches take longer, and broker
+            replies take days. About one in three submissions has a mismatch.
+          </p>
+        </Band>
+        <Sub title="Today’s journey">
+          <Journey />
+        </Sub>
+      </div>
+    ),
+  },
+  {
+    id: "findings",
+    title: "Initial Findings",
+    children: (
+      <div className="space-y-16">
+        <div className="grid gap-10 md:grid-cols-2">
+          <div>
+            <Eyebrow>Where the sources agree</Eyebrow>
+            <p className={`mt-3 ${STATEMENT}`}>Mismatches are frequent.</p>
+            <p className={`mt-3 ${MD}`} style={ink2}>
+              Assistant B guessed &ldquo;maybe a third&rdquo;. The logs show 35&ndash;38%.
+            </p>
+            <MismatchChart />
+          </div>
+          <div>
+            <Eyebrow>Where they disagree</Eyebrow>
+            <p className={`mt-3 ${STATEMENT}`}>Assistant A wants autofill. Their log points elsewhere.</p>
+            <p className={`mt-3 ${MD}`} style={ink2}>
+              Their time goes to mismatches and broker waits.
+            </p>
+            <MinutesChart />
+          </div>
+        </div>
+
+        <Sub title="Stakeholder expectations">
+          <ResponsiveTable head={["Asked for", "How it appears", "Evidence"]} rows={EXPECTATIONS} />
+        </Sub>
+
+        <Band label="Pushback" title="“Our users asked for the wishlist. Why are you showing me something else?”">
+          <p className={MD} style={ink2}>
+            <strong className="font-semibold" style={ink}>
+              The checklist is 3 minutes of the work.
+            </strong>{" "}
+            The rest of the week goes to the steps around it. Every wishlist
+            item still has a place, sized to its evidence.
+          </p>
+          <div className="mt-6">
+            <MinutesChart compact />
+          </div>
+        </Band>
+      </div>
+    ),
+  },
+  {
+    id: "design-process",
+    title: "Design Process",
+    children: (
+      <div className="space-y-16">
+        <SectionHead
+          title="Six decisions that shaped the interface"
+          lede="Each one comes from the prototype’s own decision notes, with the evidence behind it and the human checkpoint it keeps. The AI proposes. A person decides, and every AI output is tagged with what it did and whether a person has reviewed it."
+        />
+        <div className="space-y-16">
+          {DECISIONS.map((d, i) => (
+            <DecisionCard key={d.title} d={d} i={i} />
+          ))}
         </div>
       </div>
     ),
   },
   {
-    id: "open-questions",
-    title: "Open Questions",
+    id: "outcome",
+    title: "Outcome",
     children: (
       <div>
-        <SectionHead title="What we still need to learn" lede="Each answer confirms the design or changes one part of it." />
-        <QuestionCards />
+        <SectionHead
+          title="What should change, and how we’ll know"
+          lede="Bind Desk is a prototype, so these are targets measured against today’s logs, not results."
+        />
+        <ul data-ui="Card grid" data-src="src/pieces/bindDesk.tsx › section outcome" className="m-0 grid list-none gap-6 p-0 md:grid-cols-2">
+          {OUTCOME.map(([area, today, change]) => (
+            <li key={area} data-ui="Card" data-src="src/pieces/bindDesk.tsx › section outcome" className="rounded-[12px] p-6" style={card}>
+              <h5 className={H4}>{area}</h5>
+              <p className={`mt-3 ${SM}`} style={ink2}>
+                <span style={{ ...ink, fontFamily: MONO }}>Today </span>
+                {today}
+              </p>
+              <p className={`mt-2 ${SM}`} style={ink2}>
+                <span style={{ ...ink, fontFamily: MONO }}>Expected </span>
+                {change}
+              </p>
+            </li>
+          ))}
+        </ul>
       </div>
     ),
   },
   {
-    id: "outcome",
-    title: "Outcome & Reflection",
+    id: "open-questions",
+    title: "Next Steps",
+    children: (
+      <div className="space-y-16">
+        <div>
+          <SectionHead title="Ship the mismatch check first" lede="Start where the evidence is strongest. The next round decides the rest." />
+          <PhaseCards items={NEXT_STEPS} label="Step" />
+        </div>
+        <div>
+          <SectionHead title="What we still need to learn" lede="Each answer confirms the design or changes one part of it." />
+          <QuestionCards />
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "how-i-used-ai",
+    title: "How I Used AI",
     children: (
       <div>
-        <SectionHead title="Ship the mismatch check first" lede="Start where the evidence is strongest. The next round decides the rest." />
-        <PhaseCards items={NEXT_STEPS} label="Step" />
+        <SectionHead
+          title="How I used AI"
+          lede={
+            <>
+              <strong className="font-semibold" style={ink}>
+                I made the design decisions.
+              </strong>{" "}
+              AI helped me carry them out.
+            </>
+          }
+        />
+        <PhaseCards items={AI_USE} label="Area" />
       </div>
     ),
   },
@@ -875,7 +1231,7 @@ export const BIND_DESK_SECTIONS: CaseStudySection[] = [
     hideTitle: true,
     inRail: false,
     children: (
-      <div className={`flex flex-col gap-1.5 pt-6 ${SM}`} style={{ borderTop: `1px solid ${DIVIDER}`, color: MUTED }}>
+      <div className={`flex flex-col gap-2 pt-6 ${SM}`} style={{ borderTop: `1px solid ${DIVIDER}`, color: MUTED }}>
         <p>{COPYRIGHT}</p>
         <p className={XS}>Company, people and data in this case study are fictional.</p>
       </div>

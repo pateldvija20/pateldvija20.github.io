@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { createPortal } from "react-dom";
 import gsap from "gsap";
 import { BackControl } from "../pieces/BackControl";
-import { CaseStudy } from "../pieces/CaseStudy";
+import { CaseStudy, PICKER_H } from "../pieces/CaseStudy";
 import { LampSwitch } from "./LampSwitch";
 import { sectionsFor } from "../pieces/caseStudySections";
 import type { Theme } from "../pieces/Piece";
@@ -50,6 +50,14 @@ export function ProjectOverlay({
 }) {
   const pageRef = useRef<HTMLDivElement>(null);
   const [chrome, setChrome] = useState(0);
+  // Below lg the case study has a section bar, and the back control fills it.
+  const [phone, setPhone] = useState(() => window.matchMedia("(max-width: 1023px)").matches);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const on = () => setPhone(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
   const chromeRef = useRef({ v: 0 });
   const closingRef = useRef(false);
   const originRef = useRef<DOMRect | null>(null);
@@ -186,6 +194,8 @@ export function ProjectOverlay({
       <BackControl
         onClick={shrink}
         aria-label={`Back To Home — close ${project.name} case study`}
+        size={phone ? PICKER_H : undefined}
+        radius={phone ? 0 : undefined}
       />
     </div>,
     document.body,

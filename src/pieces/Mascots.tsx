@@ -1,23 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { CaseStudySection } from "./CaseStudy";
-import { HacksvitSiteEmbed } from "./hacksvit-site";
-import { RelatedProjects } from "./caseStudyBits";
-import stickerSheetRaw from "../assets/sticker-sheet.svg?raw";
 
 /**
- * The HackSVIT case study (Figma `Folder Back` 249:9810), authored as
- * CaseStudy sections. Copy is verbatim from the file.
+ * The five HACKSVIT mascots, as interactive cards: spring physics, eye
+ * tracking, the typed role label with its blinking caret, the logo that fades
+ * in on hover, and Builder's shape morphing between two outlines.
  *
- * The five mascot cards are ported directly from the standalone "Mascot
- * Cards" build (`Mascot Cards.html`) — same spring physics, the same typed
- * role label with a blinking caret, the same logo mark that fades in on
- * hover, and the same per-mascot eye-tracking constants (each eye has its
- * own reach and rest offset, not a single shared formula). A first pass
- * ported only the resting/hover poses and left the rest as CSS transitions;
- * that dropped the parts that made the original read as alive — the type-in,
- * the logo, and Builder's shape actually morphing between two distinct
- * outlines rather than just scaling in place. This rewrite runs the same
- * per-frame math the HTML did, via refs instead of `querySelectorAll`.
+ * Ported from the standalone "Mascot Cards" build, kept here when the HackSVIT
+ * case study came out of the site so the Play page can show them live.
  */
 
 /** The resting shape fills the whole 1080x1350 card space. */
@@ -47,7 +36,7 @@ type Eye = {
 };
 type LogoPath = { d: string; fill: "#141414" | "#fff"; };
 
-type Mascot = {
+export type Mascot = {
   role: string;
   colors: [string, string, string];
   hov: ShapePose;
@@ -72,7 +61,7 @@ const BUILDER_HOV_PTS = [
   91.6187, 1089.31, 392.256, 587.749, 459.191, 476.086, 620.887, 476.086,
 ];
 
-const MASCOTS: Mascot[] = [
+export const MASCOTS: Mascot[] = [
   {
     role: "Closer",
     colors: ["#C66D00", "#FFA639", "#FF8C00"],
@@ -482,7 +471,7 @@ const SPRING_DAMP = 2 * Math.sqrt(SPRING_K) * (1.05 - 0.42 * 1);
 const EYE_TRAVEL = 1.8;
 const TYPE_MS = 110;
 
-function MascotCard({ m }: { m: Mascot; }) {
+export function MascotCard({ m }: { m: Mascot; }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const shapeRef = useRef<HTMLDivElement>(null);
   const layerRefs = useRef<(HTMLDivElement | SVGPathElement | null)[]>([]);
@@ -830,327 +819,3 @@ function MascotCard({ m }: { m: Mascot; }) {
     </div>
   );
 }
-
-function MascotRow() {
-  return (
-    <div className="flex flex-col items-center gap-[20px]">
-      <div className="flex w-full items-stretch gap-[clamp(12px,1.6vw,26px)]">
-        {MASCOTS.map((m) => (
-          <MascotCard key={m.role} m={m} />
-        ))}
-      </div>
-      <div
-        className="uppercase"
-        style={{
-          fontFamily:
-            "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace",
-          fontSize: 12,
-          letterSpacing: "0.14em",
-          opacity: 0.4,
-        }}
-      >
-        Hover a face
-      </div>
-    </div>
-  );
-}
-
-/**
- * Body type, straight off the TL;DR block (67:13072 / 67:13073): DM Sans at
- * 22.163 with 0.2216 tracking, the lead in Medium at full ink and the
- * follow-on in Regular at the muted grey. The old 18px/`opacity` pair read a
- * size too small and greyed the text by transparency rather than colour.
- *
- * Clamped for the same reason the shared scale in `caseStudyBits` is: the
- * `vw` term is 22.163/1512, so desktop is untouched and only the phone moves.
- * This file still keeps its own copy of the scale — folding it into the
- * shared bits is the separate job the header note describes.
- */
-const BODY_FONT = "clamp(16px, 1.466vw, 22.163px)";
-const BODY_TRACK = 0.2216;
-const MUTED = "var(--cs-muted, #7c838b)";
-
-function SectionLead({ children }: { children: ReactNode; }) {
-  return (
-    <p
-      className="font-medium"
-      style={{ fontSize: BODY_FONT, letterSpacing: BODY_TRACK, lineHeight: "normal" }}
-    >
-      {children}
-    </p>
-  );
-}
-
-function SectionBody({ children }: { children: ReactNode; }) {
-  return (
-    <p
-      style={{
-        fontSize: BODY_FONT,
-        letterSpacing: BODY_TRACK,
-        lineHeight: "normal",
-        color: MUTED,
-      }}
-    >
-      {children}
-    </p>
-  );
-}
-
-const ART = "/assets/projects/hacksvit";
-const MONO = "'DM Mono', monospace";
-
-function Figure({
-  src,
-  ratio,
-  radius = 12,
-  className = "",
-  style,
-  alt = "",
-  fallback,
-}: {
-  src: string;
-  ratio?: string;
-  radius?: number;
-  className?: string;
-  style?: React.CSSProperties;
-  alt?: string;
-  fallback?: React.ReactNode;
-}) {
-  const [ok, setOk] = useState(true);
-  return (
-    <div
-      className={`relative overflow-hidden ${className}`}
-      style={{ aspectRatio: ratio, borderRadius: radius, background: "var(--cs-well, #e9ecf0)", ...style }}
-    >
-      {ok ? (
-        <img
-          src={src}
-          alt={alt}
-          draggable={false}
-          onError={() => setOk(false)}
-          className="absolute inset-0 h-full w-full select-none object-cover"
-        />
-      ) : fallback ? (
-        fallback
-      ) : (
-        <div className="absolute inset-0 bg-[var(--cs-well,#e9ecf0)]" style={{ borderRadius: radius }} />
-      )}
-    </div>
-  );
-}
-
-/**
- * The identity grid, off `325-12091`: row one is the section lead in the
- * left column with three cards beside it; row two flanks the body copy with
- * the remaining two. Cards are the interactive MascotCard — same spring
- * morph, eye tracking and typed role label as the standalone build.
- */
-/** Matches the standard body size used everywhere else on the page
- *  (`SectionBody`, 22.163/0.2216). */
-const IDENTITY_FONT = 22.163;
-const IDENTITY_TRACK = 0.2216;
-
-function IdentityShowcase() {
-  return (
-    <div className="flex flex-col gap-[30px]">
-      <div
-        className="grid items-start gap-[30px]"
-        style={{ gridTemplateColumns: "repeat(4, 1fr)" }}
-      >
-        <div className="flex flex-col gap-[30px]">
-          {/* The section's own label — see `hideTitle` on this entry. */}
-          <p
-            className="uppercase"
-            // The shared section-title size, +2px with the rest.
-            style={{ fontFamily: MONO, fontSize: 24.922, color: MUTED }}
-          >
-            identity
-          </p>
-          <p
-            className="font-medium"
-            style={{ fontSize: IDENTITY_FONT, letterSpacing: IDENTITY_TRACK, lineHeight: "normal" }}
-          >
-            Online hackathons made tech events feel transactional.
-          </p>
-        </div>
-        <MascotCard m={MASCOTS[2]} />
-        <MascotCard m={MASCOTS[1]} />
-        <MascotCard m={MASCOTS[3]} />
-      </div>
-      <div
-        className="grid items-center gap-[30px]"
-        style={{ gridTemplateColumns: "247.24fr 524.48fr 247.24fr" }}
-      >
-        <MascotCard m={MASCOTS[4]} />
-        <div className="flex flex-col gap-[30px] p-[15.05px]">
-          <p style={{ fontSize: IDENTITY_FONT, letterSpacing: IDENTITY_TRACK, lineHeight: "normal", color: MUTED }}>
-            Instead of abstract tech jargon, the visual identity revolves around
-            five distinct mascot characters.
-          </p>
-          <p style={{ fontSize: IDENTITY_FONT, letterSpacing: IDENTITY_TRACK, lineHeight: "normal", color: MUTED }}>
-            Each character represents a different problem-solving mindset
-            brought to a hackathon.
-          </p>
-        </div>
-        <MascotCard m={MASCOTS[0]} />
-      </div>
-    </div>
-  );
-}
-
-function StickerSheet() {
-  return (
-    <div
-      className="sticker-sheet relative overflow-hidden"
-      style={{ borderRadius: 16, height: "100%", background: "var(--cs-card, #fff7e3)" }}
-    >
-      <style>{`
-        .sticker-sheet svg { width: 100%; height: 100%; display: block; }
-        .sticker-sheet svg > g { transform-box: fill-box; transform-origin: center; }
-        .sticker-sheet svg > g:hover { animation: sticker-wiggle 0.42s ease-in-out; cursor: pointer; }
-        @keyframes sticker-wiggle {
-          0%, 100% { transform: rotate(0deg) translateY(0); }
-          25% { transform: rotate(-1.4deg) translateY(-2px); }
-          50% { transform: rotate(1.4deg) translateY(-1px); }
-          75% { transform: rotate(-0.9deg) translateY(0); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .sticker-sheet svg > g:hover { animation: none; }
-        }
-      `}</style>
-      <div
-        className="absolute inset-0"
-        // The asset already contains the cream fill + border, so render it
-        // edge-to-edge and let the wrapper's radius clip it. The export ships
-        // with the default `xMidYMid meet`, which letterboxes the art inside
-        // the taller row the poster's aspect drives — `none` stretches it to
-        // fill the container exactly.
-        dangerouslySetInnerHTML={{
-          __html: stickerSheetRaw.replace("<svg ", '<svg preserveAspectRatio="none" '),
-        }}
-      />
-    </div>
-  );
-}
-
-export const HACKSVIT_SECTIONS: CaseStudySection[] = [
-  {
-    id: "intro",
-    title: "Intro",
-    children: null,
-  },
-  {
-    id: "tldr",
-    title: "TL;DR",
-    children: (
-      <div className="flex flex-col gap-[40px]">
-        <div
-          className="flex flex-col"
-          style={{
-            gap: 22.163,
-            padding: 22.163,
-            borderRadius: 11.082,
-            border: "0.923px solid var(--cs-divider, #e3e5e8)",
-          }}
-        >
-          <SectionLead>
-            HACKSVIT 2022 marked the return to in-person hackathons after two
-            years of online events.
-          </SectionLead>
-          <SectionBody>
-            I led the visual design from scratch, creating a friendly mascot-led
-            identity, event collateral, and a mobile-first website that made
-            registrations and Discord onboarding simple and approachable for
-            participants.
-          </SectionBody>
-        </div>
-        <Figure src={`${ART}/posters.png`} ratio="1620 / 857" radius={16} />
-      </div>
-    ),
-  },
-  {
-    id: "challenge",
-    title: "Challenge",
-    children: (
-      // Figma centres the text against the poster's full height rather than
-      // pinning it to the top (`Frame 48096017` 337:662) — `items-center`
-      // reproduces that without hand-copying a vertical offset that would
-      // only hold for this exact copy length.
-      <div
-        className="grid items-center gap-[60px]"
-        style={{ gridTemplateColumns: "459.51fr 560.03fr" }}
-      >
-        <Figure src={`${ART}/challenge-poster.png`} ratio="690 / 961" radius={16} />
-        <div className="flex flex-col gap-[30px]">
-          <SectionLead>
-            Online hackathons made tech events feel transactional.
-          </SectionLead>
-          <SectionBody>
-            With HACKSVIT returning in person, the challenge was to make it feel
-            like a community event people genuinely wanted to be part of. The
-            visual identity needed to be approachable, memorable, and welcoming
-            to everyone, from first-time coders to experienced developers.
-          </SectionBody>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "identity",
-    title: "Identity",
-    // Figma sets this section's own label inside the grid itself — smaller,
-    // muted, sitting beside the intro line rather than spanning full width
-    // above it (`Frame 48096014` 325:12092) — so the shared heading is
-    // switched off here and `IdentityShowcase` renders that label itself.
-    hideTitle: true,
-    children: <IdentityShowcase />,
-  },
-  {
-    id: "collaterals",
-    title: "Collaterals",
-    children: (
-      // Two separate frames in the file (`Frame 48096012` / `Frame
-      // 48096016`), 60 apart — the same rhythm as everything else on the
-      // page, not a tighter one just because they're both "Collaterals".
-      <div className="flex flex-col gap-[60px]">
-        <div
-          className="grid items-stretch gap-[30px]"
-          style={{ gridTemplateColumns: "438.52fr 611.01fr" }}
-        >
-          <Figure
-            src={`${ART}/identity-poster.png`}
-            ratio="658 / 960"
-            radius={16}
-          />
-          <StickerSheet />
-        </div>
-        {/* Held at two columns on the phone too: the bag and the tee are one
-            merch pair, and stacking them puts a screenful between the two
-            things the reader is meant to see together. */}
-        <div className="grid grid-cols-2 gap-[30px]" data-cs-cols>
-          <Figure src={`${ART}/merch-bag.png`} ratio="782 / 948" radius={16} />
-          <Figure src={`${ART}/merch-tshirt.png`} ratio="782 / 948" radius={16} />
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "website",
-    title: "Website",
-    // The replicated event site itself (Figma node 339-665) — live and
-    // navigable, but clipped into a frame that scrolls on its own so the
-    // section shows a preview instead of running the site's full 4800px
-    // down the case study.
-    children: <HacksvitSiteEmbed />,
-  },
-  {
-    // Was a hand-coded placeholder — two empty grey boxes over literal
-    // "Project title" / "—" / "—" text, never wired to real projects. Now
-    // the same shared block Greenera and The Family Table close on, so all
-    // three case studies point at real projects through real deep links.
-    id: "also-checkout",
-    title: "Also checkout",
-    inRail: false,
-    children: <RelatedProjects slugs={["greenera", "the-family-table"]} />,
-  },
-];

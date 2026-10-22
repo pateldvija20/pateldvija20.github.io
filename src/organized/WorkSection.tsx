@@ -23,12 +23,13 @@ function WorkTile({ project, onOpen }: { project: Project; onOpen: (el: HTMLElem
 
   const body = (
     <>
-      <div className="w-full overflow-hidden rounded-[12px]" style={{ aspectRatio: IMAGE_RATIO, background: "var(--rule)" }}>
+      <div className="w-full overflow-hidden rounded-[12px]" style={{ aspectRatio: IMAGE_RATIO, background: project.heroBg ?? "var(--rule)" }}>
         {project.heroVideo ? (
           <LoopMedia
             still={cardImage(project)}
             video={project.heroVideo}
             className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-[1.02] motion-reduce:transition-none"
+            style={project.heroClip ? { clipPath: project.heroClip } : undefined}
           />
         ) : (
           <FadeImg
