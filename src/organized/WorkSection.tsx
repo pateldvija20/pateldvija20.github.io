@@ -1,4 +1,5 @@
 import { FadeImg } from "./FadeImg";
+import { LoopMedia } from "../pieces/LoopMedia";
 import { cardImage, PROJECTS, type Project } from "../pieces/projects";
 import { Section } from "./Section";
 
@@ -22,13 +23,22 @@ function WorkTile({ project, onOpen }: { project: Project; onOpen: (el: HTMLElem
 
   const body = (
     <>
-      <div className="w-full overflow-hidden rounded-[12px]" style={{ aspectRatio: IMAGE_RATIO, background: "var(--rule)" }}>
-        <FadeImg
-          src={cardImage(project)}
-          alt=""
-          draggable={false}
-          className="h-full w-full select-none object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02] motion-reduce:transition-none"
-        />
+      <div className="w-full overflow-hidden rounded-[12px]" style={{ aspectRatio: IMAGE_RATIO, background: project.heroBg ?? "var(--rule)" }}>
+        {project.heroVideo ? (
+          <LoopMedia
+            still={cardImage(project)}
+            video={project.heroVideo}
+            className="h-full w-full transition-transform duration-500 ease-out group-hover:scale-[1.02] motion-reduce:transition-none"
+            style={project.heroClip ? { clipPath: project.heroClip } : undefined}
+          />
+        ) : (
+          <FadeImg
+            src={cardImage(project)}
+            alt=""
+            draggable={false}
+            className="h-full w-full select-none object-cover transition-transform duration-500 ease-out group-hover:scale-[1.02] motion-reduce:transition-none"
+          />
+        )}
       </div>
       <div className="flex flex-col gap-[10px] pt-[24px] text-left">
         <p className="flex flex-wrap gap-x-[24px] gap-y-[4px] text-[14px] leading-[21px]" style={{ color: "var(--quiet)" }}>

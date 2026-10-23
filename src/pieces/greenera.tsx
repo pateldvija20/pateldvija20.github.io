@@ -489,6 +489,6 @@ export const GREENERA_SECTIONS: CaseStudySection[] = [
     id: "also-checkout",
     title: "Also checkout",
     inRail: false,
-    children: <RelatedProjects slugs={["the-family-table", "hacksvit"]} />,
+    children: <RelatedProjects slugs={["the-family-table", "billy-and-buddy"]} />,
   },
 ];

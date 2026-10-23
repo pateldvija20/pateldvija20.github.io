@@ -15,10 +15,16 @@ export function BackControl({
   onClick,
   label = "Back To Home",
   "aria-label": ariaLabel,
+  size = BACK_SIZE,
+  radius = BACK_RADIUS,
 }: {
   onClick: () => void;
   label?: string;
   "aria-label"?: string;
+  /** Square side. The phone case study passes its section bar's height so the
+   *  control fills the bar edge to edge. */
+  size?: number;
+  radius?: number;
 }) {
   const [open, setOpen] = useState(false);
   const labelRef = useRef<HTMLSpanElement>(null);
@@ -37,6 +43,7 @@ export function BackControl({
       onFocus={() => setOpen(true)}
       onBlur={() => setOpen(false)}
       data-no-track-drag
+      data-ui="Icon button" data-src="src/pieces/BackControl.tsx › BackControl"
       // The visible label is part of the accessible name (WCAG 2.5.3); callers
       // append what is being closed so the control still says so while
       // collapsed.
@@ -45,15 +52,15 @@ export function BackControl({
       style={{
         background: "#2f2f2f",
         color: "#fdfeff",
-        height: BACK_SIZE,
-        borderBottomRightRadius: BACK_RADIUS,
+        height: size,
+        borderBottomRightRadius: radius,
         transition: "width 0.28s cubic-bezier(0.22, 1, 0.36, 1)",
-        width: BACK_SIZE + (open ? labelW : 0),
+        width: size + (open ? labelW : 0),
       }}
     >
       <span
         className="flex shrink-0 items-center justify-center"
-        style={{ width: BACK_SIZE, height: BACK_SIZE }}
+        style={{ width: size, height: size }}
       >
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
           <path

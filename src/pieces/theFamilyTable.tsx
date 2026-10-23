@@ -494,6 +494,6 @@ export const THE_FAMILY_TABLE_SECTIONS: CaseStudySection[] = [
     id: "also-checkout",
     title: "Also checkout",
     inRail: false,
-    children: <RelatedProjects slugs={["greenera", "hacksvit"]} />,
+    children: <RelatedProjects slugs={["greenera", "billy-and-buddy"]} />,
   },
 ];

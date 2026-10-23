@@ -9,9 +9,7 @@ import { PROJECTS } from "./projects";
  * each new project file, which is how the same six components ended up
  * written three times with the numbers drifting apart. They live here now so
  * a change to the body size or the divider colour lands on every case study
- * at once. `hacksvit.tsx` still carries its own variants — it was written
- * against these numbers but has since diverged, so folding it in is a
- * separate job.
+ * at once.
  *
  * All the type and spacing numbers are the Figma file's own, which is why
  * the decimals are odd rather than rounded.

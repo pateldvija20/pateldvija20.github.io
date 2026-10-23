@@ -1,5 +1,5 @@
 /**
- * The six case studies, in display order: published work first, then the two
+ * The seven case studies, in display order: published work first, then the two
  * that are still coming, so a visitor meets real case studies before
  * placeholders. The Work grid reads this top to bottom. The folder does not
  * use it directly — its fan stacks back to front, so it puts the coming-soon
@@ -30,9 +30,53 @@ export type Project = {
    * would scale it up and clip the outer two phones off the lineup.
    */
   heroAspect?: number;
+  /**
+   * A silent loop shown wherever `hero` is (Work tile, related cards, the case
+   * study's own hero), as a path stem with `.webm` and `.mp4` beside it. Its
+   * first frame is `hero`, so the still stays the poster, the folder sheet and
+   * the morph image.
+   */
+  heroVideo?: string;
+  /**
+   * A flat colour behind the hero art, the same in light and dark.
+   */
+  heroBg?: string;
+  /**
+   * A `clip-path` that trims the hero art to the part worth showing, so the
+   * colour behind it (`heroBg`) replaces the art's own backdrop without the art
+   * itself being tinted.
+   */
+  heroClip?: string;
+  /**
+   * `compact` swaps CaseStudy's own chrome (section labels, meta row, section
+   * gap, an 800px reading column) for the tighter scale taken from
+   * madhurima.me/work/loan-servicing. Other projects keep the Figma rhythm.
+   */
+  scale?: "compact";
+  /** Cap the case study's hero at this share of the viewport height, so the page
+   *  body always starts visibly below it. */
+  heroMax?: number;
 };
 
 export const PROJECTS: Project[] = [
+  {
+    slug: "bind-desk",
+    name: "Bind Desk",
+    thumb: "/assets/projects/bind-desk/peek.jpg",
+    type: "Product Design",
+    year: "2026",
+    title: "Redesigning the brokerage workflow so assistants decide instead of hunt",
+    // A sneak peek, shaped like the Work tile (1800x1170 at source): the
+    // product window on a tinted backdrop, cropped off the bottom edge.
+    hero: "/assets/projects/bind-desk/peek.jpg",
+    heroVideo: "/assets/projects/bind-desk/peek",
+    heroAspect: 936 / 1440,
+    heroBg: "var(--color-surface-media)",
+    scale: "compact",
+    heroMax: 0.6,
+    // The product window inside the 1440x936 clip, with its corner radius.
+    heroClip: "inset(9.3% 7.78% 9.4% 7.78% round 1% / 1.6%)",
+  },
   {
     slug: "billy-and-buddy",
     name: "Billy & Buddy",
@@ -62,15 +106,6 @@ export const PROJECTS: Project[] = [
     title: "A Product Page That Tells You Which Sustainability Claims To Trust",
     hero: "/assets/projects/greenera/hero-lineup.png",
     heroAspect: 600 / 1212,
-  },
-  {
-    slug: "hacksvit",
-    name: "HackSVIT",
-    thumb: "/assets/projects/hacksvit.png",
-    type: "Brand Design",
-    year: "2022",
-    title: "Designing Visual Identity for Hackathons",
-    hero: "/assets/projects/hacksvit/hero.png",
   },
   {
     slug: "burnout",

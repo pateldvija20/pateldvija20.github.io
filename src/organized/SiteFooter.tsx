@@ -18,7 +18,7 @@ import { CV } from "./content";
  *
  * Three rows, centred, on the phone.
  */
-const COPYRIGHT = `© ${new Date().getFullYear()} Dvija Patel. All Rights Reserved.`;
+export const COPYRIGHT = `© ${new Date().getFullYear()} Dvija Patel. All Rights Reserved.`;
 const LINK =
   "font-medium transition-colors duration-200 hover:text-[var(--footer-fg)] focus-visible:outline-2 focus-visible:outline-offset-4";
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { LoopMedia } from "./LoopMedia";
 import { cardImage, type Project } from "./projects";
 import type { Theme } from "./Piece";
 
@@ -84,8 +85,8 @@ const META_FONT = "clamp(13px, 1.22vw, 18.469px)";
 const SECTION_FONT = "clamp(15px, calc(1.22vw + 2px), 20.469px)";
 const META_GAP = "clamp(14px, 1.9vw, 28.628px)";
 const META_PY = 7.388;
-const TITLE_FONT = "clamp(28px, 2.93vw, 44.327px)";
-const TITLE_TRACK = 0.8865;
+export const TITLE_FONT = "clamp(28px, 2.93vw, 44.327px)";
+export const TITLE_TRACK = 0.8865;
 /**
  * The phone/tablet section picker's height, and the left inset that keeps it
  * clear of the overlay's floating back button (36px square, pinned to the
@@ -95,8 +96,10 @@ const TITLE_TRACK = 0.8865;
  * heading arrives *under* the bar rather than behind it — which is why the
  * rail uses it too rather than its own number.
  */
-const PICKER_H = 48;
-const PICKER_INSET = 44;
+export const PICKER_H = 48;
+/** The bar's title starts clear of the back control, which now fills the bar's
+ *  full height (a PICKER_H square) rather than a 36px corner tab. */
+const PICKER_INSET = PICKER_H + 12;
 
 export type CaseStudySection = {
   /** Rail label, and the scroll target's id. */
@@ -165,6 +168,23 @@ export function CaseStudy({
   const lockRef = useRef<string | null>(null);
   const settleRef = useRef<number | undefined>(undefined);
   const [active, setActive] = useState(sections[0]?.id);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!pickerOpen) return;
+    const onDown = (e: PointerEvent) => {
+      if (!pickerRef.current?.contains(e.target as Node)) setPickerOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPickerOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [pickerOpen]);
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
@@ -270,7 +290,12 @@ export function CaseStudy({
     return railSections[0]?.id ?? "";
   })();
 
+  // `compact` is the tighter scale from madhurima.me/work/loan-servicing: a
+  // 800px column, 128px between sections, 15px mono labels, 12px under them.
+  const compact = project.scale === "compact";
+  const sectionGap = compact ? "clamp(72px, 8.9vw, 128px)" : SECTION_GAP;
   const heroSrc = cardImage(project);
+  const introBlock = sections.find((s) => s.id === "intro")?.children;
   // The file crops the hero to 16:9 (1301.168 x 731.907) rather than letting
   // the asset's own proportions decide, so the header always lands in the
   // same place. `heroAspect` is still measured — it is the fallback for an
@@ -279,9 +304,10 @@ export function CaseStudy({
   // three-screen lineup is 1212x600, and forcing it taller clips the outer
   // two phones.
   const cropAspect = project.heroAspect ?? HERO_ASPECT;
+  const heroNatural = box.w * (cropAspect || heroAspect);
   const heroH =
     box.w && box.h
-      ? lerp(box.h, box.w * (cropAspect || heroAspect), chrome)
+      ? lerp(box.h, project.heroMax ? Math.min(heroNatural, box.h * project.heroMax) : heroNatural, chrome)
       : undefined;
 
   return (
@@ -289,6 +315,7 @@ export function CaseStudy({
       {/* Section rail. A fixed column, outside the scroll — only the body
           column moves, exactly as authored in the Figma file. */}
       <nav
+        data-ui="Side navigation" data-src="src/pieces/CaseStudy.tsx › CaseStudy"
         className="no-scrollbar relative hidden shrink-0 flex-col overflow-x-hidden lg:flex"
         style={{
           // Folds out of nothing rather than fading in: at chrome 0 it has no
@@ -353,6 +380,9 @@ export function CaseStudy({
           // Locked while the page is still unfolding, so the body cannot be
           // scrolled away from the hero mid-move.
           overflowY: chrome > 0.99 ? "auto" : "hidden",
+          // So a section can size itself to the column (`cqw`) and run edge to
+          // edge, past the body's side padding.
+          containerType: "inline-size",
         }}
       >
         {/* Full-width art above the header, per the Figma layout, and the
@@ -361,18 +391,30 @@ export function CaseStudy({
             unfolds the page around it instead of replacing it. */}
         <div
           id={`${project.slug}-intro`}
-          style={{ height: heroH, overflow: "hidden" }}
+          data-ui="Hero" data-src="src/pieces/CaseStudy.tsx › CaseStudy"
+          style={{
+            height: heroH,
+            overflow: "hidden",
+            background: project.heroBg,
+            ...(project.heroMax ? { display: "flex", justifyContent: "center" } : null),
+          }}
         >
-          <img
-            src={heroSrc}
-            alt=""
-            draggable={false}
-            onLoad={(e) => {
-              const img = e.currentTarget;
-              if (img.naturalWidth) setHeroAspect(img.naturalHeight / img.naturalWidth);
-            }}
-            className="block h-full w-full select-none object-cover"
+          {/* A capped hero keeps the art's own proportions, centred on the
+              backdrop, rather than cropping it taller. */}
+          <div
+            className="h-full"
+            style={project.heroMax ? { aspectRatio: 1 / (cropAspect || heroAspect || 0.65), maxWidth: "100%" } : { width: "100%" }}
+          >
+          <LoopMedia
+            still={heroSrc}
+            video={project.heroVideo}
+            onAspect={setHeroAspect}
+            // Clipped to the art's product window, so the project's backdrop
+            // colour shows around it and the art itself is left untouched.
+            className="block h-full w-full"
+            style={project.heroClip ? { clipPath: project.heroClip } : undefined}
           />
+          </div>
         </div>
 
         {/*
@@ -394,13 +436,13 @@ export function CaseStudy({
           // figures (all at `auto`) but stay under the overlay's floating
           // back button at z-10, which shares this stacking context and must
           // never end up behind the bar.
+          ref={pickerRef}
+          data-ui="Top app bar" data-src="src/pieces/CaseStudy.tsx › CaseStudy"
           className="sticky top-0 z-[5] lg:hidden"
           style={{
             height: PICKER_H,
             background: face,
             borderBottom: `1px solid ${divider}`,
-            paddingLeft: PICKER_INSET,
-            paddingRight: 16,
             // Folds in with the rest of the chrome, and stays inert until the
             // page has finished opening — the body cannot be scrolled before
             // then anyway.
@@ -409,76 +451,114 @@ export function CaseStudy({
           }}
           aria-hidden={chrome < 0.5}
         >
-          <div className="relative h-full">
-            <select
-              className="h-full w-full cursor-pointer appearance-none bg-transparent pr-[24px] font-sans font-bold outline-none"
-              style={{
-                // The phone's version of the rail: the current section, in
-                // the nav's own type.
-                color: ink,
-                fontSize: NAV_FONT,
-              }}
-              value={pickerValue}
-              onChange={(e) => goToSection(e.target.value)}
-              aria-label={`${project.name} sections`}
-            >
-              {railSections.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.title}
-                </option>
-              ))}
-            </select>
-            {/* `appearance-none` is what lets the closed control carry the
-                rail's own mono type, so the caret has to be drawn back. */}
+          <button
+            type="button"
+            data-ui="Dropdown menu" data-src="src/pieces/CaseStudy.tsx › CaseStudy"
+            className="flex h-full w-full cursor-pointer items-center justify-between bg-transparent pr-4 text-left font-sans font-bold outline-none"
+            style={{ color: ink, fontSize: NAV_FONT, paddingLeft: PICKER_INSET }}
+            aria-haspopup="listbox"
+            aria-expanded={pickerOpen}
+            aria-label={`${project.name} sections`}
+            onClick={() => setPickerOpen((o) => !o)}
+          >
+            {railSections.find((s) => s.id === pickerValue)?.title}
             <svg
-              className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2"
               width="12"
               height="12"
               viewBox="0 0 24 24"
               fill="none"
               aria-hidden
+              style={{
+                transform: pickerOpen ? "rotate(180deg)" : undefined,
+                transition: "transform 0.2s",
+              }}
             >
-              <path
-                d="m6 9 6 6 6-6"
-                stroke={ink}
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="m6 9 6 6 6-6" stroke={ink} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </div>
+          </button>
+          {/* The open list, in the Work/Play/About/CV menu's own type with a
+              hairline under every item. A native <select> cannot be styled
+              this far, so the list is drawn here. */}
+          {pickerOpen ? (
+            <ul
+              role="listbox"
+              data-ui="Menu" data-src="src/pieces/CaseStudy.tsx › CaseStudy"
+              aria-label={`${project.name} sections`}
+              className="absolute left-0 right-0 top-full m-0 list-none overflow-y-auto p-0"
+              style={{
+                background: face,
+                borderBottom: `1px solid ${divider}`,
+                maxHeight: "min(70vh, 480px)",
+              }}
+            >
+              {railSections.map((s, i) => (
+                <li key={s.id} role="option" aria-selected={s.id === pickerValue}>
+                  <button
+                    type="button"
+                    className="w-full cursor-pointer bg-transparent text-left font-sans"
+                    style={{
+                      color: s.id === pickerValue ? ink : muted,
+                      fontWeight: s.id === pickerValue ? 700 : 400,
+                      fontSize: NAV_FONT,
+                      lineHeight: `${NAV_LINE}px`,
+                      padding: "16px 24px",
+                      borderBottom: i === railSections.length - 1 ? "none" : `1px solid ${divider}`,
+                    }}
+                    onClick={() => {
+                      setPickerOpen(false);
+                      goToSection(s.id);
+                    }}
+                  >
+                    {s.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
         <div
           data-cs-body
+          data-ui="Container" data-src="src/pieces/CaseStudy.tsx › CaseStudy"
           style={{
-            maxWidth: BODY_W + BODY_PAD_X * 2,
+            // Compact: exactly an 800px reading column, whatever the side padding is.
+            maxWidth: compact
+              ? `calc(800px + 2 * clamp(24px, 6vw, ${BODY_PAD_X}px))`
+              : BODY_W + BODY_PAD_X * 2,
             width: "100%",
             boxSizing: "border-box",
-            marginInline: 0,
+            marginInline: compact ? "auto" : 0,
             paddingInline: `clamp(24px, 6vw, ${BODY_PAD_X}px)`,
             paddingTop: `calc(clamp(40px, 6.11vw, ${BODY_PAD_TOP}px) * ${chrome})`,
             paddingBottom: 120,
           }}
         >
-          <header style={{ marginBottom: SECTION_GAP }}>
+          <header style={{ marginBottom: sectionGap }}>
             <div
+              data-ui="Metadata" data-src="src/pieces/CaseStudy.tsx › CaseStudy"
               className="flex flex-wrap items-start uppercase"
               style={{
                 color: muted,
-                gap: META_GAP,
+                gap: compact ? 24 : META_GAP,
                 fontFamily: "'DM Mono', monospace",
-                fontWeight: 500,
-                fontSize: META_FONT,
-                paddingBlock: META_PY,
+                fontWeight: compact ? 400 : 500,
+                fontSize: compact ? 14 : META_FONT,
+                letterSpacing: compact ? "0.4px" : undefined,
+                paddingBlock: compact ? 0 : META_PY,
               }}
             >
               <span>{project.name}</span>
               {project.type ? <span>{project.type}</span> : null}
               {project.year ? <span>{project.year}</span> : null}
             </div>
-            {/* No `capitalize`: the file sets this in sentence case
+            {/* An "intro" section with content of its own replaces the
+                default title line: the project authors its whole title
+                block (Bind Desk sets its title beside a lede and buttons). */}
+            {introBlock != null ? (
+              <div style={{ marginTop: RAIL_GAP }}>{introBlock}</div>
+            ) : (
+            /* No `capitalize`: the file sets this in sentence case
                 ("…Identity for Hackathons"), and the utility was forcing a
-                capital F onto the preposition. */}
+                capital F onto the preposition. */
             <h1
               className="font-['Roboto_Slab'] font-normal"
               style={{
@@ -491,6 +571,7 @@ export function CaseStudy({
             >
               {project.title ?? project.name}
             </h1>
+            )}
           </header>
 
           {sections.map((s) =>
@@ -502,18 +583,22 @@ export function CaseStudy({
             <section
               key={s.id}
               id={`${project.slug}-${s.id}`}
-              style={{ scrollMarginTop: PICKER_H, marginBottom: SECTION_GAP }}
+              data-ui="Section" data-src="src/pieces/CaseStudy.tsx › CaseStudy"
+              data-ui-title={s.title}
+              style={{ scrollMarginTop: PICKER_H, marginBottom: sectionGap }}
             >
               {s.hideTitle ? null : (
                 <h2
                   className="uppercase"
                   style={{
                     fontFamily: "'DM Mono', monospace",
-                    fontWeight: 500,
-                    fontSize: SECTION_FONT,
+                    fontWeight: compact ? 400 : 500,
+                    fontSize: compact ? 15 : SECTION_FONT,
+                    lineHeight: compact ? "18.4px" : undefined,
+                    letterSpacing: compact ? "0.4px" : undefined,
                     color: muted,
-                    paddingBlock: META_PY,
-                    marginBottom: HEAD_GAP,
+                    paddingBlock: compact ? 0 : META_PY,
+                    marginBottom: compact ? 12 : HEAD_GAP,
                   }}
                 >
                   {s.title}

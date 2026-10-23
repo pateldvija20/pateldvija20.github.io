@@ -1,7 +1,7 @@
 import type { CaseStudySection } from "./CaseStudy";
 import { BILLY_AND_BUDDY_SECTIONS } from "./billyAndBuddy";
+import { BIND_DESK_SECTIONS } from "./bindDesk";
 import { GREENERA_SECTIONS } from "./greenera";
-import { HACKSVIT_SECTIONS } from "./hacksvit";
 import { THE_FAMILY_TABLE_SECTIONS } from "./theFamilyTable";
 
 /**
@@ -14,10 +14,10 @@ import { THE_FAMILY_TABLE_SECTIONS } from "./theFamilyTable";
  */
 export function sectionsFor(slug: string): CaseStudySection[] | undefined {
   switch (slug) {
-    case "hacksvit":
-      return HACKSVIT_SECTIONS;
     case "greenera":
       return GREENERA_SECTIONS;
+    case "bind-desk":
+      return BIND_DESK_SECTIONS;
     case "the-family-table":
       return THE_FAMILY_TABLE_SECTIONS;
     case "billy-and-buddy":

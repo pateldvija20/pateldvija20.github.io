@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Button } from "../pieces/Button";
 import { CV, EDUCATION, EXPERIENCE, RESUME_PDF } from "./content";
 import { Intro, INTRO_TEXT, Section } from "./Section";
 
@@ -96,21 +97,10 @@ export function ResumeSection() {
         {/* Opens the way About does: the same measure and type. */}
         <Intro>
           <p className={INTRO_TEXT}>{CV.summary}</p>
-          <a
-            href={RESUME_PDF}
-            download
-            // The cursor's fill snaps to the whole button (index.css).
-            data-cursor-frame="button"
-            className="mt-[8px] inline-flex items-center gap-[8px] rounded-[6px] px-[12px] py-[7px] text-[14px] focus-visible:outline-2 focus-visible:outline-offset-4"
-            style={{
-              color: "var(--content)",
-              border: "1px solid color-mix(in srgb, var(--rule) 60%, transparent)",
-              outlineColor: "var(--content)",
-            }}
-          >
+          <Button href={RESUME_PDF} download variant="outlined" className="mt-[8px]">
             <DownloadIcon />
             Download resume
-          </a>
+          </Button>
         </Intro>
 
         <div className="flex max-w-[640px] flex-col gap-[40px]">

@@ -289,22 +289,6 @@ html[data-layout="organized"] body {
   inset: -6px -14px;
   border-radius: 999px;
 }
-/* A button the cursor fills is filled in the cursor's own colour — ink on
-   paper, paper on ink — and its label and icon invert, so it reads as the
-   cursor having become the button. */
-[data-cursor-frame="button"]::before {
-  inset: 0;
-  border-radius: 6px;
-  background: var(--content);
-}
-[data-cursor-frame="button"] {
-  transition:
-    transform 450ms cubic-bezier(0.22, 1, 0.36, 1),
-    color 220ms ease-out;
-}
-[data-cursor-frame="button"][data-cursor-on] {
-  color: var(--surface) !important;
-}
 [data-cursor-frame="card"]::before {
   inset: -10px;
   border-radius: 12px;
@@ -319,26 +303,6 @@ html[data-layout="organized"] body {
 [data-cursor-frame="card"][data-cursor-on] {
   --lift: -6px;
 }
-/* The button's fill is the cursor itself growing: a circle the size of the
-   resting cursor opens from the pointer until it covers the button, and
-   closes back into the pointer where it leaves. 150% of the clip's reference
-   radius reaches the farthest corner from anywhere inside. */
-[data-cursor-frame="button"]::before,
-[data-cursor-frame="button"][data-cursor-on]::before {
-  opacity: 1;
-  transform: none;
-}
-[data-cursor-frame="button"]::before {
-  clip-path: circle(0px at var(--cx, 50%) var(--cy, 50%));
-  transition: clip-path 380ms cubic-bezier(0.55, 0, 0.45, 1);
-}
-[data-cursor-frame="button"][data-cursor-on]::before {
-  clip-path: circle(150% at var(--cx, 50%) var(--cy, 50%));
-  transition: clip-path 520ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-[data-cursor-frame="button"][data-cursor-snap]::before {
-  transition: none;
-}
 @media (prefers-reduced-motion: reduce) {
   [data-cursor-frame] {
     transform: none;
@@ -347,13 +311,6 @@ html[data-layout="organized"] body {
   [data-cursor-frame][data-cursor-on]::before {
     transform: none;
     transition: opacity 150ms ease-out;
-  }
-  [data-cursor-frame="button"]::before {
-    clip-path: none;
-    opacity: 0;
-  }
-  [data-cursor-frame="button"][data-cursor-on]::before {
-    opacity: 1;
   }
 }
 
@@ -457,10 +414,9 @@ body[data-project-open] #root {
      than stacked — a pair of screenshots meant to be compared, where making
      each one full-width separates the two things being compared by a
      screenful. Those hold at two columns instead.
-   - `[data-site-scroller]` is the Hacksvit site mock, which is a scaled
-     replica of a real page inside a browser frame. It shrinks as one object
-     via its own transform, so reflowing its interior would break the very
-     thing it is showing. */
+   - `[data-site-scroller]` marks a scaled replica of a real page inside a
+     browser frame. It shrinks as one object via its own transform, so
+     reflowing its interior would break the very thing it is showing. */
 @media (max-width: 767px) {
   [data-cs-body] .grid:not([data-cs-cols], [data-site-scroller] *),
   [data-cs-body]
@@ -486,4 +442,160 @@ body[data-project-open] #root {
 :root[data-layout="organized"][data-theme-switching] *::before,
 :root[data-layout="organized"][data-theme-switching] *::after {
   transition: none !important;
+}
+
+
+/* ==========================================================================
+   Design tokens
+   One small set, named the way design systems name them (W3C design-token
+   style: category-role) and sized like Tailwind's scales. Mirrored in
+   src/pieces/tokens.ts and in Figma's "Design tokens" page.
+
+   Colour is semantic and defined for both modes here, side by side: light is
+   the default, dark applies in Organised mode only (the desk keeps its own
+   printed-paper palette).
+   ========================================================================== */
+:root {
+  /* colour · surface */
+  --color-surface-page: #fdfeff;
+  --color-surface-raised: #f6f7f9; /* cards, full-bleed sections */
+  --color-surface-sunken: #e9ecf0; /* chart tracks, image wells */
+  --color-surface-media: #525252; /* behind hero and tile media, both modes */
+  /* colour · border */
+  --color-border-subtle: #e3e5e8;
+  /* colour · text */
+  --color-text-primary: #18191a;
+  --color-text-secondary: #626262;
+  /* colour · action (primary button) */
+  --color-action-bg: var(--color-text-primary);
+  --color-action-fg: var(--color-surface-page);
+
+  /* space · 4px base, Tailwind steps (space-N = N x 4px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-32: 128px;
+
+  /* radius */
+  --radius-sm: 4px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  /* border width */
+  --border-1: 1px;
+  --border-2: 2px;
+
+  /* font weight */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+}
+:root[data-layout="organized"][data-theme="dark"] {
+  --color-surface-page: #212121;
+  --color-surface-raised: #2c2c2c;
+  --color-surface-sunken: #333333;
+  --color-border-subtle: #3a3a3a;
+  --color-text-primary: #fdfeff;
+  --color-text-secondary: #8a8a8a;
+}
+
+/* The UI inspector (src/dev/Inspector.tsx): a crosshair in place of the site's
+   own cursor while it is on. */
+html[data-inspect],
+html[data-inspect] * {
+  cursor: crosshair !important;
+}
+html[data-inspect] [data-app-cursor] {
+  display: none !important;
+}
+
+/* ==========================================================================
+   Button (src/pieces/Button.tsx): the one button on the site. A pill, 40px
+   tall, in two variants. Outlined fills up from where the pointer enters;
+   filled shifts a little toward its label colour.
+   ========================================================================== */
+.btn {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: 40px;
+  padding-inline: var(--space-4);
+  border: var(--border-1) solid transparent;
+  border-radius: var(--radius-full);
+  font-size: 16px;
+  line-height: 22.4px;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 200ms ease-out,
+    border-color 200ms ease-out,
+    color 280ms ease-out;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 4px;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-filled {
+  background: var(--color-action-bg);
+  border-color: var(--color-action-bg);
+  color: var(--color-action-fg);
+}
+@media (hover: hover) {
+  .btn-filled:not(:disabled):hover {
+    /* Toward the label colour: a light fill darkens, a dark fill lightens. */
+    background: color-mix(in srgb, var(--color-action-bg) 86%, var(--color-action-fg));
+    border-color: color-mix(in srgb, var(--color-action-bg) 86%, var(--color-action-fg));
+  }
+}
+
+.btn-outlined {
+  background: transparent;
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+}
+.btn-outlined::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--color-action-bg);
+  clip-path: circle(0px at var(--cx, 50%) var(--cy, 50%));
+  transition: clip-path 380ms cubic-bezier(0.55, 0, 0.45, 1);
+}
+.btn-outlined:focus-visible::before,
+.btn-outlined:not(:disabled):hover::before {
+  /* 150% of the clip's reference radius reaches the farthest corner from anywhere inside. */
+  clip-path: circle(150% at var(--cx, 50%) var(--cy, 50%));
+  transition: clip-path 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) {
+  .btn-outlined:not(:disabled):hover {
+    color: var(--color-action-fg);
+  }
+}
+.btn-outlined:focus-visible {
+  color: var(--color-action-fg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-outlined::before,
+  .btn-outlined:hover::before {
+    transition: none;
+  }
 }
