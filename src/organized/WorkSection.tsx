@@ -15,7 +15,24 @@ import { Section } from "./Section";
  */
 const IMAGE_RATIO = "522.5 / 339.35";
 
-function WorkTile({ project, onOpen }: { project: Project; onOpen: (el: HTMLElement) => void }) {
+/**
+ * One Work tile. On the homepage it opens the case study overlay (`onOpen`);
+ * the "Also checkout" row at the foot of every case study passes `href`
+ * instead, with the case study's own text colours.
+ */
+export function WorkTile({
+  project,
+  onOpen,
+  href,
+  ink = "var(--content)",
+  quiet = "var(--quiet)",
+}: {
+  project: Project;
+  onOpen?: (el: HTMLElement) => void;
+  href?: string;
+  ink?: string;
+  quiet?: string;
+}) {
   const wip = project.wip === true;
   // Figma's three slots are company, sector and year. Until projects carry
   // those, they show the project, its discipline and its year.
@@ -24,7 +41,9 @@ function WorkTile({ project, onOpen }: { project: Project; onOpen: (el: HTMLElem
   const body = (
     <>
       <div className="w-full overflow-hidden rounded-[12px]" style={{ aspectRatio: IMAGE_RATIO, background: project.heroBg ?? "var(--rule)" }}>
-        {project.heroVideo ? (
+        {project.heroLoop ? (
+          <project.heroLoop />
+        ) : project.heroVideo ? (
           <LoopMedia
             still={cardImage(project)}
             video={project.heroVideo}
@@ -41,13 +60,13 @@ function WorkTile({ project, onOpen }: { project: Project; onOpen: (el: HTMLElem
         )}
       </div>
       <div className="flex flex-col gap-[10px] pt-[24px] text-left">
-        <p className="flex flex-wrap gap-x-[24px] gap-y-[4px] text-[14px] leading-[21px]" style={{ color: "var(--quiet)" }}>
+        <p className="flex flex-wrap gap-x-[24px] gap-y-[4px] text-[14px] leading-[21px]" style={{ color: quiet }}>
           {facts.map((f) => (
             <span key={f}>{f}</span>
           ))}
         </p>
         {project.title ? (
-          <p className="font-slab text-[24px] leading-[36px]" style={{ color: "var(--content)" }}>
+          <p className="font-slab text-[24px] leading-[36px]" style={{ color: ink }}>
             {project.title}
           </p>
         ) : null}
@@ -62,10 +81,24 @@ function WorkTile({ project, onOpen }: { project: Project; onOpen: (el: HTMLElem
       </div>
     );
   }
+  if (href) {
+    return (
+      <a
+        href={href}
+        data-cursor="View project"
+        data-cursor-frame="card"
+        aria-label={`Open ${project.name} case study`}
+        className="group flex cursor-pointer flex-col focus-visible:outline-2 focus-visible:outline-offset-4"
+        style={{ outlineColor: ink }}
+      >
+        {body}
+      </a>
+    );
+  }
   return (
     <button
       type="button"
-      onClick={(e) => onOpen(e.currentTarget)}
+      onClick={(e) => onOpen?.(e.currentTarget)}
       data-cursor="View project"
       // The card rises as the cursor's fill opens behind it (index.css).
       data-cursor-frame="card"

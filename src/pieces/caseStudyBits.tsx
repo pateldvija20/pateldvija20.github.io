@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { ProjectCard } from "./ProjectCard";
+import { WorkTile } from "../organized/WorkSection";
+import { COLOR } from "./tokens";
 import { PROJECTS } from "./projects";
 
 /**
@@ -360,17 +361,10 @@ export function RelatedProjects({ slugs }: { slugs: string[] }) {
     .map((slug) => PROJECTS.find((p) => p.slug === slug))
     .filter((p) => p !== undefined);
   return (
-    <div className="grid grid-cols-1 gap-[24px] md:grid-cols-2 md:gap-[40px]">
+    <div className="grid grid-cols-1 gap-[40px] md:grid-cols-2 lg:gap-[60px]">
       {related.map((p) => (
-        // The same card the Work grid uses, in the sheet palette, which
-        // follows the case study's own (dark-mode aware) tokens.
-        <ProjectCard
-          key={p.slug}
-          project={p}
-          tone="sheet"
-          src={p.hero ?? p.thumb}
-          href={`/projects/${p.slug}`}
-        />
+        // The homepage's own Work tile, in the case study's text colours.
+        <WorkTile key={p.slug} project={p} href={`/projects/${p.slug}`} ink={COLOR.textPrimary} quiet={COLOR.textSecondary} />
       ))}
     </div>
   );
