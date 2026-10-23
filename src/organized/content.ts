@@ -101,6 +101,9 @@ export type PlayItem = {
   /** A screenshot rather than a drawing: it fills its frame edge to edge
    *  instead of sitting inside it with a margin. */
   bleed?: boolean;
+  /** A tall portrait picture: held to a modest height in the grid, with the
+   *  full size one click away in the lightbox. */
+  tall?: boolean;
 };
 
 /**
@@ -145,14 +148,14 @@ export const PLAY: PlayItem[] = [
     meta: "Poster design · Brand identity",
     kind: "image",
     src: "/assets/play/hacksvit/challenge-poster.png",
-    bleed: true,
+    tall: true,
   },
   {
     title: "A poster that introduces the five characters",
     meta: "Poster design · Brand identity",
     kind: "image",
     src: "/assets/play/hacksvit/identity-poster.png",
-    bleed: true,
+    tall: true,
   },
 ];
 

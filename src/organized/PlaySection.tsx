@@ -35,6 +35,18 @@ function Preview({ item }: { item: PlayItem }) {
       </div>
     );
   }
+  if (item.tall) {
+    // A portrait poster at full column width runs 700px tall; here it is held
+    // to 420px, centred in its frame.
+    return (
+      <FadeImg
+        src={item.src}
+        alt=""
+        draggable={false}
+        className="h-auto max-h-[420px] w-auto max-w-full select-none rounded-[8px] transition-transform duration-500 ease-out group-hover:scale-[1.02] motion-reduce:transition-none"
+      />
+    );
+  }
   return (
     <>
       <FadeImg
@@ -63,7 +75,12 @@ function Tile({ item, onOpen, onEnterPlayground }: { item: PlayItem; onOpen: (it
       <div
         ref={frame}
         className={`flex w-full items-center justify-center overflow-hidden rounded-[12px] ${item.bleed ? "" : "p-[24px]"}`}
-        style={{ border: "1px solid color-mix(in srgb, var(--rule) 45%, transparent)" }}
+        style={{
+          border: "1px solid color-mix(in srgb, var(--rule) 45%, transparent)",
+          // A picture that does not fill its frame sits on a soft grey (the
+          // theme's `--tint`: #eeeeef in light, #333333 in dark), not on the page.
+          background: item.bleed ? undefined : "var(--tint)",
+        }}
       >
         <Preview item={item} />
       </div>

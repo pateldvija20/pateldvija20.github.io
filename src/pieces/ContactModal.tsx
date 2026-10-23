@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { Button } from "./Button";
 import { createPortal } from "react-dom";
 import type { Theme } from "./Piece";
 
@@ -77,11 +78,12 @@ export function ContactModal({ theme, onClose }: { theme: Theme; onClose: () => 
     : "bg-[#f5f6f7] border-[var(--footer-ink,#2f2f2f)] text-[var(--footer-ink,#2f2f2f)] placeholder:text-[var(--footer-ink,#2f2f2f)]/40";
   /** Send (and the thank-you Close): a rounded rectangle, not a pill, filled
    *  in the theme's ink with a stroke in the same colour as the fields'. */
-  const primaryButton = `inline-flex h-[52px] min-w-[220px] items-center justify-center rounded-[10px] border-2 px-8 text-[18px] font-medium transition-opacity hover:opacity-80 disabled:opacity-50 ${
+  // The modal has its own surface in both modes, so the button takes its colours.
+  const buttonTone = (
     isDark
-      ? "border-[#fdfeff] bg-[#fdfeff] text-[var(--footer-ink,#2f2f2f)]"
-      : "border-[var(--footer-ink,#2f2f2f)] bg-[var(--footer-ink,#2f2f2f)] text-[#fdfeff]"
-  }`;
+      ? { "--color-action-bg": "#fdfeff", "--color-action-fg": "var(--footer-ink,#2f2f2f)" }
+      : { "--color-action-bg": "var(--footer-ink,#2f2f2f)", "--color-action-fg": "#fdfeff" }
+  ) as React.CSSProperties;
   const label = "text-[15px] font-semibold";
 
   return createPortal(
@@ -120,9 +122,9 @@ export function ContactModal({ theme, onClose }: { theme: Theme; onClose: () => 
               <p className="text-[16px] opacity-70">
                 I'm so glad you reached out. I'll get back to you within 5 business days.
               </p>
-              <button type="button" onClick={onClose} className={`mt-4 ${primaryButton}`}>
+              <Button onClick={onClose} className="mt-4" style={buttonTone}>
                 Close
-              </button>
+              </Button>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-5">
@@ -227,9 +229,9 @@ export function ContactModal({ theme, onClose }: { theme: Theme; onClose: () => 
               </div>
 
               <div className="flex flex-wrap items-center gap-4">
-                <button type="submit" disabled={status === "sending"} className={primaryButton}>
+                <Button type="submit" disabled={status === "sending"} style={buttonTone}>
                   {status === "sending" ? "Sending…" : "Send"}
-                </button>
+                </Button>
                 <p className="text-[13px] leading-snug opacity-60">
                   I'll get back to you within 5 business days.
                 </p>

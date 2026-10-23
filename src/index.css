@@ -289,22 +289,6 @@ html[data-layout="organized"] body {
   inset: -6px -14px;
   border-radius: 999px;
 }
-/* A button the cursor fills is filled in the cursor's own colour — ink on
-   paper, paper on ink — and its label and icon invert, so it reads as the
-   cursor having become the button. */
-[data-cursor-frame="button"]::before {
-  inset: 0;
-  border-radius: 6px;
-  background: var(--content);
-}
-[data-cursor-frame="button"] {
-  transition:
-    transform 450ms cubic-bezier(0.22, 1, 0.36, 1),
-    color 220ms ease-out;
-}
-[data-cursor-frame="button"][data-cursor-on] {
-  color: var(--surface) !important;
-}
 [data-cursor-frame="card"]::before {
   inset: -10px;
   border-radius: 12px;
@@ -319,26 +303,6 @@ html[data-layout="organized"] body {
 [data-cursor-frame="card"][data-cursor-on] {
   --lift: -6px;
 }
-/* The button's fill is the cursor itself growing: a circle the size of the
-   resting cursor opens from the pointer until it covers the button, and
-   closes back into the pointer where it leaves. 150% of the clip's reference
-   radius reaches the farthest corner from anywhere inside. */
-[data-cursor-frame="button"]::before,
-[data-cursor-frame="button"][data-cursor-on]::before {
-  opacity: 1;
-  transform: none;
-}
-[data-cursor-frame="button"]::before {
-  clip-path: circle(0px at var(--cx, 50%) var(--cy, 50%));
-  transition: clip-path 380ms cubic-bezier(0.55, 0, 0.45, 1);
-}
-[data-cursor-frame="button"][data-cursor-on]::before {
-  clip-path: circle(150% at var(--cx, 50%) var(--cy, 50%));
-  transition: clip-path 520ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-[data-cursor-frame="button"][data-cursor-snap]::before {
-  transition: none;
-}
 @media (prefers-reduced-motion: reduce) {
   [data-cursor-frame] {
     transform: none;
@@ -347,13 +311,6 @@ html[data-layout="organized"] body {
   [data-cursor-frame][data-cursor-on]::before {
     transform: none;
     transition: opacity 150ms ease-out;
-  }
-  [data-cursor-frame="button"]::before {
-    clip-path: none;
-    opacity: 0;
-  }
-  [data-cursor-frame="button"][data-cursor-on]::before {
-    opacity: 1;
   }
 }
 
@@ -556,4 +513,89 @@ html[data-inspect] * {
 }
 html[data-inspect] [data-app-cursor] {
   display: none !important;
+}
+
+/* ==========================================================================
+   Button (src/pieces/Button.tsx): the one button on the site. A pill, 40px
+   tall, in two variants. Outlined fills up from where the pointer enters;
+   filled shifts a little toward its label colour.
+   ========================================================================== */
+.btn {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: 40px;
+  padding-inline: var(--space-4);
+  border: var(--border-1) solid transparent;
+  border-radius: var(--radius-full);
+  font-size: 16px;
+  line-height: 22.4px;
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color 200ms ease-out,
+    border-color 200ms ease-out,
+    color 280ms ease-out;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 4px;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.btn-filled {
+  background: var(--color-action-bg);
+  border-color: var(--color-action-bg);
+  color: var(--color-action-fg);
+}
+@media (hover: hover) {
+  .btn-filled:not(:disabled):hover {
+    /* Toward the label colour: a light fill darkens, a dark fill lightens. */
+    background: color-mix(in srgb, var(--color-action-bg) 86%, var(--color-action-fg));
+    border-color: color-mix(in srgb, var(--color-action-bg) 86%, var(--color-action-fg));
+  }
+}
+
+.btn-outlined {
+  background: transparent;
+  border-color: var(--color-text-secondary);
+  color: var(--color-text-primary);
+}
+.btn-outlined::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--color-action-bg);
+  clip-path: circle(0px at var(--cx, 50%) var(--cy, 50%));
+  transition: clip-path 380ms cubic-bezier(0.55, 0, 0.45, 1);
+}
+.btn-outlined:focus-visible::before,
+.btn-outlined:not(:disabled):hover::before {
+  /* 150% of the clip's reference radius reaches the farthest corner from anywhere inside. */
+  clip-path: circle(150% at var(--cx, 50%) var(--cy, 50%));
+  transition: clip-path 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (hover: hover) {
+  .btn-outlined:not(:disabled):hover {
+    color: var(--color-action-fg);
+  }
+}
+.btn-outlined:focus-visible {
+  color: var(--color-action-fg);
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn-outlined::before,
+  .btn-outlined:hover::before {
+    transition: none;
+  }
 }

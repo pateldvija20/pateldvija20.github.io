@@ -3,6 +3,7 @@ import type { CaseStudySection } from "./CaseStudy";
 import { ArrowIcon } from "../organized/ArrowIcon";
 import { COPYRIGHT } from "../organized/SiteFooter";
 import { MONO, RelatedProjects } from "./caseStudyBits";
+import { Button } from "./Button";
 import { COLOR, OVERLINE, TYPE } from "./tokens";
 
 /**
@@ -49,13 +50,13 @@ const LABEL = OVERLINE;
 
 /* ------------------------------ copy ------------------------------ */
 
-const JOURNEY: { stage: string; happens: string; evidence: string; agrees: boolean; fitNote: string; check: string }[] = [
-  { stage: "Capture", happens: "Documents arrive by portal, email or fax.", evidence: "11 min to find them. 17 of 54 off-portal.", agrees: false, fitNote: "Not on the wishlist", check: "Confirm uncertain matches." },
-  { stage: "Triage", happens: "Open work, most urgent first.", evidence: "14 min before the first flag.", agrees: false, fitNote: "Not on the wishlist", check: "Choose what to open." },
-  { stage: "Review", happens: "Both documents side by side.", evidence: "35–38% have a mismatch, found by reading.", agrees: false, fitNote: "Not on the wishlist", check: "Mark each difference." },
-  { stage: "Resolve", happens: "Broker email drafted from real mismatches.", evidence: "“That can take days waiting on a reply.”", agrees: false, fitNote: "Not on the wishlist", check: "Edit and send." },
-  { stage: "Follow up", happens: "A row turns Overdue after its follow-up date.", evidence: "Median 2.1 days. 9 waited over 4.", agrees: false, fitNote: "Not on the wishlist", check: "Chase, call or wait." },
-  { stage: "Bind", happens: "Checklist, summary, then approval.", evidence: "Checklist: 3 min. “I know it cold.”", agrees: true, fitNote: "Leave the checklist alone", check: "Approve the bind." },
+const JOURNEY: { stage: string; happens: string; evidence: string; agrees: boolean; check: string }[] = [
+  { stage: "Capture", happens: "Documents arrive by portal, email or fax.", evidence: "11 min to find them. 17 of 54 off-portal.", agrees: false, check: "Confirm uncertain matches." },
+  { stage: "Triage", happens: "Open work, most urgent first.", evidence: "14 min before the first flag.", agrees: false, check: "Choose what to open." },
+  { stage: "Review", happens: "Both documents side by side.", evidence: "35–38% have a mismatch, found by reading.", agrees: false, check: "Mark each difference." },
+  { stage: "Resolve", happens: "Broker email drafted from real mismatches.", evidence: "“That can take days waiting on a reply.”", agrees: false, check: "Edit and send." },
+  { stage: "Follow up", happens: "A row turns Overdue after its follow-up date.", evidence: "Median 2.1 days. 9 waited over 4.", agrees: false, check: "Chase, call or wait." },
+  { stage: "Bind", happens: "Checklist, summary, then approval.", evidence: "Checklist: 3 min. “I know it cold.”", agrees: true, check: "Approve the bind." },
 ];
 
 const EXPECTATIONS: string[][] = [
@@ -66,90 +67,115 @@ const EXPECTATIONS: string[][] = [
   ["“Don’t touch the checklist”", "Unchanged", "Supported: 3 min"],
 ];
 
+/* [CONFIRM] "AI helped sort the evidence" is still vague: say what it sorted and how it was checked. */
 const AI_USE: [string, string][] = [
-  ["Research", "I analyzed the logs, read the interviews for needs and mapped the journey. AI helped sort the evidence."],
-  ["Product", "I defined the app flow and where each human checkpoint sits. AI helped build and test the prototype."],
-  ["Design", "I set the layout and the brand, and tried several directions. AI helped turn them into code."],
+  ["Analysis", "I analyzed the logs, read the interviews for needs and mapped the journey. AI helped sort the evidence."],
+  ["Product and design", "I defined the flow, where each human checkpoint sits, the layout and the brand, and tried several directions."],
+  ["Build", "I built the prototype, with AI writing much of the code to the flow, states and checkpoints I set."],
+];
+
+/** Today's baseline from the brief's logs, what to measure, and the result that would count against the design. */
+const EVALUATION: string[][] = [
+  ["Finding documents", "11 min per submission. 17 of 54 off-portal.", "Time from arrival to a confirmed match", "Assistants search by hand anyway, or reject many matches"],
+  ["Spotting mismatches", "14 min to the first flag. 35–38% have one.", "Time to first flag, and mismatches caught in a seeded set", "Assistants miss mismatches the tool highlighted, or override it often"],
+  ["Chasing brokers", "Median reply 2.1 days. 9 waited over 4.", "Submissions waiting more than 4 days", "Overdue rows sit untouched"],
+  ["Binding", "Checklist: 3 min.", "Checklist time stays flat", "The checklist gets slower"],
 ];
 
 const NEXT_STEPS: [string, string][] = [
-  ["Ship mismatch detection", "It covers the most frequent problem."],
-  ["Validate before expanding", "Compare time to first flag and broker wait against today’s logs."],
-  ["Let the answers shape the next version", "The next-round questions set the scope for capture and follow-ups."],
+  ["Build the mismatch check first", "It covers the most frequent problem in the logs."],
+  ["Test it on a seeded week", "Two or three assistants work the same submissions in the prototype and in the spreadsheet. Compare time to first flag and mismatches caught."],
+  ["Let the answers set the scope", "The questions below decide how capture and follow-ups work."],
 ];
 
 const QUESTIONS: { q: string; assumed: string; ifWrong: string; shapes: string }[] = [
-  { q: "How do documents reach you?", assumed: "Portal, email and fax", ifWrong: "Build the main channel first, or add a broker upload link", shapes: "Every document in one place" },
-  { q: "Can faxes go to an inbox?", assumed: "Yes", ifWrong: "Scan upload becomes a core feature", shapes: "Every document in one place" },
-  { q: "When and how do you chase brokers?", assumed: "One 2-day threshold, repeat emails", ifWrong: "Per-broker thresholds and free-form drafts", shapes: "See what’s stuck" },
-  { q: "Is there a rule for minor mismatches?", assumed: "No, so a person checks every flag", ifWrong: "Auto-classify minor differences", shapes: "Catch mismatches side by side" },
+  { q: "How do documents reach you?", assumed: "Portal, email and fax", ifWrong: "Build the main channel first, or add a broker upload link", shapes: "Pick documents up where they arrive" },
+  { q: "Can faxes go to an inbox?", assumed: "Yes", ifWrong: "Scan upload becomes a core feature", shapes: "Pick documents up where they arrive" },
+  { q: "When and how do you chase brokers?", assumed: "A follow-up date per policy, repeat emails", ifWrong: "Per-broker defaults and free-form drafts", shapes: "Make waiting visible" },
+  { q: "Is there a rule for minor mismatches?", assumed: "No, so a person checks every flag", ifWrong: "Auto-classify minor differences", shapes: "The tool highlights, a person decides" },
 ];
 
-type Scenario = {
-  id: "c" | "d" | "a" | "b" | "e";
+/**
+ * The redesign as moments in the order the work happens, each with the
+ * evidence behind it, the human checkpoint it keeps and the clip or capture
+ * that shows it.
+ */
+type Moment = {
+  stage: string;
   title: string;
-  pain: string;
-  design: string;
-  /** The human checkpoint. */
-  decide: string;
-  outcome: string;
-  label: string;
+  decision: string;
+  why: string;
+  checkpoint: string;
+  /** A clip recorded from the prototype, or a still. A still that isn't tall sits full width under its copy. */
+  media: { clip: string; label: string } | { img: string; alt: string; tall?: boolean };
   /** The hypothesis the design rests on, and the fallback if it is wrong. */
   assumes?: string;
   ifWrong?: string;
 };
 
-const SCENARIOS: Scenario[] = [
+const MOMENTS: Moment[] = [
   {
-    id: "c",
-    title: "Every document in one place",
-    pain: "Documents arrive by portal, email and fax.",
-    design: "A browser panel matches each one to its application, replacing an 11-minute search.",
-    decide: "You confirm any match under 80%.",
-    outcome: "The hunt becomes a short review.",
-    label: "Video: the capture panel confirms a 40% match",
+    stage: "Capture",
+    title: "Pick documents up where they already arrive",
+    decision: "A capture panel reads the inbox and portal notices, and only reads. It matches each document to its application, and when a match is unsure it says so and asks.",
+    why: "About a third of submissions arrive off the portal, and finding documents is the longest step before review.",
+    // [RATIONALE NEEDED] why 80%.
+    checkpoint: "You confirm any match under 80%.",
+    media: { clip: "scenario-c", label: "Video: the capture panel confirms a 40% match" },
     assumes: "Assumes the panel can read the inbox or portal.",
     ifWrong: "If not, drag-and-drop or a scan folder.",
   },
   {
-    id: "d",
-    title: "See what’s stuck",
-    pain: "Nobody sees what’s waiting on a broker.",
-    design: "Home flags a row Overdue when its follow-up date passes, against a 2.1-day median reply.",
-    decide: "You chase, call or wait.",
-    outcome: "Stalled work surfaces before day four.",
-    label: "Video: Harbor Line moves from Waiting to Overdue",
-    assumes: "Assumes one 2-day threshold fits most brokers.",
-    ifWrong: "If not, it’s set per broker.",
+    stage: "Triage",
+    title: "Group the week by what blocks binding",
+    decision: "Home groups work as Mismatch, Missing, Overdue and Waiting, and each row says what to do next, so it reads as a to-do list, not a report.",
+    why: "Assistant A reached their first flag 14 minutes in. Blocking work now sits at the top.",
+    checkpoint: "You choose what to open.",
+    media: { img: "home", alt: "The Home screen, with the week's applications grouped into Mismatch, Missing and Overdue bands, each row ending in a next step." },
   },
   {
-    id: "a",
-    title: "Catch mismatches side by side",
-    pain: "Mismatches are caught only by careful reading.",
-    design: "Both documents sit side by side with differences highlighted, and 35–38% of submissions have one.",
-    decide: "You mark each one real or acceptable, then edit the email.",
-    outcome: "Flags and broker emails come faster.",
-    label: "Video: a mismatch is marked real and the broker email is edited",
+    stage: "Review",
+    title: "The tool highlights, a person decides",
+    decision: "Both documents sit side by side with differences highlighted. The tool never decides: a person marks every difference real or acceptable.",
+    why: "More than a third of submissions have a mismatch, and today they’re found by careful reading.",
+    checkpoint: "You mark each difference.",
+    media: { clip: "scenario-a", label: "Video: a mismatch is marked real and the broker email is edited" },
     assumes: "Assumes every flag needs a person.",
     ifWrong: "If not, minor differences are auto-classified.",
   },
   {
-    id: "b",
-    title: "Fill a gap in place",
-    pain: "A missing document stalls the checklist.",
-    design: "The gap shows in place with suggested values.",
-    decide: "You accept or dismiss each one.",
-    outcome: "Autofill helps without changing the checklist.",
-    label: "Video: one suggestion accepted, one dismissed",
+    stage: "Resolve",
+    title: "Draft the email from your decisions",
+    decision: "The draft cites the exact values you marked, and nothing leaves the company until you press Send.",
+    why: "A broker reply takes days, so the first email has to ask the right question.",
+    checkpoint: "You edit and send.",
+    media: { img: "email", alt: "A drafted email to the broker quoting the certificate and application values, with Edit and Send buttons." },
   },
   {
-    id: "e",
-    title: "Bind with a final check",
-    pain: "Binding can’t be undone.",
-    design: "A summary of what was verified comes before approval, because a missed mismatch “comes back to bite us later.”",
-    decide: "You confirm before the policy goes live.",
-    outcome: "The riskiest step gets the most deliberate check.",
-    label: "Video: a policy is approved and bound",
+    stage: "Follow up",
+    title: "Make waiting visible",
+    decision: "Each application carries its own follow-up date. When it passes, the row turns Overdue on Home.",
+    why: "The median reply is 2.1 days, and 9 submissions waited more than four with nobody tracking them.",
+    checkpoint: "You chase, call or wait.",
+    media: { clip: "scenario-d", label: "Video: Harbor Line moves from Waiting to Overdue" },
+    assumes: "Assumes a date per policy is enough.",
+    ifWrong: "If some brokers are always slow, the default is set per broker.",
+  },
+  {
+    stage: "Bind",
+    title: "Autofill, kept to the gaps",
+    decision: "When a document is missing, the gap shows in place on the checklist with suggested values.",
+    why: "Autofill had one passing mention in the interviews, so it gets the smallest role: suggestions in the gaps, and the checklist itself unchanged.",
+    checkpoint: "You accept or dismiss each suggestion.",
+    media: { clip: "scenario-b", label: "Video: one suggestion accepted, one dismissed" },
+  },
+  {
+    stage: "Bind",
+    title: "Show what was verified before an irreversible bind",
+    decision: "A summary of every check comes before an explicit approval.",
+    why: "Binding can’t be undone, and a missed mismatch “comes back to bite us later.”",
+    checkpoint: "You approve the bind.",
+    media: { clip: "scenario-e", label: "Video: a policy is approved and bound" },
   },
 ];
 
@@ -225,28 +251,14 @@ function Band({ label, title, children }: { label: string; title?: string; child
   );
 }
 
-const BTN = `inline-flex h-10 items-center gap-1 rounded-full px-4 font-medium ${MD} transition-opacity duration-200 hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-4`;
 
 /** Opens the prototype in its own tab. It is a separate app, not a page of this one. */
 function PrototypeLink({ href = PROTOTYPE, children, outline = false }: { href?: string; children: ReactNode; outline?: boolean }) {
   return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      data-cursor-frame="pill"
-      data-ui={outline ? "Button · outlined" : "Button · filled"} data-src="src/pieces/bindDesk.tsx › PrototypeLink"
-      className={BTN}
-      style={{
-        outlineColor: INK,
-        background: outline ? "transparent" : INK,
-        color: outline ? INK : FACE,
-        border: `1px solid ${outline ? MUTED : INK}`,
-      }}
-    >
+    <Button href={href} target="_blank" rel="noreferrer" variant={outline ? "outlined" : "filled"}>
       {children}
       <span className="sr-only">(opens in a new tab)</span>
-    </a>
+    </Button>
   );
 }
 
@@ -374,7 +386,7 @@ function StageCard({ s }: { s: Stage }) {
       </dl>
       {s.agrees ? (
         <p className={`mt-4 ${SM} font-medium`} style={ink}>
-          {s.fitNote}
+          Leave the checklist alone
         </p>
       ) : null}
     </>
@@ -559,10 +571,10 @@ function MismatchChart() {
   );
 }
 
-function MinutesChart({ compact = false }: { compact?: boolean }) {
+function MinutesChart() {
   return (
-    <figure data-ui="Bar chart" data-src="src/pieces/bindDesk.tsx › MinutesChart" className={compact ? "mt-4" : "mt-6 rounded-[12px] p-6"} style={compact ? undefined : card}>
-      {compact ? null : <figcaption className={`mb-4 font-medium ${SM}`}>Minutes per submission</figcaption>}
+    <figure data-ui="Bar chart" data-src="src/pieces/bindDesk.tsx › MinutesChart" className="mt-6 rounded-[12px] p-6" style={card}>
+      <figcaption className={`mb-4 font-medium ${SM}`}>Minutes per submission</figcaption>
       <div className="space-y-3">
         <Bar label="Find documents (Assistant B)" value={11} max={14} display="11 min" />
         <Bar label="First flag (Assistant A)" value={14} max={14} display="14 min" />
@@ -633,7 +645,7 @@ function PhaseCards({ items, label }: { items: [string, string][]; label: string
   );
 }
 
-/* ---------------------------- scenarios ---------------------------- */
+/* ---------------------------- moments ---------------------------- */
 
 function QuestionCards() {
   return (
@@ -668,31 +680,53 @@ function QuestionCards() {
   );
 }
 
-/** The copy beside its clip. Alternate rows swap sides; on the phone the copy comes first. */
-function ScenarioCard({ s, flip }: { s: Scenario; flip: boolean }) {
+/**
+ * A moment's copy beside its clip or tall capture. Alternate rows swap sides;
+ * a wide capture sits full width under its copy. On the phone the copy comes first.
+ */
+function MomentCard({ m, i }: { m: Moment; i: number }) {
+  const wide = "img" in m.media && !m.media.tall;
+  const flip = !wide && i % 2 === 1;
   return (
-    <article data-ui="Media object" data-src="src/pieces/bindDesk.tsx › ScenarioCard" className={`grid gap-6 md:items-center md:gap-10 ${flip ? "md:grid-cols-[1.45fr_1fr]" : "md:grid-cols-[1fr_1.45fr]"}`}>
+    <article data-ui="Media object" data-src="src/pieces/bindDesk.tsx › MomentCard" className={`grid gap-6 md:items-center md:gap-10 ${wide ? "" : flip ? "md:grid-cols-[1.45fr_1fr]" : "md:grid-cols-[1fr_1.45fr]"}`}>
       <div className={flip ? "md:order-2" : ""}>
-        <h4 className={STATEMENT}>{s.title}</h4>
+        <Eyebrow>{m.stage}</Eyebrow>
+        <h4 className={`mt-2 ${STATEMENT}`}>{m.title}</h4>
         <div className={`mt-3 space-y-4 ${MD}`} style={ink2}>
           <p>
             <strong className="font-semibold" style={ink}>
-              {s.pain}
-            </strong>{" "}
-            {s.design}
+              {m.decision}
+            </strong>
           </p>
-          <p>
-            <span style={ink}>{s.decide}</span> {s.outcome}
+          <p>{m.why}</p>
+          <p className={`border-l-2 pl-3 ${SM}`} style={{ ...ink2, borderColor: DIVIDER }}>
+            Human checkpoint: <span style={ink}>{m.checkpoint}</span>
           </p>
-          {s.assumes ? (
-            <p className={`border-l-2 pl-3 ${SM}`} style={{ ...ink2, borderColor: DIVIDER }}>
-              {s.assumes} {s.ifWrong}
+          {m.assumes ? (
+            <p className={SM} style={ink2}>
+              {m.assumes} {m.ifWrong}
             </p>
           ) : null}
         </div>
       </div>
       <div className={flip ? "md:order-1" : ""}>
-        <Clip name={`scenario-${s.id}`} label={s.label} />
+        {"clip" in m.media ? (
+          <Clip name={m.media.clip} label={m.media.label} />
+        ) : (
+          <div
+            data-ui="Figure" data-src="src/pieces/bindDesk.tsx › MomentCard"
+            className={`overflow-hidden rounded-[12px] ${m.media.tall ? "p-6 md:p-8" : ""}`}
+            style={{ background: m.media.tall ? WELL : undefined, border: `1px solid ${DIVIDER}` }}
+          >
+            <img
+              src={`${ART}/design/${m.media.img}.png`}
+              alt={m.media.alt}
+              loading="lazy"
+              decoding="async"
+              className={`block h-auto ${m.media.tall ? "mx-auto w-full max-w-[300px] rounded-[12px]" : "w-full"}`}
+            />
+          </div>
+        )}
       </div>
     </article>
   );
@@ -835,173 +869,40 @@ const TAGS: { variant: string; did: string; review: Review; why: Parameters<type
   },
   {
     variant: "Private environment",
-    did: "Documents processed inside the firm's own environment",
+    did: "Assumes documents stay inside the firm's own environment",
     review: "Automatic",
     why: {
-      evidence: ["Deployment choice made with the client"],
-      approval: "Set by the client's IT team.",
+      evidence: ["A deployment assumption, not built in the prototype"],
+      approval: "Would be set by the firm's IT team.",
       audit: ["No compliance certification is claimed here"],
     },
   },
 ];
 
-/* ---------------------------- design decisions ---------------------------- */
-
-/**
- * The key design decisions, taken from the prototype's own "Design decision"
- * panel (the text the demo shows on hover), each with a capture of the
- * component it is about. The scenarios above say what each scenario does; these
- * say why the interface is shaped the way it is.
- */
-type Decision = {
-  title: string;
-  /** The decision, as the prototype words it. */
-  decision: string;
-  /** The evidence behind it. */
-  why: string;
-  /** The human checkpoint it keeps. */
-  checkpoint: string;
-  /** Which AI tags (indexes into TAGS) this decision carries, shown as small callouts. */
-  ai?: number[];
-  img: string;
-  alt: string;
-  /** Tall captures sit narrow, centred on a well, rather than stretched wide. */
-  tall?: boolean;
-};
-
-const DECISIONS: Decision[] = [
-  {
-    title: "Group the week by what blocks binding",
-    decision: "Home groups work as Mismatch, Missing, Overdue and Waiting, and each row says in words what to do next, so the list reads as a to-do list, not a report.",
-    why: "It took 14 minutes to reach the first flag. Mismatches and stuck brokers now surface before routine work.",
-    checkpoint: "You choose what to open.",
-    img: "home",
-    alt: "The Home screen, with the week's applications grouped into Mismatch, Missing and Overdue bands, each row ending in a next step.",
-  },
-  {
-    title: "Pick documents up where they already arrive",
-    decision: "A capture panel reads the inbox and portal notices, and only reads. When a match is unsure it says so and asks.",
-    why: "17 of 54 submissions arrived off the portal, and finding them took 11 minutes.",
-    checkpoint: "You confirm any match under 80%.",
-    ai: [2, 3],
-    img: "capture",
-    alt: "The capture panel listing four documents found in an inbox, one at 40% confidence marked Needs review.",
-    tall: true,
-  },
-  {
-    title: "The tool highlights, a person decides",
-    decision: "Both values sit side by side. The tool only highlights; a person marks every difference real or acceptable.",
-    why: "35–38% of submissions have a mismatch, and today it is found by careful reading.",
-    checkpoint: "You mark each difference.",
-    ai: [0],
-    img: "differences",
-    alt: "The Differences column, showing each occurrence of $2,000,000 against $1,000,000 and a Real mismatch or Acceptable choice.",
-    tall: true,
-  },
-  {
-    title: "Draft the email from your decisions",
-    decision: "The draft cites the exact values you marked, and nothing leaves the company until you press Send.",
-    why: "Broker replies already take days, so the first email has to be right.",
-    checkpoint: "You edit and send.",
-    ai: [1],
-    img: "email",
-    alt: "A drafted email to the broker quoting the certificate and application values, with Edit and Send buttons.",
-  },
-  {
-    title: "Make waiting visible",
-    decision: "Waiting shows on the application, and the threshold is set per policy. You choose to chase, call or wait.",
-    why: "The median reply is 2.1 days, and 9 submissions waited over 4.",
-    checkpoint: "You chase, call or wait.",
-    img: "followup",
-    alt: "The follow-up step of an application, showing how long the broker has been silent and the options to follow up or call.",
-  },
-  {
-    title: "Show what was verified before an irreversible bind",
-    decision: "Binding can’t be undone, so a summary shows what was verified and asks for explicit approval.",
-    why: "A missed mismatch “comes back to bite us later.”",
-    checkpoint: "You approve the bind.",
-    img: "bind",
-    alt: "A verification summary of four checks beside a Ready to bind card with an Approve and bind button.",
-  },
-];
-
-function DecisionCard({ d, i }: { d: Decision; i: number }) {
-  return (
-    <article data-ui="Media object" data-src="src/pieces/bindDesk.tsx › DecisionCard" className={`grid gap-6 md:items-center md:gap-10 ${d.tall ? (i % 2 ? "md:grid-cols-[1.45fr_1fr]" : "md:grid-cols-[1fr_1.45fr]") : ""}`}>
-      <div className={d.tall && i % 2 ? "md:order-2" : ""}>
-        <Eyebrow>Decision {i + 1}</Eyebrow>
-        <h4 className={`mt-2 ${STATEMENT}`}>{d.title}</h4>
-        <div className={`mt-3 space-y-4 ${MD}`} style={ink2}>
-          <p>
-            <strong className="font-semibold" style={ink}>
-              {d.decision}
-            </strong>
-          </p>
-          <p>{d.why}</p>
-          <p className={`border-l-2 pl-3 ${SM}`} style={{ ...ink2, borderColor: DIVIDER }}>
-            Human checkpoint: <span style={ink}>{d.checkpoint}</span>
-          </p>
-          {d.ai?.map((n) => (
-            <div key={TAGS[n].variant} data-ui="Tag (AI disclosure)" data-src="src/pieces/bindDesk.tsx › DecisionCard" className="rounded-[12px] p-3" style={{ background: SURFACE, border: `1px solid ${DIVIDER}` }}>
-              <p className={`mb-2 uppercase ${XS}`} style={{ ...ink2, fontFamily: MONO }}>
-                AI tag
-              </p>
-              <AiTag {...TAGS[n]} />
-            </div>
-          ))}
-        </div>
-      </div>
-      <div className={d.tall && i % 2 ? "md:order-1" : ""}>
-        <div
-          data-ui="Figure" data-src="src/pieces/bindDesk.tsx › DecisionCard"
-          className={`overflow-hidden rounded-[12px] ${d.tall ? "p-6 md:p-8" : ""}`}
-          style={{ background: d.tall ? WELL : undefined, border: `1px solid ${DIVIDER}` }}
-        >
-          <img
-            src={`${ART}/design/${d.img}.png`}
-            alt={d.alt}
-            loading="lazy"
-            decoding="async"
-            className={`block h-auto ${d.tall ? "mx-auto w-full max-w-[300px] rounded-[12px]" : "w-full"}`}
-          />
-        </div>
-      </div>
-    </article>
-  );
-}
-
 /* ------------------------------ sections ------------------------------ */
 
 /**
  * The hero. CaseStudy renders this under the meta row in place of its
- * default title line: title on the left, buttons on the right, then the loop.
- * The summary lives in the TL;DR card below, not here.
+ * default title line: title, what kind of project this is, then the buttons.
+ * The summary lives in the TL;DR band below, not here.
  */
 const INTRO = (
   <div>
-    <div>
-      <h1 className={`max-w-3xl ${TITLE}`}>
-        Redesigning the brokerage workflow so assistants decide instead of hunt
-      </h1>
-      <div className="mt-6 flex flex-wrap gap-2">
-        <PrototypeLink>Open the prototype</PrototypeLink>
-        <PrototypeLink href={TOUR} outline>
-          Start the guided tour
-        </PrototypeLink>
-      </div>
-    </div>
-    <div className="mt-16">
-      <Clip name="bind-desk" label="Open the prototype: product walkthrough video" href={PROTOTYPE} />
+    <h1 className={`max-w-3xl ${TITLE}`}>
+      Redesigning the brokerage workflow so assistants decide instead of hunt
+    </h1>
+    {/* [CONFIRM] timeline, and whether to say "solo". */}
+    <p className={`mt-4 max-w-3xl ${SM}`} style={ink2}>
+      Self-initiated concept · Fictional company, people and data · Working prototype, not yet tested with users
+    </p>
+    <div className="mt-6 flex flex-wrap gap-2">
+      <PrototypeLink>Open the prototype</PrototypeLink>
+      <PrototypeLink href={TOUR} outline>
+        Start the guided tour
+      </PrototypeLink>
     </div>
   </div>
 );
-
-const OUTCOME: string[][] = [
-  ["Finding documents", "11 min to find them. 17 of 54 off-portal.", "The hunt becomes a short review of matches."],
-  ["Spotting mismatches", "14 min before the first flag. 35–38% have one.", "Flags and broker emails come faster."],
-  ["Chasing brokers", "Median reply 2.1 days. 9 waited over 4.", "Stalled work surfaces before day four."],
-  ["Binding", "Checklist: 3 min, and people know it cold.", "Unchanged, with a final check before approval."],
-];
 
 export const BIND_DESK_SECTIONS: CaseStudySection[] = [
   {
@@ -1018,89 +919,48 @@ export const BIND_DESK_SECTIONS: CaseStudySection[] = [
       <Band label="TL;DR">
         <p className={MD} style={ink2}>
           <strong className="font-semibold" style={ink}>
-            The operations director asked for a faster checklist.
+            The brief asks for a faster checklist.
           </strong>{" "}
-          The logs show the checklist takes 3 minutes. Bind Desk leaves it alone
-          and fixes the slow work around it, with a person approving each
-          decision that matters.
+          Its own logs show the checklist takes 3 minutes. So Bind Desk leaves
+          it alone and redesigns the slow work around it, with a person
+          approving every decision that matters.
         </p>
       </Band>
     ),
   },
   {
-    id: "solution",
-    title: "Solution",
+    id: "brief",
+    title: "The Brief",
     children: (
-      <div>
+      <div className="max-w-3xl">
+        <SectionHead title="“Make the checklist faster”" />
+        <p className={MD} style={ink2}>
+          Bind Desk is set at a fictional 40-person insurance brokerage. Its
+          assistants can’t bind a policy until every document is in and every
+          coverage limit matches. The operations director asks for a faster
+          checklist, and the team’s wishlist adds smart autofill, a cleaner
+          interface, mobile access and an AI chat assistant.
+        </p>
+        {/* [CONFIRM] who wrote the brief and generated the logs and interview notes. */}
+        <p className={`mt-4 ${MD}`} style={ink2}>
+          The brief comes with 30 days of logs from the legacy checklist
+          spreadsheet and notes from two assistant interviews, all fictional.
+          I didn’t run new research. I analyzed what the brief provided and
+          mapped the journey, then defined the flow, designed the interface and
+          built the prototype.
+        </p>
+      </div>
+    ),
+  },
+  {
+    id: "evidence",
+    title: "The Evidence",
+    children: (
+      <div className="space-y-16">
         <SectionHead
-          title="Five scenarios, one human checkpoint each"
-          lede="Each scenario fixes one slow step. Each video is recorded from the prototype."
+          title="The checklist is the fastest step"
+          lede="Finding documents and reaching the first mismatch take longer, and broker replies take days."
         />
-        <div className="space-y-16">
-          {SCENARIOS.map((s, i) => (
-            <ScenarioCard key={s.id} s={s} flip={i % 2 === 1} />
-          ))}
-        </div>
-        <div className="mt-16">
-          <PrototypeLink>
-            Try the prototype <ArrowIcon size={16} />
-          </PrototypeLink>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "overview",
-    title: "Overview",
-    children: (
-      <div className="max-w-4xl">
-        <p className={STATEMENT} style={ink}>
-          Bind Desk is a prototype that redesigns the workflow of a 40-person
-          brokerage, so assistants spend their time deciding instead of hunting
-          for documents.
-        </p>
-        <p className={`mt-3 ${MD}`} style={ink2}>
-          Assistants can’t bind a policy until every document is in and every
-          coverage limit matches. I analyzed 30 days of logs from the legacy
-          checklist spreadsheet, read two interviews and mapped the journey,
-          then defined the flow and set the layout for an interactive prototype
-          of five scenarios, each with one human checkpoint.
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: "problem",
-    title: "The Problem",
-    hideTitle: true,
-    children: (
-      <div className="space-y-16">
-        <Band label="The Problem" title="A fast checklist inside a slow week">
-          <p className={MD} style={ink2}>
-            At a 40-person brokerage, assistants can’t bind a policy until every
-            document is in and every coverage limit matches. Two interviews and
-            30 days of logs from the legacy checklist spreadsheet show where
-            their time goes.
-          </p>
-          <p className={`mt-4 ${MD}`} style={ink2}>
-            <strong className="font-semibold" style={ink}>
-              The checklist is the fastest step.
-            </strong>{" "}
-            Finding documents and spotting mismatches take longer, and broker
-            replies take days. About one in three submissions has a mismatch.
-          </p>
-        </Band>
-        <Sub title="Today’s journey">
-          <Journey />
-        </Sub>
-      </div>
-    ),
-  },
-  {
-    id: "findings",
-    title: "Initial Findings",
-    children: (
-      <div className="space-y-16">
         <div className="grid gap-10 md:grid-cols-2">
           <div>
             <Eyebrow>Where the sources agree</Eyebrow>
@@ -1119,64 +979,56 @@ export const BIND_DESK_SECTIONS: CaseStudySection[] = [
             <MinutesChart />
           </div>
         </div>
-
-        <Sub title="Stakeholder expectations">
-          <ResponsiveTable head={["Asked for", "How it appears", "Evidence"]} rows={EXPECTATIONS} />
+        <Sub title="Today’s journey">
+          <Journey />
         </Sub>
-
-        <Band label="Pushback" title="“Our users asked for the wishlist. Why are you showing me something else?”">
-          <p className={MD} style={ink2}>
-            <strong className="font-semibold" style={ink}>
-              The checklist is 3 minutes of the work.
-            </strong>{" "}
-            The rest of the week goes to the steps around it. Every wishlist
-            item still has a place, sized to its evidence.
-          </p>
-          <div className="mt-6">
-            <MinutesChart compact />
-          </div>
-        </Band>
       </div>
     ),
   },
   {
-    id: "design-process",
-    title: "Design Process",
+    id: "reframe",
+    title: "The Reframe",
+    hideTitle: true,
     children: (
       <div className="space-y-16">
-        <SectionHead
-          title="Six decisions that shaped the interface"
-          lede="Each one comes from the prototype’s own decision notes, with the evidence behind it and the human checkpoint it keeps. The AI proposes. A person decides, and every AI output is tagged with what it did and whether a person has reviewed it."
-        />
-        <div className="space-y-16">
-          {DECISIONS.map((d, i) => (
-            <DecisionCard key={d.title} d={d} i={i} />
-          ))}
+        <Band label="The reframe" title="Leave the checklist alone">
+          <p className={MD} style={ink2}>
+            Speeding up a 3-minute step would save little. The time goes to the
+            steps around it, so I kept the checklist as it is and gave every
+            wishlist item a place sized to its evidence.
+          </p>
+        </Band>
+        <Sub title="Every wishlist item, sized to its evidence">
+          <ResponsiveTable head={["Asked for", "How it appears", "Evidence"]} rows={EXPECTATIONS} />
+        </Sub>
+        <div className="max-w-3xl">
+          <Eyebrow>Pushback in the brief</Eyebrow>
+          <p className={`mt-3 ${STATEMENT}`}>
+            “Our users asked for the wishlist. Why are you showing me something else?”
+          </p>
+          <p className={`mt-3 ${MD}`} style={ink2}>
+            <strong className="font-semibold" style={ink}>
+              My answer: the checklist is 3 minutes of the work.
+            </strong>{" "}
+            Nothing on the wishlist is dropped without a reason in the table above.
+          </p>
         </div>
       </div>
     ),
   },
   {
-    id: "outcome",
-    title: "Outcome",
+    id: "checkpoints",
+    title: "Human Checkpoints",
     children: (
       <div>
         <SectionHead
-          title="What should change, and how we’ll know"
-          lede="Bind Desk is a prototype, so these are targets measured against today’s logs, not results."
+          title="The tool proposes, a person decides"
+          lede="Every AI output in the prototype carries a tag: what it did, whether a person has reviewed it, and why. Nothing irreversible happens on its own: no email leaves and no policy binds without a person."
         />
-        <ul data-ui="Card grid" data-src="src/pieces/bindDesk.tsx › section outcome" className="m-0 grid list-none gap-6 p-0 md:grid-cols-2">
-          {OUTCOME.map(([area, today, change]) => (
-            <li key={area} data-ui="Card" data-src="src/pieces/bindDesk.tsx › section outcome" className="rounded-[12px] p-6" style={card}>
-              <h5 className={H4}>{area}</h5>
-              <p className={`mt-3 ${SM}`} style={ink2}>
-                <span style={{ ...ink, fontFamily: MONO }}>Today </span>
-                {today}
-              </p>
-              <p className={`mt-2 ${SM}`} style={ink2}>
-                <span style={{ ...ink, fontFamily: MONO }}>Expected </span>
-                {change}
-              </p>
+        <ul data-ui="Card grid" data-src="src/pieces/bindDesk.tsx › section checkpoints" className="m-0 grid list-none gap-6 p-0 md:grid-cols-2">
+          {TAGS.map((t) => (
+            <li key={t.variant} data-ui="Tag (AI disclosure)" data-src="src/pieces/bindDesk.tsx › section checkpoints" className="rounded-[12px] p-6" style={card}>
+              <AiTag {...t} />
             </li>
           ))}
         </ul>
@@ -1184,21 +1036,51 @@ export const BIND_DESK_SECTIONS: CaseStudySection[] = [
     ),
   },
   {
-    id: "open-questions",
-    title: "Next Steps",
+    id: "design",
+    title: "The Design",
+    children: (
+      <div>
+        <SectionHead
+          title="Seven moments, in the order the work happens"
+          lede="Each follows a stage of the journey above. The videos are recorded from the prototype."
+        />
+        <div className="space-y-16">
+          {MOMENTS.map((m, i) => (
+            <MomentCard key={m.title} m={m} i={i} />
+          ))}
+        </div>
+        <div className="mt-16">
+          <PrototypeLink>
+            Try the prototype <ArrowIcon size={16} />
+          </PrototypeLink>
+        </div>
+      </div>
+    ),
+  },
+  {
+    id: "evaluation",
+    title: "Evaluation",
     children: (
       <div className="space-y-16">
         <div>
-          <SectionHead title="Ship the mismatch check first" lede="Start where the evidence is strongest. The next round decides the rest." />
+          <SectionHead
+            title="How I’d know it works"
+            lede="Bind Desk hasn’t been tested with assistants. These are the measures I’d compare against the brief’s logs, and the results that would tell me the design is wrong."
+          />
+          <ResponsiveTable head={["Area", "Today", "Measure", "Would count against it"]} rows={EVALUATION} />
+        </div>
+        <div>
+          <SectionHead title="Build the mismatch check first" lede="Start where the evidence is strongest. The next round decides the rest." />
           <PhaseCards items={NEXT_STEPS} label="Step" />
         </div>
         <div>
-          <SectionHead title="What we still need to learn" lede="Each answer confirms the design or changes one part of it." />
+          <SectionHead title="What I still need to learn" lede="Each answer confirms the design or changes one part of it." />
           <QuestionCards />
         </div>
       </div>
     ),
   },
+  /* [CONFIRM] A reflection section ("What I'd do differently") belongs here, in your words. */
   {
     id: "how-i-used-ai",
     title: "How I Used AI",
