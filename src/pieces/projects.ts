@@ -74,7 +74,7 @@ export const PROJECTS: Project[] = [
     slug: "bind-desk",
     name: "Bind Desk",
     thumb: "/assets/projects/bind-desk/peek.jpg",
-    type: "B2B SaaS · Insurance",
+    type: "B2B Insurance SaaS",
     year: "2026",
     title: "Redesigning Bind Desk for faster, safer binding",
     footnote: "Company, people and data in this case study are fictional.",

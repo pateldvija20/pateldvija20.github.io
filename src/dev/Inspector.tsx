@@ -181,14 +181,12 @@ export default function Inspector() {
   const [info, setInfo] = useState<Info | null>(null);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [copied, setCopied] = useState(false);
+  /** The named element under the pointer: what `describe` would report for it. */
   const last = useRef<Element | null>(null);
-  /** How many levels above the hovered element is selected (ArrowUp / ArrowDown). */
-  const up = useRef(0);
-  const pick = () => {
-    let el = last.current as Element | null;
-    for (let i = 0; i < up.current && el?.parentElement && el.parentElement !== document.body; i++) el = el.parentElement;
-    return el;
-  };
+  /** The element ArrowUp / ArrowDown has moved the selection to, and the way back down. */
+  const sel = useRef<Element | null>(null);
+  const trail = useRef<Element[]>([]);
+  const pick = () => sel.current ?? last.current;
   const card = useRef<HTMLDivElement>(null);
   const raf = useRef(0);
 
@@ -207,14 +205,29 @@ export default function Inspector() {
       if (e.key === "i" || e.key === "I") setOn((v) => !v);
       if (e.key === "Escape") setOn(false);
       if (on && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+        // Caught before the page sees it, so the arrows never scroll the page underneath.
         e.preventDefault();
-        up.current = Math.max(0, up.current + (e.key === "ArrowUp" ? 1 : -1));
-        const el = pick();
-        if (el) setInfo(describe(el));
+        e.stopPropagation();
+        const cur = pick();
+        if (!cur) return;
+        if (e.key === "ArrowUp") {
+          // The next named ancestor; a plain parent only where nothing above has a name.
+          const named = cur.parentElement?.closest("[data-ui]");
+          const next = named ?? cur.parentElement;
+          if (!next || next === document.body || next === document.documentElement) return;
+          trail.current.push(cur);
+          sel.current = next;
+        } else {
+          // Back down the way ArrowUp came, else into the first named child.
+          const next = trail.current.pop() ?? cur.querySelector("[data-ui]");
+          if (!next) return;
+          sel.current = next;
+        }
+        setInfo(describe(sel.current));
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, [on]);
 
   useEffect(() => {
@@ -223,6 +236,8 @@ export default function Inspector() {
       root.removeAttribute("data-inspect");
       setInfo(null);
       last.current = null;
+      sel.current = null;
+      trail.current = [];
       return;
     }
     root.setAttribute("data-inspect", "");
@@ -230,12 +245,15 @@ export default function Inspector() {
       setPos({ x: e.clientX, y: e.clientY });
       cancelAnimationFrame(raf.current);
       raf.current = requestAnimationFrame(() => {
-        const el = document.elementFromPoint(e.clientX, e.clientY);
-        if (!el || inInspector(el)) return;
-        // A small mouse jiggle over the same element must not undo ArrowUp.
+        const hit = document.elementFromPoint(e.clientX, e.clientY);
+        if (!hit || inInspector(hit)) return;
+        // Compare named elements, not raw ones: moving within the same component
+        // must not undo ArrowUp / ArrowDown.
+        const el = hit.closest("[data-ui]") ?? hit;
         if (el === last.current) return;
         last.current = el;
-        up.current = 0;
+        sel.current = null;
+        trail.current = [];
         setInfo(describe(el));
       });
     };

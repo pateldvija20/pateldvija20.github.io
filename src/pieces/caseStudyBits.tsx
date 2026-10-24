@@ -362,9 +362,11 @@ export function RelatedProjects({ slugs }: { slugs: string[] }) {
     .filter((p) => p !== undefined);
   return (
     <div className="grid grid-cols-1 gap-[40px] md:grid-cols-2 lg:gap-[60px]">
-      {related.map((p) => (
-        // The homepage's own Work tile, in the case study's text colours.
-        <WorkTile key={p.slug} project={p} href={`/projects/${p.slug}`} ink={COLOR.textPrimary} quiet={COLOR.textSecondary} />
+      {related.map((p, i) => (
+        // The homepage's own Work tile, in the case study's text colours. Phones show only the first.
+        <div key={p.slug} className={i > 0 ? "max-md:hidden" : undefined}>
+          <WorkTile project={p} href={`/projects/${p.slug}`} ink={COLOR.textPrimary} quiet={COLOR.textSecondary} />
+        </div>
       ))}
     </div>
   );
