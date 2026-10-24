@@ -8,6 +8,9 @@
  * `thumb` files are committed under `public/assets/projects/`, downloaded from
  * the Figma fills rather than linked: the MCP asset URLs expire after ~7 days.
  */
+import type { ComponentType } from "react";
+import { WindowLoop } from "./WindowLoop";
+
 export type Project = {
   /** Stable id, also the thumbnail's filename stem. */
   slug: string;
@@ -38,9 +41,17 @@ export type Project = {
    */
   heroVideo?: string;
   /**
+   * An animated hero drawn in code, shown in place of `hero`/`heroVideo` on the
+   * Work tile and the case study's own hero. It fills its box and draws its own
+   * backdrop gap, so `heroClip` and `heroMax`'s art box do not apply to it.
+   */
+  heroLoop?: ComponentType<{ className?: string }>;
+  /**
    * A flat colour behind the hero art, the same in light and dark.
    */
   heroBg?: string;
+  /** A line under the case study's footer, after the rights line. */
+  footnote?: string;
   /**
    * A `clip-path` that trims the hero art to the part worth showing, so the
    * colour behind it (`heroBg`) replaces the art's own backdrop without the art
@@ -63,15 +74,17 @@ export const PROJECTS: Project[] = [
     slug: "bind-desk",
     name: "Bind Desk",
     thumb: "/assets/projects/bind-desk/peek.jpg",
-    type: "Product Design",
+    type: "B2B Insurance SaaS",
     year: "2026",
-    title: "Redesigning the brokerage workflow so assistants decide instead of hunt",
+    title: "Redesigning Bind Desk for faster, safer binding",
+    footnote: "Company, people and data in this case study are fictional.",
     // A sneak peek, shaped like the Work tile (1800x1170 at source): the
     // product window on a tinted backdrop, cropped off the bottom edge.
     hero: "/assets/projects/bind-desk/peek.jpg",
     heroVideo: "/assets/projects/bind-desk/peek",
     heroAspect: 936 / 1440,
-    heroBg: "var(--color-surface-media)",
+    heroBg: "#FFF3DA",
+    heroLoop: WindowLoop,
     scale: "compact",
     heroMax: 0.6,
     // The product window inside the 1440x936 clip, with its corner radius.

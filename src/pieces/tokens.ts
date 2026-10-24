@@ -20,6 +20,8 @@ export const COLOR = {
   borderSubtle: "var(--color-border-subtle)",
   textPrimary: "var(--color-text-primary)",
   textSecondary: "var(--color-text-secondary)",
+  statusPositive: "var(--color-status-positive)",
+  statusNegative: "var(--color-status-negative)",
   actionBg: "var(--color-action-bg)",
   actionFg: "var(--color-action-fg)",
 } as const;
@@ -33,6 +35,8 @@ export const COLOR_VARS: Record<string, string> = {
   "border-subtle": "--color-border-subtle",
   "text-primary": "--color-text-primary",
   "text-secondary": "--color-text-secondary",
+  "status-positive": "--color-status-positive",
+  "status-negative": "--color-status-negative",
 };
 
 /** Space: Tailwind's scale on a 4px base. `space-N` is N x 4px. */

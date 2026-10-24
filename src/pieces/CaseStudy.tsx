@@ -2,6 +2,8 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { LoopMedia } from "./LoopMedia";
 import { cardImage, type Project } from "./projects";
 import type { Theme } from "./Piece";
+import { COPYRIGHT } from "../organized/SiteFooter";
+import { COLOR } from "./tokens";
 
 /**
  * The scrollable case-study shell that fills an expanded project sheet
@@ -399,6 +401,10 @@ export function CaseStudy({
             ...(project.heroMax ? { display: "flex", justifyContent: "center" } : null),
           }}
         >
+          {project.heroLoop ? (
+            <project.heroLoop />
+          ) : (
+          <>
           {/* A capped hero keeps the art's own proportions, centred on the
               backdrop, rather than cropping it taller. */}
           <div
@@ -415,6 +421,8 @@ export function CaseStudy({
             style={project.heroClip ? { clipPath: project.heroClip } : undefined}
           />
           </div>
+          </>
+          )}
         </div>
 
         {/*
@@ -617,6 +625,23 @@ export function CaseStudy({
             </section>
           ))}
         </div>
+
+        {/* The case study's own footer, the same on every project: a band the
+            full width of the scrolling column and flush with its end, so the
+            page closes instead of trailing off. No fill: the page's own ground
+            under a hairline, in quiet grey type. */}
+        <footer
+          data-ui="Footer" data-src="src/pieces/CaseStudy.tsx › CaseStudy"
+          className="flex flex-col gap-1 px-6 py-8 text-[14px] leading-[21px] md:flex-row md:items-center md:justify-between md:px-[60px]"
+          style={{ borderTop: `1px solid ${COLOR.borderSubtle}`, color: COLOR.textSecondary }}
+        >
+          <p className="m-0">{COPYRIGHT}</p>
+          {project.footnote ? (
+            <p className="m-0">
+              {project.footnote}
+            </p>
+          ) : null}
+        </footer>
       </div>
     </div>
   );

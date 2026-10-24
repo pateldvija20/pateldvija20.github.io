@@ -466,6 +466,9 @@ body[data-project-open] #root {
   /* colour · text */
   --color-text-primary: #18191a;
   --color-text-secondary: #626262;
+  /* colour · status (included / not included) */
+  --color-status-positive: #1e7a4c;
+  --color-status-negative: #c0392b;
   /* colour · action (primary button) */
   --color-action-bg: var(--color-text-primary);
   --color-action-fg: var(--color-surface-page);
@@ -503,6 +506,8 @@ body[data-project-open] #root {
   --color-border-subtle: #3a3a3a;
   --color-text-primary: #fdfeff;
   --color-text-secondary: #8a8a8a;
+  --color-status-positive: #5cc28c;
+  --color-status-negative: #ff7b6b;
 }
 
 /* The UI inspector (src/dev/Inspector.tsx): a crosshair in place of the site's

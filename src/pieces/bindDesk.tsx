@@ -1,7 +1,5 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { CaseStudySection } from "./CaseStudy";
-import { ArrowIcon } from "../organized/ArrowIcon";
-import { COPYRIGHT } from "../organized/SiteFooter";
 import { MONO, RelatedProjects } from "./caseStudyBits";
 import { Button } from "./Button";
 import { COLOR, OVERLINE, TYPE } from "./tokens";
@@ -9,12 +7,11 @@ import { COLOR, OVERLINE, TYPE } from "./tokens";
 /**
  * The Bind Desk case study, authored as CaseStudy sections.
  *
- * A port of the project's original standalone case study site: the same
- * blocks in the same arrangement, the same copy (with the people named by
- * role only: "the operations director", "Assistant A", "Assistant B"), and
- * the same type sizes and card shapes. Only the colours and fonts are the
- * portfolio's: the `--cs-*` tokens (so it follows dark mode), Roboto Slab
- * for display lines, DM Sans for text and DM Mono for labels.
+ * Order: TL;DR, the problem, the journey today (where the evidence lives, as
+ * callouts on each stage), what the stakeholders expected, five solution
+ * scenarios, the design process, outcome, next steps and how AI was used.
+ * People are named by role only. Gaps only the author can fill are left on the
+ * page as `Need` markers, never written around.
  *
  * The interactive prototype is a separate prebuilt app (its own router,
  * store and fonts) served from `public/bind-desk/`, so it is linked rather
@@ -31,16 +28,16 @@ const TOUR = `${PROTOTYPE}?tour=1`;
 const FACE = COLOR.surfacePage;
 /** Cards and full-bleed sections sit a step off the page. */
 const SURFACE = COLOR.surfaceRaised;
-/** Chart tracks and image wells. */
+/** Callouts and image wells. */
 const WELL = COLOR.surfaceSunken;
 const INK = COLOR.textPrimary;
 const MUTED = COLOR.textSecondary;
 const DIVIDER = COLOR.borderSubtle;
+const YES = COLOR.statusPositive;
+const NO = COLOR.statusNegative;
 
-const DISPLAY = "font-['Roboto_Slab'] font-normal";
 const MD = TYPE.body;
 const SM = TYPE.bodySm;
-const XS = TYPE.bodySm;
 const STATEMENT = TYPE.headline;
 const H3 = TYPE.title;
 /** A card's heading: body size, medium weight. */
@@ -48,155 +45,196 @@ const H4 = `${TYPE.body} font-medium`;
 const TITLE = TYPE.display;
 const LABEL = OVERLINE;
 
-/* ------------------------------ copy ------------------------------ */
-
-const JOURNEY: { stage: string; happens: string; evidence: string; agrees: boolean; check: string }[] = [
-  { stage: "Capture", happens: "Documents arrive by portal, email or fax.", evidence: "11 min to find them. 17 of 54 off-portal.", agrees: false, check: "Confirm uncertain matches." },
-  { stage: "Triage", happens: "Open work, most urgent first.", evidence: "14 min before the first flag.", agrees: false, check: "Choose what to open." },
-  { stage: "Review", happens: "Both documents side by side.", evidence: "35–38% have a mismatch, found by reading.", agrees: false, check: "Mark each difference." },
-  { stage: "Resolve", happens: "Broker email drafted from real mismatches.", evidence: "“That can take days waiting on a reply.”", agrees: false, check: "Edit and send." },
-  { stage: "Follow up", happens: "A row turns Overdue after its follow-up date.", evidence: "Median 2.1 days. 9 waited over 4.", agrees: false, check: "Chase, call or wait." },
-  { stage: "Bind", happens: "Checklist, summary, then approval.", evidence: "Checklist: 3 min. “I know it cold.”", agrees: true, check: "Approve the bind." },
-];
-
-const EXPECTATIONS: string[][] = [
-  ["Smart autofill", "Suggested values in missing-document gaps only", "Weak: one passing mention"],
-  ["Cleaner interface", "The design itself", "No user evidence"],
-  ["Mobile access", "One status list for chasing brokers", "No evidence of need"],
-  ["AI chat assistant", "Held back", "Nobody described a question for it"],
-  ["“Don’t touch the checklist”", "Unchanged", "Supported: 3 min"],
-];
-
-/* [CONFIRM] "AI helped sort the evidence" is still vague: say what it sorted and how it was checked. */
-const AI_USE: [string, string][] = [
-  ["Analysis", "I analyzed the logs, read the interviews for needs and mapped the journey. AI helped sort the evidence."],
-  ["Product and design", "I defined the flow, where each human checkpoint sits, the layout and the brand, and tried several directions."],
-  ["Build", "I built the prototype, with AI writing much of the code to the flow, states and checkpoints I set."],
-];
-
-/** Today's baseline from the brief's logs, what to measure, and the result that would count against the design. */
-const EVALUATION: string[][] = [
-  ["Finding documents", "11 min per submission. 17 of 54 off-portal.", "Time from arrival to a confirmed match", "Assistants search by hand anyway, or reject many matches"],
-  ["Spotting mismatches", "14 min to the first flag. 35–38% have one.", "Time to first flag, and mismatches caught in a seeded set", "Assistants miss mismatches the tool highlighted, or override it often"],
-  ["Chasing brokers", "Median reply 2.1 days. 9 waited over 4.", "Submissions waiting more than 4 days", "Overdue rows sit untouched"],
-  ["Binding", "Checklist: 3 min.", "Checklist time stays flat", "The checklist gets slower"],
-];
-
-const NEXT_STEPS: [string, string][] = [
-  ["Build the mismatch check first", "It covers the most frequent problem in the logs."],
-  ["Test it on a seeded week", "Two or three assistants work the same submissions in the prototype and in the spreadsheet. Compare time to first flag and mismatches caught."],
-  ["Let the answers set the scope", "The questions below decide how capture and follow-ups work."],
-];
-
-const QUESTIONS: { q: string; assumed: string; ifWrong: string; shapes: string }[] = [
-  { q: "How do documents reach you?", assumed: "Portal, email and fax", ifWrong: "Build the main channel first, or add a broker upload link", shapes: "Pick documents up where they arrive" },
-  { q: "Can faxes go to an inbox?", assumed: "Yes", ifWrong: "Scan upload becomes a core feature", shapes: "Pick documents up where they arrive" },
-  { q: "When and how do you chase brokers?", assumed: "A follow-up date per policy, repeat emails", ifWrong: "Per-broker defaults and free-form drafts", shapes: "Make waiting visible" },
-  { q: "Is there a rule for minor mismatches?", assumed: "No, so a person checks every flag", ifWrong: "Auto-classify minor differences", shapes: "The tool highlights, a person decides" },
-];
-
-/**
- * The redesign as moments in the order the work happens, each with the
- * evidence behind it, the human checkpoint it keeps and the clip or capture
- * that shows it.
- */
-type Moment = {
-  stage: string;
-  title: string;
-  decision: string;
-  why: string;
-  checkpoint: string;
-  /** A clip recorded from the prototype, or a still. A still that isn't tall sits full width under its copy. */
-  media: { clip: string; label: string } | { img: string; alt: string; tall?: boolean };
-  /** The hypothesis the design rests on, and the fallback if it is wrong. */
-  assumes?: string;
-  ifWrong?: string;
-};
-
-const MOMENTS: Moment[] = [
-  {
-    stage: "Capture",
-    title: "Pick documents up where they already arrive",
-    decision: "A capture panel reads the inbox and portal notices, and only reads. It matches each document to its application, and when a match is unsure it says so and asks.",
-    why: "About a third of submissions arrive off the portal, and finding documents is the longest step before review.",
-    // [RATIONALE NEEDED] why 80%.
-    checkpoint: "You confirm any match under 80%.",
-    media: { clip: "scenario-c", label: "Video: the capture panel confirms a 40% match" },
-    assumes: "Assumes the panel can read the inbox or portal.",
-    ifWrong: "If not, drag-and-drop or a scan folder.",
-  },
-  {
-    stage: "Triage",
-    title: "Group the week by what blocks binding",
-    decision: "Home groups work as Mismatch, Missing, Overdue and Waiting, and each row says what to do next, so it reads as a to-do list, not a report.",
-    why: "Assistant A reached their first flag 14 minutes in. Blocking work now sits at the top.",
-    checkpoint: "You choose what to open.",
-    media: { img: "home", alt: "The Home screen, with the week's applications grouped into Mismatch, Missing and Overdue bands, each row ending in a next step." },
-  },
-  {
-    stage: "Review",
-    title: "The tool highlights, a person decides",
-    decision: "Both documents sit side by side with differences highlighted. The tool never decides: a person marks every difference real or acceptable.",
-    why: "More than a third of submissions have a mismatch, and today they’re found by careful reading.",
-    checkpoint: "You mark each difference.",
-    media: { clip: "scenario-a", label: "Video: a mismatch is marked real and the broker email is edited" },
-    assumes: "Assumes every flag needs a person.",
-    ifWrong: "If not, minor differences are auto-classified.",
-  },
-  {
-    stage: "Resolve",
-    title: "Draft the email from your decisions",
-    decision: "The draft cites the exact values you marked, and nothing leaves the company until you press Send.",
-    why: "A broker reply takes days, so the first email has to ask the right question.",
-    checkpoint: "You edit and send.",
-    media: { img: "email", alt: "A drafted email to the broker quoting the certificate and application values, with Edit and Send buttons." },
-  },
-  {
-    stage: "Follow up",
-    title: "Make waiting visible",
-    decision: "Each application carries its own follow-up date. When it passes, the row turns Overdue on Home.",
-    why: "The median reply is 2.1 days, and 9 submissions waited more than four with nobody tracking them.",
-    checkpoint: "You chase, call or wait.",
-    media: { clip: "scenario-d", label: "Video: Harbor Line moves from Waiting to Overdue" },
-    assumes: "Assumes a date per policy is enough.",
-    ifWrong: "If some brokers are always slow, the default is set per broker.",
-  },
-  {
-    stage: "Bind",
-    title: "Autofill, kept to the gaps",
-    decision: "When a document is missing, the gap shows in place on the checklist with suggested values.",
-    why: "Autofill had one passing mention in the interviews, so it gets the smallest role: suggestions in the gaps, and the checklist itself unchanged.",
-    checkpoint: "You accept or dismiss each suggestion.",
-    media: { clip: "scenario-b", label: "Video: one suggestion accepted, one dismissed" },
-  },
-  {
-    stage: "Bind",
-    title: "Show what was verified before an irreversible bind",
-    decision: "A summary of every check comes before an explicit approval.",
-    why: "Binding can’t be undone, and a missed mismatch “comes back to bite us later.”",
-    checkpoint: "You approve the bind.",
-    media: { clip: "scenario-e", label: "Video: a policy is approved and bound" },
-  },
-];
-
-/* ------------------------------ parts ------------------------------ */
-
 const ink = { color: INK };
 const ink2 = { color: MUTED };
 /* Components, as on madhurima.me/work/loan-servicing: 24px padding, a soft 12px radius,
  * no fill, held by a 1px ring rather than a border. */
 const card = { background: "transparent", boxShadow: `0 0 0 1px ${DIVIDER}` };
 
-/** The original's small uppercase eyebrow, in the portfolio's mono. */
-function Eyebrow({ children, className = "" }: { children: ReactNode; className?: string }) {
+/* ------------------------------ copy ------------------------------ */
+
+/** The hero's three facts. */
+const META: [string, string][] = [
+  ["Timeline", "4 hours"],
+  ["Role", "Product designer"],
+  ["Scope", "2 to 3 screens"],
+];
+
+/**
+ * Today's journey, one stage per solution scenario: where it hurts, what the
+ * design needs to do about it, and what the assistant does there, with the
+ * evidence behind it (each figure says whose log it came from).
+ */
+const STAGES: { stage: string; detour?: boolean; pain: string; need: string; action: string; evidence: string[] }[] = [
+  {
+    stage: "Capture",
+    pain: "Assistants hunt across channels before any review can start.",
+    need: "Pick documents up where they already arrive.",
+    action: "Confirm any match the tool is unsure of.",
+    evidence: ["Assistant B spent **11 minutes per submission** finding documents.", "**17 of Assistant B’s 54** submissions arrived **outside the portal**."],
+  },
+  {
+    stage: "Checklist",
+    pain: "A policy cannot bind until every document is in, and a missing one only shows when someone checks.",
+    need: "Show the missing item in place, and ask the broker from there.",
+    action: "Send the request for the missing document.",
+    evidence: ["The checklist itself took Assistant B **3 minutes**.", "Assistant A: “**the checklist itself is fine**.”"],
+  },
+  {
+    stage: "Follow up",
+    detour: true,
+    pain: "Nobody tracks how long a submission has been waiting.",
+    need: "Make waiting visible, with a follow-up date per policy.",
+    action: "Chase, call or wait.",
+    evidence: ["Assistant A’s median wait for a broker reply was **2.1 days**.", "**Nine** of their submissions waited **more than four days**."],
+  },
+  {
+    stage: "Review",
+    pain: "Mismatches are common, and they are found late, by careful reading.",
+    need: "Highlight every difference, and let a person decide each one.",
+    action: "Mark each difference real or acceptable.",
+    evidence: [
+      "**23 of Assistant A’s 61** and **19 of Assistant B’s 54** submissions had a mismatch between documents: **38 and 35 percent**.",
+      "Assistant A reached their first flag **14 minutes** into a submission.",
+    ],
+  },
+  {
+    stage: "Bind",
+    pain: "Binding cannot be undone, and a missed mismatch surfaces months later as a coverage gap the firm cannot cover.",
+    need: "Show what was verified, then ask for an explicit approval.",
+    action: "Approve the bind.",
+    evidence: ["One assistant on a missed mismatch: it “**comes back to bite us later**.”"],
+  },
+];
+
+/** The brief's wishlist: what each item asked for, then why it did or did not make it in. */
+const EXPECTATIONS: { item: string; included: boolean; asked: string; why: string }[] = [
+  {
+    item: "Smart autofill",
+    included: true,
+    asked: "Fill checklist fields automatically from the documents.",
+    why: "In its smallest form: values are read from documents already on file, and the assistant accepts or corrects each one.",
+  },
+  { item: "Cleaner interface", included: true, asked: "A tidier screen than the legacy spreadsheet.", why: "It is the redesign itself, so it needed no separate work." },
+  {
+    item: "Leave the checklist alone",
+    included: true,
+    asked: "Keep the checklist exactly as the assistants know it.",
+    why: "Assistant A said it is fine and it takes 3 minutes, so no steps were added or removed.",
+  },
+  {
+    item: "Mobile access",
+    included: false,
+    asked: "Check and work on submissions from a phone.",
+    why: "Neither the interviews nor the logs showed a need to work away from the desk.",
+  },
+  { item: "AI chat assistant", included: false, asked: "Ask an assistant questions about a submission.", why: "Nobody described a question they would ask it." },
+];
+
+/**
+ * The solution, in the order a submission moves: what the problem is, why it
+ * happens, what Bind Desk does, and where that leaves the assistant.
+ */
+type Scenario = { title: string; problem: string; solution: string; clip: string; label: string; need?: string };
+
+const SCENARIOS: Scenario[] = [
+  {
+    title: "Pick documents up where they arrive",
+    problem: "Documents arrive by portal, email and fax, and assistants **hunt for them** before any work starts. Assistant B spent **11 minutes per submission** just finding them.",
+    solution: "A browser extension **picks attachments up from the web inbox and portal and matches each one to its policy**, and asks when it is unsure. It covers documents that arrive in the browser, so paper and fax are still an open question.",
+    clip: "scenario-c",
+    label: "Video: the capture panel matches documents and asks about a 40% match",
+  },
+  {
+    title: "See what is missing, and ask for it",
+    problem: "A policy **cannot bind until every document is in**, and with the checklist in a separate spreadsheet, a missing one **only shows when someone checks**.",
+    solution: "Captured documents feed straight into their policy’s checklist, which **flags what is missing and drafts the request to the broker**. Empty fields fill from documents on file, for the assistant to accept or correct.",
+    clip: "scenario-b",
+    label: "Video: a value read off the application is corrected, then accepted",
+  },
+  {
+    title: "Catch a mismatch between documents",
+    problem: "Coverage on the certificate has to match the application, and assistants find differences **by reading both**. **More than a third** of submissions had one.",
+    solution: "Both documents sit side by side with every difference highlighted, and **the assistant marks each one real or acceptable**. The ones marked real go straight into a drafted broker email.",
+    clip: "scenario-a",
+    label: "Video: a mismatch is marked real and the broker email is edited",
+  },
+  {
+    title: "Make the wait for brokers visible",
+    problem: "Once a broker is asked for something, the submission waits, **a median of 2.1 days**, and **nobody tracks it**.",
+    solution: "Each policy carries a follow-up date. **When it passes, the row turns Overdue on Home**, and the assistant chooses to chase, call or wait.",
+    clip: "scenario-d",
+    label: "Video: Harbor Line moves from Waiting to Overdue on Home",
+  },
+  {
+    title: "Bind with everything verified",
+    problem: "**Binding cannot be undone**, and a missed mismatch surfaces months later as a **claim the firm cannot cover**.",
+    solution: "**A summary of every check comes before an explicit approval**, so no policy binds without a person seeing what was verified.",
+    clip: "scenario-e",
+    label: "Video: a policy is approved and bound",
+  },
+];
+
+/** Two decisions from the review rounds, each as the first build and what replaced it. */
+const DECISIONS: { title: string; ratio: string; before: { src: string; alt: string; text: string }; after: { src: string; alt: string; text: string } }[] = [
+  {
+    title: "Status as a column, then status as the grouping",
+    ratio: "2432 / 1440",
+    before: {
+      src: `${ART}/process/home-before.jpg`,
+      alt: "The first home table: five columns, Status, Submission, Reason, Broker and Next step, with a coloured status pill on every row.",
+      text: "The first build showed five columns, with a status pill on every row and a call to action in the last one. Every row looked equally urgent at a glance.",
+    },
+    after: {
+      src: `${ART}/process/home-after.jpg`,
+      alt: "The current home table: three columns, with rows grouped under Mismatch, Missing and Overdue bands.",
+      text: "Status became the grouping, so rows sit under Mismatch, Missing, Overdue and Waiting. The table dropped to three columns, with the action folded into the next step.",
+    },
+  },
+  {
+    title: "Separate tabs, then one flow",
+    ratio: "1.3 / 1",
+    before: {
+      src: `${ART}/process/policy-before.jpg`,
+      alt: "The earlier policy page: Checklist, Docs, Follow-up and Bind as tabs, open on Docs.",
+      text: "The policy page started as tabs that opened on the problem: a submission with a mismatch showed only its documents. That hid the rest of the checklist just when the assistant needed to know what else was outstanding.",
+    },
+    after: {
+      src: `${ART}/process/policy-after.jpg`,
+      alt: "The current policy page: the checklist, document mismatch, follow-up and final review as steps on one page.",
+      text: "The tabs became one page in order: the checklist, the document mismatch, the follow-up and the final review. Each step collapses, and its number turns into a tick when it is done.",
+    },
+  },
+];
+
+/** What the logs showed, beside what the design is built to change. */
+const OUTCOMES: { area: string; evidence: string; outcome: string }[] = [
+  { area: "Finding documents", evidence: "11 minutes per submission, and 17 of 54 arrived off the portal.", outcome: "Documents arrive **matched to their policy**, with uncertain matches **confirmed by the assistant**." },
+  { area: "Spotting mismatches", evidence: "35 to 38 percent of submissions had one, and the first flag came 14 minutes in.", outcome: "Differences are **highlighted when the documents arrive**, and the assistant **decides each one**." },
+  { area: "Chasing brokers", evidence: "A median 2.1 days to reply, and nine submissions waited more than four.", outcome: "Overdue submissions **rise to the top of the week** on their own date." },
+  { area: "Binding", evidence: "The checklist took 3 minutes.", outcome: "The checklist is **unchanged**, and binding happens after a **verified summary**." },
+];
+
+/** What comes next, one card each: build and test, what to measure, what to clarify, what each answer changes. */
+const NEXT: { label: string; text: string }[] = [
+  { label: "Build and test", text: "First, build the **mismatch check**, the most frequent problem in the logs, and test it with two or three assistants working the **same seeded week** in the prototype and in the spreadsheet." },
+  { label: "Measure", text: "Measure the **time from a document arriving to a confirmed match**, the **mismatches caught**, and how many submissions **still wait after four days**." },
+  { label: "Clarify", text: "Clarify three things with the brokerage: **whether paper or fax arrives**, **whether a rule exists for minor mismatches**, and **how assistants chase brokers** today." },
+  { label: "What changes", text: "Each answer changes one part of the design: a scan upload, automatic handling of minor differences, or a follow-up default per broker." },
+];
+
+/* ------------------------------ parts ------------------------------ */
+
+/** The small uppercase eyebrow, in the portfolio's mono. */
+function Eyebrow({ children, className = "", style }: { children: ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
-    <p data-ui="Overline" data-src="src/pieces/bindDesk.tsx › Eyebrow" className={`uppercase ${className}`} style={{ ...LABEL, color: MUTED }}>
+    <p data-ui="Overline" data-src="src/pieces/bindDesk.tsx › Eyebrow" className={`uppercase ${className}`} style={{ ...LABEL, color: MUTED, ...style }}>
       {children}
     </p>
   );
 }
 
-/** A section's display title and lede, as the original's Section header. */
+/** A section's headline and lede. */
 function SectionHead({ title, lede }: { title: string; lede?: ReactNode }) {
   return (
     <div data-ui="Section header" data-src="src/pieces/bindDesk.tsx › SectionHead" className="mb-8">
@@ -210,14 +248,16 @@ function SectionHead({ title, lede }: { title: string; lede?: ReactNode }) {
   );
 }
 
-function Sub({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div>
-      <h4 data-ui="Title" data-src="src/pieces/bindDesk.tsx › Sub" className={`mb-6 ${H3}`}>{title}</h4>
-      {children}
-    </div>
-  );
-}
+const P = ({ children, className = "" }: { children: ReactNode; className?: string }) => (
+  <p className={`${MD} ${className}`} style={ink2}>
+    {children}
+  </p>
+);
+const Strong = ({ children }: { children: ReactNode }) => (
+  <strong className="font-semibold" style={ink}>
+    {children}
+  </strong>
+);
 
 /**
  * A band that breaks the page's flow: it runs the full width of the scrolling
@@ -225,7 +265,7 @@ function Sub({ title, children }: { title: string; children: ReactNode }) {
  * padding so the text still lines up with everything else.
  */
 const BODY_PAD = "clamp(24px, 6vw, 110.816px)";
-function Band({ label, title, children }: { label: string; title?: string; children: ReactNode }) {
+function Band({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div
       data-ui="Full-bleed section" data-src="src/pieces/bindDesk.tsx › Band"
@@ -245,12 +285,10 @@ function Band({ label, title, children }: { label: string; title?: string; child
       <p data-ui="Overline" data-src="src/pieces/bindDesk.tsx › Band" className="mb-3 uppercase" style={{ ...LABEL, color: MUTED }}>
         {label}
       </p>
-      {title ? <h4 data-ui="Headline" data-src="src/pieces/bindDesk.tsx › Band" className={`mb-3 ${STATEMENT}`}>{title}</h4> : null}
       <div className="max-w-3xl">{children}</div>
     </div>
   );
 }
-
 
 /** Opens the prototype in its own tab. It is a separate app, not a page of this one. */
 function PrototypeLink({ href = PROTOTYPE, children, outline = false }: { href?: string; children: ReactNode; outline?: boolean }) {
@@ -262,15 +300,27 @@ function PrototypeLink({ href = PROTOTYPE, children, outline = false }: { href?:
   );
 }
 
+/**
+ * A gap only the author can fill, left visible on the page rather than written
+ * around. Every one is greppable as `NEED`.
+ */
+function Need({ children }: { children: ReactNode }) {
+  return (
+    <span
+      data-ui="Gap marker" data-src="src/pieces/bindDesk.tsx › Need"
+      className={`inline-block rounded-[6px] px-2 py-1 ${SM}`}
+      style={{ fontFamily: MONO, color: INK, border: `1px dashed ${MUTED}` }}
+    >
+      [{children}]
+    </span>
+  );
+}
+
 const reduceMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/**
- * A silent looping clip recorded from the prototype, playing only while on
- * screen. With reduced motion it holds on its poster. With `href` the clip
- * is a link into the prototype, with the original's hover call to action.
- */
-function Clip({ name, label, href }: { name: string; label: string; href?: string }) {
+/** A silent looping clip recorded from the prototype, playing only while on screen. With reduced motion it holds on its poster. */
+function Clip({ name, label }: { name: string; label: string }) {
   const ref = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -285,158 +335,520 @@ function Clip({ name, label, href }: { name: string; label: string; href?: strin
     io.observe(el);
     return () => io.disconnect();
   }, []);
-  const video = (
-    <video
-      ref={ref}
-      muted
-      loop
-      playsInline
-      preload="none"
-      poster={`${ART}/${name}.jpg`}
-      aria-label={href ? undefined : label}
-      aria-hidden={href ? true : undefined}
-      className="block aspect-[1440/900] w-full object-cover"
-    >
-      <source src={`${ART}/${name}.webm`} type="video/webm" />
-      <source src={`${ART}/${name}.mp4`} type="video/mp4" />
-    </video>
-  );
   return (
-    // Just the clip: no card surface, rule or well behind it.
-    <div data-ui="Video" data-src="src/pieces/bindDesk.tsx › Clip" className="group relative overflow-hidden rounded-[12px]">
-      {href ? (
-        <a href={href} target="_blank" rel="noreferrer" aria-label={`${label} (opens in a new tab)`} className="block">
-          {video}
-          <span
-            className={`absolute right-3 top-3 inline-flex items-center gap-1 rounded-full px-3 py-2 font-medium opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100 ${XS}`}
-            style={{ background: INK, color: FACE }}
-          >
-            Open the prototype <ArrowIcon size={13} />
-          </span>
-        </a>
-      ) : (
-        video
-      )}
+    <div data-ui="Video" data-src="src/pieces/bindDesk.tsx › Clip" className="overflow-hidden rounded-[12px]" style={{ border: `1px solid ${DIVIDER}` }}>
+      <video ref={ref} muted loop playsInline preload="none" poster={`${ART}/${name}.jpg`} aria-label={label} className="block aspect-[1440/900] w-full object-cover">
+        <source src={`${ART}/${name}.webm`} type="video/webm" />
+        <source src={`${ART}/${name}.mp4`} type="video/mp4" />
+      </video>
     </div>
   );
 }
 
-/** Lucide-style stroke icons, drawn inline so the page needs no icon package. */
-function Icon({ d, size = 12 }: { d: ReactNode; size?: number }) {
+/* ---------------------------- the journey ---------------------------- */
+
+/** One drawn connection: its line, and the arrowhead at its end. */
+type Link = { d: string; tip: string };
+/** A branch's condition, written beside its dashed line. */
+type Label = { text: string; x: number; y: number; vertical?: boolean; alignRight?: boolean };
+
+/** An open arrowhead whose point sits at (x, y), facing the way the line arrives. */
+const chevron = (x: number, y: number, dir: "down" | "left" | "right") =>
+  dir === "down"
+    ? `M ${x - 5} ${y - 7} L ${x} ${y} L ${x + 5} ${y - 7}`
+    : dir === "right"
+      ? `M ${x - 7} ${y - 5} L ${x} ${y} L ${x - 7} ${y + 5}`
+      : `M ${x + 7} ${y - 5} L ${x} ${y} L ${x + 7} ${y + 5}`;
+
+/** The closest ancestor that scrolls the case study body. */
+const scrollerOf = (el: HTMLElement) => el.closest<HTMLElement>("[data-cs-scroller]");
+
+/**
+ * Today's journey. On wide screens the main path is one column of stages,
+ * capture, checklist, review, bind, joined by straight arrows that draw in as
+ * the reader scrolls; each stage's evidence sits opposite it. The detour,
+ * follow-up, is a dashed card in the right column between checklist and
+ * review: dashed lines run in the empty lane between the columns, down from
+ * the checklist (a document is missing) and up from review (a mismatch) into
+ * it, and out of it down the right margin into bind once the broker replies. On the phone the boxes stack and
+ * one line runs down the left edge. The box nearest the middle of the screen
+ * fills in the bands' style and its evidence fades in; the others stay open.
+ */
+function Journey() {
+  const wrap = useRef<HTMLDivElement>(null);
+  /** Each stage's box, and the column holding its title and box (where arrows land). */
+  const boxes = useRef<(HTMLDivElement | null)[]>([]);
+  const heads = useRef<(HTMLDivElement | null)[]>([]);
+  const [geo, setGeo] = useState<{ main: Link[]; detour: Link[]; labels: Label[]; w: number; h: number } | null>(null);
+  const [spot, setSpot] = useState(0);
+  /** The drawn-in copy of each main link, and its arrowhead. */
+  const drawn = useRef<(SVGPathElement | null)[]>([]);
+  const tips = useRef<(SVGPathElement | null)[]>([]);
+  const target = useRef(reduceMotion() ? 1 : 0);
+  const shown = useRef(target.current);
+
+  // The connections, recomputed whenever the layout changes.
+  useLayoutEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      const wide = window.matchMedia("(min-width: 768px)").matches;
+      const rect = (n: HTMLElement | null) => {
+        const b = n!.getBoundingClientRect();
+        const left = b.left - r.left;
+        const top = b.top - r.top;
+        return { left, right: left + b.width, x: left + b.width / 2, top, bottom: top + b.height, mid: top + b.height / 2 };
+      };
+      if (boxes.current.some((b) => !b) || heads.current.some((h) => !h)) return;
+      const box = boxes.current.map(rect);
+      const head = heads.current.map(rect);
+      if (!wide) {
+        // Phone: the main path runs down the gutter, turning into each next stage's
+        // title with an arrowhead; the detour runs dashed in a second lane beside it.
+        const [p1, p2, pf, pr, pb] = box;
+        const [, q2, qf, qr, qb] = head;
+        /** Down a lane from one stage, then a short turn into the next stage's title. */
+        const TIP = 26;
+        const into = (x: number, from: number, to: { top: number }): Link => {
+          const y = to.top + 9;
+          return { d: `M ${x} ${from} L ${x} ${y - 8} Q ${x} ${y}, ${x + 8} ${y} L ${TIP} ${y}`, tip: chevron(TIP, y, "right") };
+        };
+        setGeo({
+          main: [into(8, p1.mid, q2), into(8, p2.mid, qr), into(8, pr.mid, qb)],
+          detour: [into(18, p2.bottom - 24, qf), into(18, pf.bottom - 24, qb)],
+          labels: [],
+          w: r.width,
+          h: r.height,
+        });
+        return;
+      }
+      const GAP = 4;
+      /** Foot of one box to the head of the next stage (above its title), one even S, arrow pointing down. */
+      const down = (a: { x: number; bottom: number }, b: { x: number; top: number }, ax = a.x, bx = b.x): Link => {
+        const y1 = a.bottom;
+        const y2 = b.top - GAP;
+        const k = (y2 - y1) * 0.9;
+        return { d: `M ${ax} ${y1} C ${ax} ${y1 + k}, ${bx} ${y2 - k}, ${bx} ${y2}`, tip: chevron(bx, y2, "down") };
+      };
+      // Stages in data order: capture, checklist, follow-up (the detour), review, bind.
+      const [c1, c2, fu, rv, bd] = box;
+      const [, h2, , h3, h4] = head;
+      // Main path: one column, straight down; checklist to review passes beside the detour card.
+      const main: Link[] = [down(c1, h2), down(c2, h3), down(rv, h4)];
+      // Into the detour through the empty lane between the columns, so no line crosses text.
+      const lane = (c2.right + fu.left) / 2;
+      const rr = 12;
+      /** From one side of a box into the lane, along it (up or down), and out into another box's side. */
+      const zig = (fromX: number, y1: number, y2: number, toX: number): Link => {
+        const s1 = Math.sign(lane - fromX);
+        const s2 = Math.sign(toX - lane);
+        const v = Math.sign(y2 - y1);
+        const endX = toX - s2 * GAP;
+        return {
+          d:
+            `M ${fromX} ${y1} L ${lane - s1 * rr} ${y1} Q ${lane} ${y1}, ${lane} ${y1 + v * rr}` +
+            ` L ${lane} ${y2 - v * rr} Q ${lane} ${y2}, ${lane + s2 * rr} ${y2} L ${endX} ${y2}`,
+          tip: chevron(endX, y2, s2 > 0 ? "right" : "left"),
+        };
+      };
+      // Out of the detour once the broker replies: down the right margin, across the gap above bind, into it.
+      const LANE = 28;
+      const rowRv = boxes.current[3]!.closest("li")!.getBoundingClientRect();
+      const gapY = (rowRv.bottom - r.top + h4.top) / 2;
+      const outX = fu.right + LANE;
+      const inX = bd.right - 40;
+      const y4 = h4.top - GAP;
+      const detour: Link[] = [
+        // A missing document: out of the checklist, down the lane, into follow-up.
+        zig(c2.right, c2.mid, fu.mid - 16, fu.left),
+        // A mismatch: out of review, up the lane, into follow-up.
+        zig(rv.right, rv.mid, fu.mid + 16, fu.left),
+        {
+          d:
+            `M ${fu.right} ${fu.mid} L ${outX - rr} ${fu.mid} Q ${outX} ${fu.mid}, ${outX} ${fu.mid + rr}` +
+            ` L ${outX} ${gapY - rr} Q ${outX} ${gapY}, ${outX - rr} ${gapY} L ${inX + rr} ${gapY}` +
+            ` Q ${inX} ${gapY}, ${inX} ${gapY + rr} L ${inX} ${y4}`,
+          tip: chevron(inX, y4, "down"),
+        },
+      ];
+      // Each branch says when it is taken, written on its own stretch of line (the label's ground breaks the line).
+      const labels: Label[] = [
+        { text: "Document missing", x: lane, y: (c2.mid + fu.mid - 16) / 2, vertical: true },
+        { text: "Mismatch found", x: lane, y: (fu.mid + 16 + rv.mid) / 2, vertical: true },
+        { text: "Broker replies", x: outX, y: (fu.mid + gapY) / 2, vertical: true },
+      ];
+      setGeo({ main, detour, labels, w: r.width, h: r.height });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Scroll sets how much of the main path is drawn; a frame loop eases it
+  // there. The three main links fill in turn, each arrowhead once its link is whole.
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el || !geo) return;
+    const scroller = scrollerOf(el);
+    const lens = drawn.current.map((p) => (p ? p.getTotalLength() : 0));
+    let raf = 0;
+    const draw = () => {
+      const n = lens.length;
+      drawn.current.forEach((p, i) => {
+        if (!p) return;
+        const t = Math.min(1, Math.max(0, shown.current * n - i));
+        p.style.strokeDasharray = String(lens[i]);
+        p.style.strokeDashoffset = String(lens[i] * (1 - t));
+        const tip = tips.current[i];
+        if (tip) tip.style.opacity = t > 0.98 ? "1" : "0";
+      });
+    };
+    const paint = () => {
+      shown.current += (target.current - shown.current) * 0.08;
+      if (Math.abs(target.current - shown.current) < 0.0005) shown.current = target.current;
+      draw();
+      raf = shown.current === target.current ? 0 : requestAnimationFrame(paint);
+    };
+    const onScroll = () => {
+      const view = scroller?.getBoundingClientRect() ?? { top: 0, height: window.innerHeight };
+      const mid = view.top + view.height * 0.6;
+      const r = el.getBoundingClientRect();
+      if (!reduceMotion()) target.current = Math.min(1, Math.max(0, (mid - r.top) / r.height));
+      let best = 0;
+      let dist = Infinity;
+      boxes.current.forEach((b, i) => {
+        if (!b) return;
+        const br = b.getBoundingClientRect();
+        const dd = Math.abs(br.top + br.height / 2 - (view.top + view.height / 2));
+        if (dd < dist) {
+          dist = dd;
+          best = i;
+        }
+      });
+      setSpot(best);
+      if (!raf) raf = requestAnimationFrame(paint);
+    };
+    draw();
+    onScroll();
+    const t: HTMLElement | Window = scroller ?? window;
+    t.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      cancelAnimationFrame(raf);
+      t.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, [geo]);
+
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden className="shrink-0">
-      {d}
+    <div ref={wrap} data-ui="Journey" data-src="src/pieces/bindDesk.tsx › Journey" className="relative">
+      {geo ? (
+        <svg aria-hidden className="pointer-events-none absolute left-0 top-0 overflow-visible" width={geo.w} height={geo.h} fill="none">
+          {geo.detour.map((l, i) => (
+            <g key={`d${i}`} stroke={MUTED} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+              <path d={l.d} strokeDasharray="5 6" />
+              {l.tip ? <path d={l.tip} /> : null}
+            </g>
+          ))}
+          {geo.main.map((l, i) => (
+            <g key={`m${i}`} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d={l.d} stroke={DIVIDER} />
+              {l.tip ? <path d={l.tip} stroke={DIVIDER} /> : null}
+              <path
+                ref={(p) => {
+                  drawn.current[i] = p;
+                }}
+                d={l.d}
+                stroke={INK}
+              />
+              {l.tip ? (
+                <path
+                  ref={(p) => {
+                    tips.current[i] = p;
+                  }}
+                  d={l.tip}
+                  stroke={INK}
+                  style={{ opacity: 0, transition: "opacity 200ms ease-out" }}
+                />
+              ) : null}
+            </g>
+          ))}
+        </svg>
+      ) : null}
+<p data-ui="Legend" data-src="src/pieces/bindDesk.tsx › Journey" className={`mb-10 hidden flex-wrap gap-x-8 gap-y-2 md:flex ${SM}`} style={ink2}>
+        <span className="inline-flex items-center gap-2">
+          <svg width={28} height={4} aria-hidden>
+            <path d="M 1 2 L 27 2" stroke={INK} strokeWidth={2} strokeLinecap="round" />
+          </svg>
+          Main path: capture, checklist, review, bind
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <svg width={28} height={4} aria-hidden>
+            <path d="M 1 2 L 27 2" stroke={MUTED} strokeWidth={1.5} strokeDasharray="5 6" strokeLinecap="round" />
+          </svg>
+          Detour: when a document is missing or a value mismatches
+        </span>
+      </p>
+      {/* Each label hangs from a zero-size point on its line and is centred on it by flex,
+          with a line height of 1 so vertical text carries no off-centre slack. */}
+      {geo?.labels.map((l) => (
+        <div
+          key={l.text}
+          aria-hidden
+          className={`pointer-events-none absolute z-10 flex h-0 w-0 items-center ${l.alignRight ? "justify-end" : "justify-center"}`}
+          style={{ left: l.x, top: l.y }}
+        >
+          <span
+            className="shrink-0 whitespace-nowrap uppercase"
+            style={{
+              ...LABEL,
+              fontSize: 11,
+              lineHeight: 1,
+              letterSpacing: "0.4px",
+              color: MUTED,
+              background: FACE,
+              padding: l.vertical ? "6px 3px" : "3px 4px",
+              writingMode: l.vertical ? "vertical-rl" : undefined,
+            }}
+          >
+            {l.text}
+          </span>
+        </div>
+      ))}
+      <ol className="relative list-none space-y-12 p-0 pl-8 md:space-y-16 md:pl-0">
+        {STAGES.map((s, i) => {
+          const on = spot === i;
+          // Main stages sit in the left column with their evidence opposite; the detour card
+          // sits in the right column with its evidence under it.
+          const detour = s.detour === true;
+          const n = STAGES.slice(0, i + 1).filter((x) => !x.detour).length;
+          return (
+            <li key={s.stage} className="grid items-center gap-4 md:grid-cols-[minmax(0,1fr)_72px_minmax(0,1fr)] md:gap-x-0">
+              {/* The stage's title sits above its box, at the evidence label's size. */}
+              <div
+                ref={(el) => {
+                  heads.current[i] = el;
+                }}
+                className={detour ? "md:col-start-3" : "md:col-start-1"}
+              >
+                <Eyebrow className="mb-2" style={{ fontSize: 13 }}>
+                  {detour ? s.stage : `Stage ${n} · ${s.stage}`}
+                </Eyebrow>
+                <div
+                  ref={(el) => {
+                    boxes.current[i] = el;
+                  }}
+                  data-ui="Journey stage" data-src="src/pieces/bindDesk.tsx › Journey"
+                  className="rounded-[12px] p-6 transition-colors duration-500"
+                  style={{ background: on ? SURFACE : FACE, border: `1px ${detour ? "dashed" : "solid"} ${detour ? MUTED : DIVIDER}` }}
+                >
+                  <dl className="space-y-3">
+                    {(
+                      [
+                        ["Pain point", s.pain],
+                        ["Need", s.need],
+                        ["User action", s.action],
+                      ] as const
+                    ).map(([k, v]) => (
+                      <div key={k}>
+                        <dt className="uppercase" style={{ ...LABEL, fontSize: 12, color: MUTED }}>
+                          {k}
+                        </dt>
+                        <dd className={`m-0 ${SM}`} style={ink2}>
+                          {v}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              </div>
+              {/* The evidence floats beside its box as plain text, and only while that box is in focus.
+                  On the phone it sits under its box instead, so it always shows: fading it there left gaps. */}
+              <div
+                data-ui="Evidence" data-src="src/pieces/bindDesk.tsx › Journey"
+                className="space-y-2 transition-[opacity,transform] duration-500 ease-out motion-reduce:transition-none max-md:!transform-none max-md:!opacity-100 md:col-start-3"
+                style={{ opacity: on ? 1 : 0, transform: on ? "none" : "translateY(8px)" }}
+              >
+                <Eyebrow style={{ fontSize: 13 }}>Evidence</Eyebrow>
+                {s.evidence.map((e) => (
+                  <p key={e} className={SM} style={ink2}>
+                    <Marked text={e} />
+                  </p>
+                ))}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+
+    </div>
+  );
+}
+
+/**
+ * The journey on the phone: one slide at a time in a sideways row, the next
+ * peeking in at the edge, swiped to reveal it. Solid arrows carry the main
+ * path from slide to slide. The last slide is a stack, bind over follow-up:
+ * review's solid arrow runs into bind, its dashed arrow into follow-up below
+ * (a document missing or a mismatch found), and a dashed arrow climbs from
+ * follow-up into bind once the broker replies. The slide in view fills in and
+ * dots underneath show where the reader is.
+ */
+const STACK = { top: 4, under: 2 };
+const PHONE_SLIDES: number[][] = [[0], [1], [3], [STACK.top, STACK.under]];
+
+function PhoneStage({ s, on, cardRef }: { s: (typeof STAGES)[number]; on: boolean; cardRef?: (el: HTMLDivElement | null) => void }) {
+  const detour = s.detour === true;
+  const n = STAGES.filter((x) => !x.detour).indexOf(s) + 1;
+  return (
+    <div>
+      <Eyebrow className="mb-2" style={{ fontSize: 13 }}>
+        {detour ? s.stage : `Stage ${n} · ${s.stage}`}
+      </Eyebrow>
+      <div
+        ref={cardRef}
+        data-ui="Journey stage" data-src="src/pieces/bindDesk.tsx › JourneyCarousel"
+        className="rounded-[12px] p-5 transition-colors duration-500"
+        style={{ background: on ? SURFACE : FACE, border: `1px ${detour ? "dashed" : "solid"} ${detour ? MUTED : DIVIDER}` }}
+      >
+        <dl className="space-y-3">
+          {(
+            [
+              ["Pain point", s.pain],
+              ["Need", s.need],
+              ["User action", s.action],
+            ] as const
+          ).map(([k, v]) => (
+            <div key={k}>
+              <dt className="uppercase" style={{ ...LABEL, fontSize: 12, color: MUTED }}>
+                {k}
+              </dt>
+              <dd className={`m-0 ${SM}`} style={ink2}>
+                {v}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+      <div className="mt-4 space-y-2">
+        <Eyebrow style={{ fontSize: 13 }}>Evidence</Eyebrow>
+        {s.evidence.map((e) => (
+          <p key={e} className={SM} style={ink2}>
+            <Marked text={e} />
+          </p>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** A short sideways arrow between slides: solid on the main path, dashed into the detour. */
+function SideArrow({ dashed = false, top }: { dashed?: boolean; top: number }) {
+  const c = dashed ? MUTED : INK;
+  return (
+    <svg aria-hidden className="absolute right-0 w-6" style={{ top }} height={14} viewBox="0 0 24 14" fill="none">
+      <path d="M 3 7 L 19 7" stroke={c} strokeWidth={dashed ? 1.5 : 2} strokeDasharray={dashed ? "3 3" : undefined} strokeLinecap="round" />
+      <path d="M 14 2 L 20 7 L 14 12" stroke={c} strokeWidth={dashed ? 1.5 : 2} strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
-const CHECK = <path d="M20 6 9 17l-5-5" />;
-const ALERT = (
-  <>
-    <circle cx="12" cy="12" r="10" />
-    <path d="M12 8v4M12 16h.01" />
-  </>
-);
 
-/* ---------------------------- the journey ---------------------------- */
-
-type Stage = (typeof JOURNEY)[number];
-
-/**
- * The journey as a map: stage names along a timeline, a row each for what
- * happens, the evidence and what the person does. A hollow dot is a gap; the
- * one filled dot, Bind, is where the design agrees and leaves the checklist alone,
- * so that column is lifted off the page.
- */
-const MAP_ROWS: { label: string; get: (s: Stage) => string; strong?: boolean }[] = [
-  { label: "What happens", get: (s) => s.happens },
-  { label: "Evidence", get: (s) => s.evidence },
-  { label: "You", get: (s) => s.check, strong: true },
-];
-const MAP_COLS = "84px repeat(6, minmax(0, 1fr))";
-
-const Dot = ({ agrees }: { agrees: boolean }) => (
-  <span
-    aria-hidden
-    className="relative z-10 block h-2.5 w-2.5 shrink-0 rounded-full"
-    style={{ background: agrees ? INK : FACE, boxShadow: `0 0 0 2px ${INK}` }}
-  />
-);
-
-const monoLabel = { ...ink2, fontFamily: MONO, letterSpacing: "0.4px" } as const;
-
-/** One stage on the phone: the same rows, stacked under its name. */
-function StageCard({ s }: { s: Stage }) {
-  return (
-    <>
-      <p className="flex items-center gap-2 uppercase" style={{ ...monoLabel, color: INK, fontSize: 14 }}>
-        <Dot agrees={s.agrees} />
-        {s.stage}
-      </p>
-      <dl className="mt-4 space-y-3">
-        {MAP_ROWS.map((r) => (
-          <div key={r.label}>
-            <dt className={`uppercase ${XS}`} style={monoLabel}>
-              {r.label}
-            </dt>
-            <dd className={`mt-1 ${SM} ${r.strong ? "font-medium" : ""}`} style={r.strong ? ink : ink2}>
-              {r.get(s)}
-            </dd>
-          </div>
-        ))}
-      </dl>
-      {s.agrees ? (
-        <p className={`mt-4 ${SM} font-medium`} style={ink}>
-          Leave the checklist alone
-        </p>
-      ) : null}
-    </>
-  );
-}
-
-/**
- * The phone's journey: one stage at a time, swiped sideways. Each card hugs its
- * own content; only the centred card is filled and outlined, and the
- * neighbours peek in either side with neither.
- */
-function JourneyCards() {
-  const track = useRef<HTMLUListElement>(null);
+function JourneyCarousel() {
+  const track = useRef<HTMLOListElement>(null);
   const [at, setAt] = useState(0);
-  /** Distance between two cards' left edges: the card's width plus the gap. */
+  /** Where the two stacked cards sit in their slide, so review's arrows land on each. */
+  const topCard = useRef<HTMLDivElement | null>(null);
+  const underCard = useRef<HTMLDivElement | null>(null);
+  const [aim, setAim] = useState({ top: 120, under: 600 });
+  useLayoutEffect(() => {
+    const measure = () => {
+      const li = topCard.current?.closest("li");
+      if (!li || !topCard.current || !underCard.current) return;
+      const base = li.getBoundingClientRect().top;
+      const mid = (el: HTMLElement) => {
+        const r = el.getBoundingClientRect();
+        return Math.round(r.top - base + Math.min(r.height / 2, 90) - 7);
+      };
+      setAim({ top: mid(topCard.current), under: mid(underCard.current) });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (track.current) ro.observe(track.current);
+    return () => ro.disconnect();
+  }, []);
+  /** Distance between two slides' left edges. */
   const stride = () => {
     const kids = track.current?.children;
     return kids && kids.length > 1 ? (kids[1] as HTMLElement).offsetLeft - (kids[0] as HTMLElement).offsetLeft : 0;
   };
-  const go = (i: number) => track.current?.scrollTo({ left: i * stride(), behavior: "smooth" });
+  const go = (i: number) => track.current?.scrollTo({ left: i * stride(), behavior: reduceMotion() ? "auto" : "smooth" });
+  const last = PHONE_SLIDES.length - 1;
   return (
-    <div data-ui="Carousel" data-src="src/pieces/bindDesk.tsx › JourneyCards" className="md:hidden">
-      <ul
+    <div data-ui="Carousel" data-src="src/pieces/bindDesk.tsx › JourneyCarousel" className="md:hidden">
+      <ol
         ref={track}
         onScroll={(e) => {
           const st = stride();
           if (st) setAt(Math.round(e.currentTarget.scrollLeft / st));
         }}
-        className="no-scrollbar m-0 flex list-none snap-x snap-mandatory items-start gap-3 overflow-x-auto p-0 px-[9%] [scroll-padding-inline:9%]"
+        className="no-scrollbar -mx-6 flex list-none snap-x snap-mandatory items-start overflow-x-auto p-0 px-6 [scroll-padding-inline:24px]"
         aria-label="Journey stages, swipe sideways"
       >
-        {JOURNEY.map((s, i) => (
-          <li key={s.stage} data-ui="Carousel item" data-src="src/pieces/bindDesk.tsx › JourneyCards" className="w-full shrink-0 snap-center" aria-label={`Stage ${i + 1} of ${JOURNEY.length}`}>
-            <div
-              data-ui="Card" data-src="src/pieces/bindDesk.tsx › JourneyCards"
-              className="rounded-[12px] p-6 transition-[background-color,box-shadow] duration-200"
-              style={at === i ? { background: SURFACE, boxShadow: `0 0 0 1px ${DIVIDER}` } : { background: "transparent", boxShadow: "0 0 0 1px transparent" }}
+        {PHONE_SLIDES.map((slide, i) => {
+          const on = at === i;
+          const stacked = slide.length > 1;
+          return (
+            <li
+              key={slide.join("-")}
+              className="relative shrink-0 snap-start"
+              style={{ width: i < last ? "calc(100% - 24px)" : "calc(100% - 48px)", paddingRight: i < last ? 24 : 0 }}
+              aria-label={`Slide ${i + 1} of ${PHONE_SLIDES.length}`}
             >
-              <StageCard s={s} />
-            </div>
-          </li>
-        ))}
-      </ul>
-      <div data-ui="Pagination" data-src="src/pieces/bindDesk.tsx › JourneyCards" className="mt-4 flex justify-center gap-2" role="group" aria-label="Choose a stage">
-        {JOURNEY.map((s, i) => (
+              {stacked ? (
+                <>
+                  <PhoneStage s={STAGES[STACK.top]} on={on} cardRef={(el) => (topCard.current = el)} />
+                  {/* Up from follow-up into bind, once the broker replies. */}
+                  <div className="my-4 flex items-center gap-3 pl-6" aria-hidden>
+                    <svg width={14} height={44} viewBox="0 0 14 44" fill="none">
+                      <path d="M 7 42 L 7 4" stroke={MUTED} strokeWidth={1.5} strokeDasharray="3 3" strokeLinecap="round" />
+                      <path d="M 2 9 L 7 3 L 12 9" stroke={MUTED} strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    <span className="uppercase" style={{ ...LABEL, fontSize: 11, color: MUTED }}>
+                      Broker replies
+                    </span>
+                  </div>
+                  <p className="mb-1 uppercase" style={{ ...LABEL, fontSize: 11, color: MUTED }}>
+                    Document missing or mismatch found
+                  </p>
+                  <PhoneStage s={STAGES[STACK.under]} on={on} cardRef={(el) => (underCard.current = el)} />
+                </>
+              ) : (
+                <PhoneStage s={STAGES[slide[0]]} on={on} />
+              )}
+              {/* On to the next slide; review splits, solid into bind and dashed into follow-up. */}
+              {i < last ? (
+                i === last - 1 ? (
+                  <>
+                    <SideArrow top={aim.top} />
+                    <SideArrow dashed top={aim.under} />
+                  </>
+                ) : (
+                  <SideArrow top={120} />
+                )
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
+      <div data-ui="Pagination" data-src="src/pieces/bindDesk.tsx › JourneyCarousel" className="mt-5 flex items-center justify-center gap-2" role="group" aria-label="Choose a slide">
+        {PHONE_SLIDES.map((slide, i) => (
           <button
-            key={s.stage}
+            key={slide.join("-")}
             type="button"
             onClick={() => go(i)}
-            aria-label={`Stage ${i + 1}: ${s.stage}`}
+            aria-label={`Slide ${i + 1}: ${slide.map((k) => STAGES[k].stage).join(" and ")}`}
             aria-current={at === i ? "true" : undefined}
             className="h-2 rounded-full p-0 transition-all duration-200"
             style={{ width: at === i ? 20 : 8, background: at === i ? INK : DIVIDER }}
@@ -447,460 +859,172 @@ function JourneyCards() {
   );
 }
 
-function Journey() {
-  const last = JOURNEY.length - 1;
-  /** The column the design agrees with is lifted: a soft panel, rounded top and bottom. */
-  const lift = (i: number, row: number, rows: number) =>
-    JOURNEY[i].agrees
-      ? ({
-          background: WELL,
-          borderTopLeftRadius: row === 0 ? 12 : 0,
-          borderTopRightRadius: row === 0 ? 12 : 0,
-          borderBottomLeftRadius: row === rows - 1 ? 12 : 0,
-          borderBottomRightRadius: row === rows - 1 ? 12 : 0,
-        } as const)
-      : undefined;
-  const rows = MAP_ROWS.length + 2;
+/* ------------------------- stakeholder expectations ------------------------- */
+
+/**
+ * The wishlist in two groups side by side, Included and Not included, each
+ * named once. A group's rows share its colour as a quiet tint and a hairline
+ * stroke. On the phone the groups stack.
+ */
+function Expectations() {
+  const groups = [
+    { title: "Included", included: true, c: YES },
+    { title: "Not included", included: false, c: NO },
+  ];
+  return (
+    <div className="grid items-start gap-8 md:grid-cols-2 md:gap-6">
+      {groups.map((g) => (
+        <div key={g.title}>
+          <p className="mb-3 flex items-center gap-2 uppercase" style={{ ...LABEL, color: g.c }}>
+            <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+              {g.included ? <path d="M20 6 9 17l-5-5" /> : <path d="M18 6 6 18M6 6l12 12" />}
+            </svg>
+            {g.title}
+          </p>
+          <ul data-ui="List" data-src="src/pieces/bindDesk.tsx › Expectations" className="list-none space-y-3 p-0">
+            {EXPECTATIONS.filter((e) => e.included === g.included).map((e) => (
+              <li
+                key={e.item}
+                data-ui="Row" data-src="src/pieces/bindDesk.tsx › Expectations"
+                className="rounded-[12px] p-4"
+                style={{
+                  background: `color-mix(in srgb, ${g.c} 5%, transparent)`,
+                  border: `1px solid color-mix(in srgb, ${g.c} 35%, transparent)`,
+                }}
+              >
+                <p className={H4} style={ink}>
+                  {e.item}
+                </p>
+                <p className={`mt-1 ${SM}`} style={ink2}>
+                  {e.asked} {e.why}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---------------------------- solution ---------------------------- */
+
+/** Copy with its key phrases marked `**like this**`: the phrases set bright and semibold, the rest left muted. */
+function Marked({ text }: { text: string }) {
   return (
     <>
-      <JourneyCards />
-      <div data-ui="Timeline" data-src="src/pieces/bindDesk.tsx › Journey" className="hidden md:block">
-        <div className="grid" style={{ gridTemplateColumns: MAP_COLS, columnGap: 8 }}>
-          {/* Stage names, each with a tick down to its dot. */}
-          <span />
-          {JOURNEY.map((s, i) => (
-            <div key={s.stage} className="px-2 pt-3" style={lift(i, 0, rows)}>
-              <p className="uppercase" style={{ ...monoLabel, color: INK, fontSize: 13, lineHeight: "16px" }}>
-                {s.stage}
-              </p>
-              <span aria-hidden className="mt-3 block h-4 w-px" style={{ background: INK }} />
-            </div>
-          ))}
-          {/* The timeline: a hairline through every dot. */}
-          <span className="relative h-5">
-            <span aria-hidden className="absolute -right-1 left-0 top-1/2 h-px" style={{ background: DIVIDER }} />
-          </span>
-          {JOURNEY.map((s, i) => (
-            <div key={s.stage} className="relative h-5 px-2" style={lift(i, 1, rows)}>
-              <span aria-hidden className="absolute -left-1 top-1/2 h-px" style={{ background: DIVIDER, right: i === last ? 0 : -4 }} />
-              <span className="absolute left-2 top-1/2 -translate-y-1/2">
-                <Dot agrees={s.agrees} />
-              </span>
-            </div>
-          ))}
-          {MAP_ROWS.map((r, ri) => (
-            <div key={r.label} className="contents">
-              <p className={`pt-4 ${SM}`} style={{ ...ink, fontFamily: "'Roboto Slab', serif" }}>
-                {r.label}
-              </p>
-              {JOURNEY.map((s, i) => (
-                <p
-                  key={s.stage}
-                  className={`px-2 pt-4 ${SM} ${r.strong ? "font-medium" : ""}`}
-                  style={{ ...(r.strong ? ink : ink2), ...lift(i, ri + 2, rows), paddingBottom: ri === MAP_ROWS.length - 1 ? 16 : 0 }}
-                >
-                  {r.get(s)}
-                </p>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-      <p className={`mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 ${SM}`} style={ink2}>
-        <span className="inline-flex items-center gap-2">
-          <Dot agrees={false} /> A gap, not on the wishlist
-        </span>
-        <span className="inline-flex items-center gap-2">
-          <Dot agrees /> Agrees: leave the checklist alone
-        </span>
-      </p>
+      {text.split("**").map((part, i) => (i % 2 === 1 ? <Strong key={i}>{part}</Strong> : part))}
     </>
   );
 }
 
-/* ------------------------------ charts ------------------------------ */
-
-function Bar({
-  label,
-  value,
-  max,
-  display,
-  inside,
-  quiet = false,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  display: string;
-  /** Text set inside the filled bar. The bar is never narrower than this text. */
-  inside?: string;
-  quiet?: boolean;
-}) {
-  return (
-    <div data-ui="Bar" data-src="src/pieces/bindDesk.tsx › Bar" className={`flex items-center gap-3 ${SM}`}>
-      <span className="w-[112px] shrink-0 sm:w-[150px]" style={ink2}>
-        {label}
-      </span>
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <div className="h-6 flex-1 rounded-[4px]" style={{ background: WELL }}>
-          <div
-            className="flex h-6 items-center whitespace-nowrap rounded-[4px] px-2"
-            style={{ width: `${(value / max) * 100}%`, minWidth: inside ? "max-content" : undefined, background: quiet ? MUTED : INK, color: FACE }}
-          >
-            {inside ? <span className={XS}>{inside}</span> : null}
-          </div>
-        </div>
-        <span className="w-[56px] shrink-0 text-[14px]" style={{ ...ink, fontFamily: MONO }}>
-          {display}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function MismatchChart() {
-  return (
-    <figure data-ui="Bar chart" data-src="src/pieces/bindDesk.tsx › MismatchChart" className="mt-6 rounded-[12px] p-6" style={card}>
-      <figcaption className={`mb-4 font-medium ${SM}`}>Submissions with a mismatch, 30 days</figcaption>
-      <div className="space-y-3">
-        <Bar label="Assistant A" value={23} max={61} display="38%" inside="23 of 61" />
-        <Bar label="Assistant B" value={19} max={54} display="35%" inside="19 of 54" />
-        <Bar label="B’s guess" value={33} max={100} display="33%" inside="guess" quiet />
-      </div>
-    </figure>
-  );
-}
-
-function MinutesChart() {
-  return (
-    <figure data-ui="Bar chart" data-src="src/pieces/bindDesk.tsx › MinutesChart" className="mt-6 rounded-[12px] p-6" style={card}>
-      <figcaption className={`mb-4 font-medium ${SM}`}>Minutes per submission</figcaption>
-      <div className="space-y-3">
-        <Bar label="Find documents (Assistant B)" value={11} max={14} display="11 min" />
-        <Bar label="First flag (Assistant A)" value={14} max={14} display="14 min" />
-        <Bar label="Checklist (Assistant B)" value={3} max={14} display="3 min" quiet />
-      </div>
-    </figure>
-  );
-}
-
-/* ------------------------------ table ------------------------------ */
-
-/** A real table from md up. Below it each row stacks, with its own labels. */
-function ResponsiveTable({ head, rows }: { head: string[]; rows: string[][] }) {
-  return (
-    <div data-ui="Data table" data-src="src/pieces/bindDesk.tsx › ResponsiveTable" className="overflow-hidden rounded-[12px]" style={card}>
-      <table className={`w-full text-left ${SM}`}>
-        <thead className={`hidden md:table-header-group ${XS}`} style={{ background: WELL, color: MUTED }}>
-          <tr>
-            {head.map((h) => (
-              <th key={h} scope="col" className="px-6 py-3 font-medium" style={{ borderBottom: `1px solid ${DIVIDER}` }}>
-                {h}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, ri) => (
-            <tr key={ri} className="block px-6 py-4 md:table-row md:p-0" style={{ borderBottom: ri === rows.length - 1 ? "none" : `1px solid ${DIVIDER}` }}>
-              {r.map((c, i) => (
-                <td
-                  key={i}
-                  className={`block md:table-cell md:px-6 md:py-3 md:align-top ${i === 0 ? `${H4} md:w-[30%]` : "mt-1 md:mt-0"}`}
-                  style={i === 0 ? ink : ink2}
-                >
-                  {i > 0 ? (
-                    <span className={`mr-1 md:hidden ${XS}`} style={ink2}>
-                      {head[i]}:
-                    </span>
-                  ) : null}
-                  {c}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-/* ------------------------------ cards ------------------------------ */
-
-function PhaseCards({ items, label }: { items: [string, string][]; label: string }) {
-  return (
-    <ol data-ui="Card grid" data-src="src/pieces/bindDesk.tsx › PhaseCards" className="grid gap-6 md:grid-cols-3">
-      {items.map(([title, rest], i) => (
-        <li key={title} data-ui="Card" data-src="src/pieces/bindDesk.tsx › PhaseCards" className="rounded-[12px] p-6" style={card}>
-          <p className={XS} style={{ ...ink2, fontFamily: MONO }}>
-            {label} {i + 1}
-          </p>
-          <h5 className={`mt-1 ${H4}`}>{title}</h5>
-          <p className={`mt-1 ${SM}`} style={ink2}>
-            {rest}
-          </p>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-/* ---------------------------- moments ---------------------------- */
-
-function QuestionCards() {
-  return (
-    <ol data-ui="Card grid" data-src="src/pieces/bindDesk.tsx › QuestionCards" className="grid gap-6 md:grid-cols-2">
-      {QUESTIONS.map((q, i) => (
-        <li key={q.q} data-ui="Card" data-src="src/pieces/bindDesk.tsx › QuestionCards" className="flex flex-col rounded-[12px] p-6" style={card}>
-          <span className={XS} style={{ ...ink2, fontFamily: MONO }}>
-            Q{i + 1}
-          </span>
-          <p className={`mt-1 ${H4}`}>{q.q}</p>
-          <dl className={`mt-3 flex-1 space-y-2 pt-3 ${SM}`} style={{ borderTop: `1px solid ${DIVIDER}` }}>
-            {(
-              [
-                ["Assumed", q.assumed],
-                ["If wrong", q.ifWrong],
-              ] as const
-            ).map(([k, v]) => (
-              <div key={k} className="flex gap-3">
-                <dt className="w-[88px] shrink-0" style={ink2}>
-                  {k}
-                </dt>
-                <dd style={ink}>{v}</dd>
-              </div>
-            ))}
-          </dl>
-          <p className={`mt-4 ${XS}`} style={ink2}>
-            Shapes: <span className="font-medium">{q.shapes}</span>
-          </p>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 /**
- * A moment's copy beside its clip or tall capture. Alternate rows swap sides;
- * a wide capture sits full width under its copy. On the phone the copy comes first.
+ * One scenario: its number and title across the top, then the clip and the two
+ * short paragraphs side by side, centred on each other. On the phone they stack,
+ * clip first.
  */
-function MomentCard({ m, i }: { m: Moment; i: number }) {
-  const wide = "img" in m.media && !m.media.tall;
-  const flip = !wide && i % 2 === 1;
+function ScenarioCard({ s, i }: { s: Scenario; i: number }) {
   return (
-    <article data-ui="Media object" data-src="src/pieces/bindDesk.tsx › MomentCard" className={`grid gap-6 md:items-center md:gap-10 ${wide ? "" : flip ? "md:grid-cols-[1.45fr_1fr]" : "md:grid-cols-[1fr_1.45fr]"}`}>
-      <div className={flip ? "md:order-2" : ""}>
-        <Eyebrow>{m.stage}</Eyebrow>
-        <h4 className={`mt-2 ${STATEMENT}`}>{m.title}</h4>
-        <div className={`mt-3 space-y-4 ${MD}`} style={ink2}>
-          <p>
-            <strong className="font-semibold" style={ink}>
-              {m.decision}
-            </strong>
-          </p>
-          <p>{m.why}</p>
-          <p className={`border-l-2 pl-3 ${SM}`} style={{ ...ink2, borderColor: DIVIDER }}>
-            Human checkpoint: <span style={ink}>{m.checkpoint}</span>
-          </p>
-          {m.assumes ? (
-            <p className={SM} style={ink2}>
-              {m.assumes} {m.ifWrong}
+    <article data-ui="Media object" data-src="src/pieces/bindDesk.tsx › ScenarioCard">
+      <Eyebrow>Scenario {i + 1}</Eyebrow>
+      <h4 className={`mt-2 ${STATEMENT}`}>{s.title}</h4>
+      <div className="mt-6 grid items-center gap-6 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:gap-10">
+        <div>
+          <Clip name={s.clip} label={s.label} />
+          {s.need ? (
+            <p className="mt-3">
+              <Need>{s.need}</Need>
             </p>
           ) : null}
         </div>
-      </div>
-      <div className={flip ? "md:order-1" : ""}>
-        {"clip" in m.media ? (
-          <Clip name={m.media.clip} label={m.media.label} />
-        ) : (
-          <div
-            data-ui="Figure" data-src="src/pieces/bindDesk.tsx › MomentCard"
-            className={`overflow-hidden rounded-[12px] ${m.media.tall ? "p-6 md:p-8" : ""}`}
-            style={{ background: m.media.tall ? WELL : undefined, border: `1px solid ${DIVIDER}` }}
-          >
-            <img
-              src={`${ART}/design/${m.media.img}.png`}
-              alt={m.media.alt}
-              loading="lazy"
-              decoding="async"
-              className={`block h-auto ${m.media.tall ? "mx-auto w-full max-w-[300px] rounded-[12px]" : "w-full"}`}
-            />
-          </div>
-        )}
+        <div className={`space-y-3 ${MD}`} style={ink2}>
+          {/* The problem stays all grey; only the solution carries highlights. */}
+          <p>{s.problem.split("**").join("")}</p>
+          <p>
+            <Marked text={s.solution} />
+          </p>
+        </div>
       </div>
     </article>
   );
 }
 
-/* ------------------------------ AI tag ------------------------------ */
+/* ---------------------------- design process ---------------------------- */
 
-type Review = "Needs your review" | "Confirmed by you" | "Automatic";
-
-const AI_ICON: Record<string, ReactNode> = {
-  "Document intelligence": (
-    <>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <circle cx="11.5" cy="14.5" r="2.5" />
-      <path d="M13.3 16.3 15 18" />
-    </>
-  ),
-  Agent: (
-    <>
-      <rect x="3" y="11" width="18" height="10" rx="2" />
-      <circle cx="12" cy="5" r="2" />
-      <path d="M12 7v4M8 16h.01M16 16h.01" />
-    </>
-  ),
-  Integration: <path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z" />,
-  "Private environment": (
-    <>
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
-      <path d="m9 12 2 2 4-4" />
-    </>
-  ),
-};
-
-/**
- * The prototype's AI tag: capability, what it did, review state, and "Why?".
- * The detail opens in place rather than as a floating popover, so it can
- * never run past the edge of the body column.
- */
-function AiTag({
-  variant,
-  did,
-  review,
-  why,
-}: {
-  variant: string;
-  did: string;
-  review: Review;
-  why: { evidence: string[]; confidence?: string; approval: string; audit: string[] };
-}) {
-  const [open, setOpen] = useState(false);
-  const id = useId();
-  const pill =
-    review === "Confirmed by you"
-      ? { background: INK, color: FACE, border: `1px solid ${INK}` }
-      : review === "Needs your review"
-        ? { color: INK, border: `1px solid ${INK}` }
-        : { color: MUTED, border: `1px solid ${DIVIDER}` };
-  const rows: [string, string[]][] = [
-    ["Source evidence", why.evidence],
-    ["Confidence", why.confidence ? [why.confidence] : []],
-    ["Approval", [why.approval]],
-    ["Audit trail", why.audit],
-  ];
+/** One screen in a decision pair: the same-sized frame as its partner, with its own description under it. */
+function Shot({ label, src, alt, text, ratio }: { label: string; src: string; alt: string; text: string; ratio: string }) {
   return (
-    <div className={`flex flex-col items-start gap-1 ${XS}`}>
-      <span className="inline-flex items-center gap-1 font-medium" style={ink}>
-        <Icon d={AI_ICON[variant]} size={13} />
-        {variant}
-      </span>
-      <span style={ink2}>{did}</span>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex h-6 items-center rounded-full px-2 text-[14px] font-medium" style={pill}>
-          {review}
-        </span>
-        <button
-          type="button"
-          aria-expanded={open}
-          aria-controls={id}
-          onClick={() => setOpen((o) => !o)}
-          className="rounded px-1 font-medium underline decoration-dotted underline-offset-2"
-          style={ink2}
-        >
-          Why?
-        </button>
+    <figure>
+      <Eyebrow className="mb-2">{label}</Eyebrow>
+      <div className="overflow-hidden rounded-[12px]" style={{ border: `1px solid ${DIVIDER}`, background: WELL, aspectRatio: ratio }}>
+        <img src={src} alt={alt} loading="lazy" decoding="async" className="block h-full w-full object-cover object-left-top" />
       </div>
-      {open ? (
-        <dl id={id} className="mt-2 w-full space-y-3 pt-2" style={{ borderTop: `1px solid ${DIVIDER}` }}>
-          {rows.map(([k, v]) =>
-            v.length ? (
-              <div key={k}>
-                <dt className="mb-1 font-medium" style={ink}>
-                  {k}
-                </dt>
-                {v.map((line) => (
-                  <dd key={line} style={{ ...ink2, fontFamily: k === "Audit trail" ? MONO : undefined }}>
-                    {line}
-                  </dd>
-                ))}
-              </div>
-            ) : null,
-          )}
-        </dl>
-      ) : null}
-    </div>
+      <figcaption className={`mt-3 ${SM}`} style={ink2}>
+        {text}
+      </figcaption>
+    </figure>
   );
 }
 
-const TAGS: { variant: string; did: string; review: Review; why: Parameters<typeof AiTag>[0]["why"] }[] = [
-  {
-    variant: "Document intelligence",
-    did: "Compared 9 fields across 2 documents",
-    review: "Needs your review",
-    why: {
-      evidence: ["Application: client portal", "Certificate of insurance: email attachment"],
-      confidence: "Each occurrence: 98%",
-      approval: "You mark each difference.",
-      audit: ["9 fields compared, 2 differ"],
-    },
-  },
-  {
-    variant: "Agent",
-    did: "Drafted the broker email from your decisions",
-    review: "Confirmed by you",
-    why: {
-      evidence: ["Each occurrence: $1,000,000 vs $2,000,000"],
-      approval: "Sent only after you pressed Send.",
-      audit: ["Draft generated", "Edited and sent by you"],
-    },
-  },
-  {
-    variant: "Integration",
-    did: "Reads attachments in the open web inbox",
-    review: "Automatic",
-    why: {
-      evidence: ["Open web inbox"],
-      approval: "Read-only. Nothing in the inbox is changed.",
-      audit: ["5 messages scanned"],
-    },
-  },
-  {
-    variant: "Private environment",
-    did: "Assumes documents stay inside the firm's own environment",
-    review: "Automatic",
-    why: {
-      evidence: ["A deployment assumption, not built in the prototype"],
-      approval: "Would be set by the firm's IT team.",
-      audit: ["No compliance certification is claimed here"],
-    },
-  },
-];
+/* ------------------------------ outcome ------------------------------ */
+
+function OutcomeRows() {
+  return (
+    <ul data-ui="Card grid" data-src="src/pieces/bindDesk.tsx › OutcomeRows" className="grid list-none gap-4 p-0 md:grid-cols-2">
+      {OUTCOMES.map((o) => (
+        <li key={o.area} className="flex flex-col">
+          {/* The title sits above the card, outside it. */}
+          <p className={`mb-3 ${H4}`} style={ink}>
+            {o.area}
+          </p>
+          <dl data-ui="Card" data-src="src/pieces/bindDesk.tsx › OutcomeRows" className={`m-0 flex flex-1 flex-col gap-4 rounded-[12px] p-6 ${SM}`} style={card}>
+            <div>
+              <dt className="uppercase" style={{ ...LABEL, fontSize: 12, color: MUTED }}>
+                With Bind Desk
+              </dt>
+              <dd className="m-0" style={ink2}>
+                <Marked text={o.outcome} />
+              </dd>
+            </div>
+            {/* Under a divider that runs edge to edge across the card, pinned to its foot so the rows line up. */}
+            <div className="-mx-6 mt-auto px-6 pt-4" style={{ borderTop: `1px solid ${DIVIDER}` }}>
+              <dt className="uppercase" style={{ ...LABEL, fontSize: 12, color: MUTED }}>
+                In the logs
+              </dt>
+              <dd className="m-0" style={ink2}>
+                {o.evidence}
+              </dd>
+            </div>
+          </dl>
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /* ------------------------------ sections ------------------------------ */
 
-/**
- * The hero. CaseStudy renders this under the meta row in place of its
- * default title line: title, what kind of project this is, then the buttons.
- * The summary lives in the TL;DR band below, not here.
- */
+/** The hero. CaseStudy renders this under the meta row in place of its default title line: the title, where it came from, and three facts in a row. */
 const INTRO = (
   <div>
     <h1 className={`max-w-3xl ${TITLE}`}>
-      Redesigning the brokerage workflow so assistants decide instead of hunt
+      Redesigning Bind Desk for faster, safer binding
     </h1>
-    {/* [CONFIRM] timeline, and whether to say "solo". */}
     <p className={`mt-4 max-w-3xl ${SM}`} style={ink2}>
-      Self-initiated concept · Fictional company, people and data · Working prototype, not yet tested with users
+      Design exercise against a supplied brief and research materials. Company, people and data are fictional.
     </p>
-    <div className="mt-6 flex flex-wrap gap-2">
-      <PrototypeLink>Open the prototype</PrototypeLink>
-      <PrototypeLink href={TOUR} outline>
-        Start the guided tour
-      </PrototypeLink>
-    </div>
+    <dl data-ui="Facts" data-src="src/pieces/bindDesk.tsx › INTRO" className="mt-6 flex flex-wrap gap-x-12 gap-y-4">
+      {META.map(([k, v]) => (
+        <div key={k}>
+          <dt className="uppercase" style={{ ...LABEL, fontSize: 13, color: MUTED }}>
+            {k}
+          </dt>
+          <dd className={`m-0 mt-1 ${SM}`} style={ink}>
+            {v}
+          </dd>
+        </div>
+      ))}
+    </dl>
   </div>
 );
 
@@ -917,187 +1041,136 @@ export const BIND_DESK_SECTIONS: CaseStudySection[] = [
     hideTitle: true,
     children: (
       <Band label="TL;DR">
-        <p className={MD} style={ink2}>
-          <strong className="font-semibold" style={ink}>
-            The brief asks for a faster checklist.
-          </strong>{" "}
-          Its own logs show the checklist takes 3 minutes. So Bind Desk leaves
-          it alone and redesigns the slow work around it, with a person
-          approving every decision that matters.
-        </p>
+        <P>
+          A commercial insurance brokerage asked for a faster checklist, plus autofill, a cleaner interface, mobile access
+          and an AI chat assistant. Its own logs and interviews showed the time goes elsewhere: finding documents across
+          channels, and spotting mismatches between the application and what arrived.{" "}
+          <Strong>
+            Bind Desk leaves the checklist alone and redesigns the slow work around it, with a person approving every
+            decision that matters.
+          </Strong>
+        </P>
+        <div className="mt-6">
+          <PrototypeLink>Open the prototype</PrototypeLink>
+        </div>
       </Band>
     ),
   },
   {
-    id: "brief",
-    title: "The Brief",
-    children: (
-      <div className="max-w-3xl">
-        <SectionHead title="“Make the checklist faster”" />
-        <p className={MD} style={ink2}>
-          Bind Desk is set at a fictional 40-person insurance brokerage. Its
-          assistants can’t bind a policy until every document is in and every
-          coverage limit matches. The operations director asks for a faster
-          checklist, and the team’s wishlist adds smart autofill, a cleaner
-          interface, mobile access and an AI chat assistant.
-        </p>
-        {/* [CONFIRM] who wrote the brief and generated the logs and interview notes. */}
-        <p className={`mt-4 ${MD}`} style={ink2}>
-          The brief comes with 30 days of logs from the legacy checklist
-          spreadsheet and notes from two assistant interviews, all fictional.
-          I didn’t run new research. I analyzed what the brief provided and
-          mapped the journey, then defined the flow, designed the interface and
-          built the prototype.
-        </p>
-      </div>
-    ),
-  },
-  {
-    id: "evidence",
-    title: "The Evidence",
-    children: (
-      <div className="space-y-16">
-        <SectionHead
-          title="The checklist is the fastest step"
-          lede="Finding documents and reaching the first mismatch take longer, and broker replies take days."
-        />
-        <div className="grid gap-10 md:grid-cols-2">
-          <div>
-            <Eyebrow>Where the sources agree</Eyebrow>
-            <p className={`mt-3 ${STATEMENT}`}>Mismatches are frequent.</p>
-            <p className={`mt-3 ${MD}`} style={ink2}>
-              Assistant B guessed &ldquo;maybe a third&rdquo;. The logs show 35&ndash;38%.
-            </p>
-            <MismatchChart />
-          </div>
-          <div>
-            <Eyebrow>Where they disagree</Eyebrow>
-            <p className={`mt-3 ${STATEMENT}`}>Assistant A wants autofill. Their log points elsewhere.</p>
-            <p className={`mt-3 ${MD}`} style={ink2}>
-              Their time goes to mismatches and broker waits.
-            </p>
-            <MinutesChart />
-          </div>
-        </div>
-        <Sub title="Today’s journey">
-          <Journey />
-        </Sub>
-      </div>
-    ),
-  },
-  {
-    id: "reframe",
-    title: "The Reframe",
-    hideTitle: true,
-    children: (
-      <div className="space-y-16">
-        <Band label="The reframe" title="Leave the checklist alone">
-          <p className={MD} style={ink2}>
-            Speeding up a 3-minute step would save little. The time goes to the
-            steps around it, so I kept the checklist as it is and gave every
-            wishlist item a place sized to its evidence.
-          </p>
-        </Band>
-        <Sub title="Every wishlist item, sized to its evidence">
-          <ResponsiveTable head={["Asked for", "How it appears", "Evidence"]} rows={EXPECTATIONS} />
-        </Sub>
-        <div className="max-w-3xl">
-          <Eyebrow>Pushback in the brief</Eyebrow>
-          <p className={`mt-3 ${STATEMENT}`}>
-            “Our users asked for the wishlist. Why are you showing me something else?”
-          </p>
-          <p className={`mt-3 ${MD}`} style={ink2}>
-            <strong className="font-semibold" style={ink}>
-              My answer: the checklist is 3 minutes of the work.
-            </strong>{" "}
-            Nothing on the wishlist is dropped without a reason in the table above.
-          </p>
-        </div>
-      </div>
-    ),
-  },
-  {
-    id: "checkpoints",
-    title: "Human Checkpoints",
+    id: "solution",
+    title: "Solution",
     children: (
       <div>
-        <SectionHead
-          title="The tool proposes, a person decides"
-          lede="Every AI output in the prototype carries a tag: what it did, whether a person has reviewed it, and why. Nothing irreversible happens on its own: no email leaves and no policy binds without a person."
-        />
-        <ul data-ui="Card grid" data-src="src/pieces/bindDesk.tsx › section checkpoints" className="m-0 grid list-none gap-6 p-0 md:grid-cols-2">
-          {TAGS.map((t) => (
-            <li key={t.variant} data-ui="Tag (AI disclosure)" data-src="src/pieces/bindDesk.tsx › section checkpoints" className="rounded-[12px] p-6" style={card}>
-              <AiTag {...t} />
-            </li>
-          ))}
-        </ul>
-      </div>
-    ),
-  },
-  {
-    id: "design",
-    title: "The Design",
-    children: (
-      <div>
-        <SectionHead
-          title="Seven moments, in the order the work happens"
-          lede="Each follows a stage of the journey above. The videos are recorded from the prototype."
-        />
-        <div className="space-y-16">
-          {MOMENTS.map((m, i) => (
-            <MomentCard key={m.title} m={m} i={i} />
+        <div className="space-y-20 pt-4">
+          {SCENARIOS.map((s, i) => (
+            <ScenarioCard key={s.title} s={s} i={i} />
           ))}
         </div>
         <div className="mt-16">
-          <PrototypeLink>
-            Try the prototype <ArrowIcon size={16} />
+          <PrototypeLink href={TOUR} outline>
+            Start the guided tour
           </PrototypeLink>
         </div>
       </div>
     ),
   },
   {
-    id: "evaluation",
-    title: "Evaluation",
+    id: "insights",
+    title: "Insights",
     children: (
       <div className="space-y-16">
         <div>
-          <SectionHead
-            title="How I’d know it works"
-            lede="Bind Desk hasn’t been tested with assistants. These are the measures I’d compare against the brief’s logs, and the results that would tell me the design is wrong."
-          />
-          <ResponsiveTable head={["Area", "Today", "Measure", "Would count against it"]} rows={EVALUATION} />
+          <JourneyCarousel />
+          <div className="hidden md:block">
+            <Journey />
+          </div>
         </div>
         <div>
-          <SectionHead title="Build the mismatch check first" lede="Start where the evidence is strongest. The next round decides the rest." />
-          <PhaseCards items={NEXT_STEPS} label="Step" />
+          <SectionHead title="Stakeholder expectations" />
+          <Expectations />
         </div>
-        <div>
-          <SectionHead title="What I still need to learn" lede="Each answer confirms the design or changes one part of it." />
-          <QuestionCards />
-        </div>
+        {/* A card the full width of the column, not a full-bleed band. */}
+        <figure
+          data-ui="Pull quote" data-src="src/pieces/bindDesk.tsx › section insights"
+          className="rounded-[16px] px-8 py-8 md:px-12"
+          style={{ background: SURFACE, border: `1px solid ${DIVIDER}`, boxShadow: "0 18px 40px -24px rgba(0, 0, 0, 0.45)" }}
+        >
+          <Eyebrow>Pushback in the brief</Eyebrow>
+          <blockquote className={`mt-3 ${STATEMENT}`} style={ink}>
+            “Our users asked for the wishlist. Why are you showing me something else?”
+          </blockquote>
+          <figcaption className={`mt-4 ${MD}`} style={ink2}>
+            The wishlist is the five items above, and each one has a place sized to what the logs and interviews support.{" "}
+            <Strong>The checklist they asked to speed up takes 3 minutes; the time goes everywhere around it.</Strong>
+          </figcaption>
+        </figure>
       </div>
     ),
   },
-  /* [CONFIRM] A reflection section ("What I'd do differently") belongs here, in your words. */
   {
-    id: "how-i-used-ai",
-    title: "How I Used AI",
+    id: "problem",
+    title: "Problem",
+    hideTitle: true,
+    children: (
+      <Band label="Problem">
+        <p className={STATEMENT} style={ink2}>
+          <Marked text="Underwriting assistants **lose most of each submission before the checklist starts**: **hunting for documents** across the portal, email and fax, then **reading two documents line by line** for a mismatch. One that slips through binds a policy with a **coverage gap the firm cannot undo**." />
+        </p>
+        <P className="mt-4">The checklist itself takes 3 minutes.</P>
+      </Band>
+    ),
+  },
+  {
+    id: "process",
+    title: "Design Process",
+    children: (
+      <div className="space-y-16">
+        {DECISIONS.map((d) => (
+          <div key={d.title}>
+            <h4 className={`mb-6 ${H3}`}>{d.title}</h4>
+            <div className="grid items-start gap-6 md:grid-cols-2">
+              <Shot label="First version" ratio={d.ratio} {...d.before} />
+              <Shot label="Now" ratio={d.ratio} {...d.after} />
+            </div>
+          </div>
+        ))}
+      </div>
+    ),
+  },
+  {
+    id: "outcome",
+    title: "Outcome",
     children: (
       <div>
-        <SectionHead
-          title="How I used AI"
-          lede={
-            <>
-              <strong className="font-semibold" style={ink}>
-                I made the design decisions.
-              </strong>{" "}
-              AI helped me carry them out.
-            </>
-          }
-        />
-        <PhaseCards items={AI_USE} label="Area" />
+        <OutcomeRows />
+      </div>
+    ),
+  },
+  {
+    id: "next-steps",
+    title: "Next Steps",
+    children: (
+      <ul data-ui="Card grid" data-src="src/pieces/bindDesk.tsx › section next-steps" className="grid list-none gap-4 p-0 md:grid-cols-2">
+        {NEXT.map((n) => (
+          <li key={n.label} data-ui="Card" data-src="src/pieces/bindDesk.tsx › section next-steps" className="rounded-[12px] p-6" style={card}>
+            <Eyebrow style={{ fontSize: 13 }}>{n.label}</Eyebrow>
+            <p className={`mt-2 ${SM}`} style={ink2}>
+              <Marked text={n.text} />
+            </p>
+          </li>
+        ))}
+      </ul>
+    ),
+  },
+  {
+    id: "ai",
+    title: "AI",
+    children: (
+      <div className="max-w-3xl">
+        <P>
+          With four hours, designing every screen from scratch and then building a demo was not realistic. I used Claude
+          Code to build the design as a working prototype, then tested it by using it and improved it round by round.
+        </P>
       </div>
     ),
   },
@@ -1106,17 +1179,5 @@ export const BIND_DESK_SECTIONS: CaseStudySection[] = [
     title: "Also checkout",
     inRail: false,
     children: <RelatedProjects slugs={["greenera", "billy-and-buddy"]} />,
-  },
-  {
-    id: "rights",
-    title: "Rights",
-    hideTitle: true,
-    inRail: false,
-    children: (
-      <div className={`flex flex-col gap-2 pt-6 ${SM}`} style={{ borderTop: `1px solid ${DIVIDER}`, color: MUTED }}>
-        <p>{COPYRIGHT}</p>
-        <p className={XS}>Company, people and data in this case study are fictional.</p>
-      </div>
-    ),
   },
 ];
