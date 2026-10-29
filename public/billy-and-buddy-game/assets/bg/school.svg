@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1512 982" preserveAspectRatio="xMidYMid slice">
+<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ED3EE"/><stop offset="1" stop-color="#D8F0F8"/></linearGradient></defs>
+<rect width="1512" height="982" fill="url(#s)"/>
+<g fill="#FFFFFF" opacity=".9"><ellipse cx="220" cy="150" rx="90" ry="34"/><ellipse cx="280" cy="130" rx="60" ry="34"/><ellipse cx="1240" cy="190" rx="100" ry="36"/><ellipse cx="1300" cy="166" rx="60" ry="34"/></g>
+<rect x="0" y="760" width="1512" height="222" fill="#71A54A"/><path d="M0 760h1512v18H0z" fill="#5E8A3E"/>
+<path d="M-40 760c40-80 160-80 200 0zM1350 760c40-90 180-90 220 0z" fill="#89B468"/>
+<rect x="356" y="380" width="800" height="390" fill="#E87971"/><g fill="#BD4E46" opacity=".35"><rect x="370" y="420" width="60" height="16"/><rect x="460" y="470" width="60" height="16"/><rect x="1060" y="430" width="60" height="16"/><rect x="980" y="700" width="60" height="16"/><rect x="400" y="680" width="60" height="16"/></g>
+<path d="M326 390L756 220l430 170z" fill="#973F38"/><rect x="636" y="270" width="240" height="130" rx="10" fill="#E35E54"/><circle cx="756" cy="335" r="44" fill="#FFFFFF"/><path d="M756 335v-28M756 335h20" stroke="#383939" stroke-width="6" stroke-linecap="round"/>
+<rect x="666" y="560" width="180" height="210" rx="8" fill="#F5BC4A"/><rect x="752" y="560" width="8" height="210" fill="#CB9220"/><circle cx="734" cy="670" r="7" fill="#7A5813"/><circle cx="778" cy="670" r="7" fill="#7A5813"/>
+<g fill="#CEF0EF" stroke="#FFFFFF" stroke-width="8"><rect x="420" y="450" width="140" height="110" rx="6"/><rect x="420" y="610" width="140" height="110" rx="6"/><rect x="952" y="450" width="140" height="110" rx="6"/><rect x="952" y="610" width="140" height="110" rx="6"/></g>
+<rect x="600" y="440" width="312" height="80" rx="12" fill="#0AB4AD"/><text x="756" y="495" text-anchor="middle" font-family="Lexend, sans-serif" font-weight="700" font-size="44" fill="#FFFFFF">SCHOOL</text>
+<rect x="1240" y="260" width="10" height="510" fill="#545555"/><path d="M1250 270h110l-24 40 24 40h-110z" fill="#F3AF26"/>
+<path d="M666 770h180l40 212H626z" fill="#C6C6C6"/>
+</svg>

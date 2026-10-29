@@ -9,7 +9,8 @@
  * the Figma fills rather than linked: the MCP asset URLs expire after ~7 days.
  */
 import type { ComponentType } from "react";
-import { WindowLoop } from "./WindowLoop";
+import { HeroVideo } from "./HeroVideo";
+import { heroLoop } from "./caseStudyKit";
 
 export type Project = {
   /** Stable id, also the thumbnail's filename stem. */
@@ -84,7 +85,7 @@ export const PROJECTS: Project[] = [
     heroVideo: "/assets/projects/bind-desk/peek",
     heroAspect: 936 / 1440,
     heroBg: "#FFF3DA",
-    heroLoop: WindowLoop,
+    heroLoop: HeroVideo,
     scale: "compact",
     heroMax: 0.6,
     // The product window inside the 1440x936 clip, with its corner radius.
@@ -94,12 +95,18 @@ export const PROJECTS: Project[] = [
     slug: "billy-and-buddy",
     name: "Billy & Buddy",
     thumb: "/assets/projects/billy-and-buddy/game-hero.jpg",
-    type: "Service Design",
-    title: "A mini game that teaches kids to tell a need from a want, in two minutes",
-    hero: "/assets/projects/billy-and-buddy/game-hero.jpg",
-    // The game captures are 1400x909, not the template's 16:9 — cropping them
-    // taller cuts the scoreboard off the top of every screen.
-    heroAspect: 909 / 1400,
+    type: "Making Financial Education",
+    year: "2024",
+    title: "Basket of Choices, a shopping game for kids",
+    footnote: "Billy & Buddy is a proposed service; the game is a working prototype, not yet tested with children.",
+    hero: "/assets/projects/billy-and-buddy/hero/loop.jpg",
+    heroVideo: "/assets/projects/billy-and-buddy/hero/loop",
+    // The game window on the game's own teal wash, as Bind Desk's hero does.
+    heroAspect: 936 / 1440,
+    heroBg: "#CEF0EF",
+    heroLoop: heroLoop("/assets/projects/billy-and-buddy/hero/loop", 1200 / 779, { tab: "Basket of Choices", url: "billyandbuddy.example/play" }),
+    scale: "compact",
+    heroMax: 0.6,
   },
   {
     slug: "the-family-table",

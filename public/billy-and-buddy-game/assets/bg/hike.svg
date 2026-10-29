@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1512 982" preserveAspectRatio="xMidYMid slice">
+<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8ED3EE"/><stop offset="1" stop-color="#D8F0F8"/></linearGradient>
+<linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6FB3A8"/><stop offset="1" stop-color="#9ED1CE"/></linearGradient></defs>
+<rect width="1512" height="982" fill="url(#s)"/>
+<g fill="#FFFFFF" opacity=".9"><ellipse cx="230" cy="140" rx="90" ry="32"/><ellipse cx="300" cy="120" rx="60" ry="34"/><ellipse cx="1240" cy="110" rx="100" ry="34"/><ellipse cx="1170" cy="96" rx="56" ry="30"/></g>
+<path d="M0 520L180 330 330 470 520 260 700 470 860 300 1040 480 1220 320 1512 540V982H0z" fill="#B9C49A"/>
+<path d="M520 260l60 70-40 10 50 40-70-10z M1220 320l50 56-36 6 40 36-60-12z" fill="#FAFAFA" opacity=".85"/>
+<path d="M560 600C560 420 600 300 690 250h60l-10 360z" fill="#8C8279"/>
+<path d="M952 600C952 420 912 300 822 250h-60l10 360z" fill="#5E5550"/>
+<path d="M690 250h132l-14 380H704z" fill="url(#w)"/>
+<g stroke="#FAFAFA" stroke-width="5" stroke-linecap="round" opacity=".7" fill="none"><path d="M720 290v90M752 270v140M786 300v110M736 430v70M774 450v60"/></g>
+<path d="M0 640c200-30 420-40 756-40s556 10 756 40V982H0z" fill="#72A449"/>
+<ellipse cx="756" cy="660" rx="300" ry="56" fill="url(#w)"/>
+<g fill="#CEF0EF"><circle cx="700" cy="628" r="26"/><circle cx="742" cy="616" r="32"/><circle cx="790" cy="624" r="28"/><circle cx="824" cy="636" r="20"/></g>
+<g fill="#C27458"><path d="M1060 660l70-50 110 20 30 60-90 30-120-10z"/><path d="M300 690l60-40 90 14 24 46-80 24-94-10z"/></g>
+<g fill="#A85A42"><path d="M1130 610l110 20-30 30-90-10z"/><path d="M360 650l90 14-26 26-70-8z"/></g>
+<g fill="#3E6B4A"><path d="M120 640c-10-90 10-170 40-220 10 70 0 150-14 220z"/><path d="M170 650c10-70 40-130 80-160-10 60-30 120-56 160z"/><path d="M1380 640c10-90-10-170-40-220-10 70 0 150 14 220z"/><path d="M1330 650c-10-70-40-130-80-160 10 60 30 120 56 160z"/></g>
+<g fill="#95C03D"><ellipse cx="80" cy="900" rx="220" ry="120"/><ellipse cx="1450" cy="910" rx="230" ry="120"/></g>
+<g fill="#ABCB6B"><ellipse cx="260" cy="950" rx="160" ry="80"/><ellipse cx="1260" cy="960" rx="170" ry="80"/></g>
+</svg>

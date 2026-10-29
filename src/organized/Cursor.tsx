@@ -14,6 +14,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
  *   bubble  the circle grows into a speech pill above the pointer and types
  *           a line into it (`data-cursor-bubble="…"`): the footer's Email
  *           link says "Hey, don't toss that idea away!" this way
+ *           Inside `data-cursor-once` (the Billy & Buddy book) each line is
+ *           said once: the pill types it, holds it a second and shrinks back
+ *           to the circle, and every later hover with the same line (the
+ *           next sticker, the next coin) gets the plain circle
  *   frame   the circle opens into a soft grey fill snapped behind the item
  *           (`data-cursor-frame="pill"` for nav links, `"card"` for project
  *           cards), and the whole item leans a few px toward the pointer,
@@ -38,7 +42,7 @@ type State =
   | { kind: "rest" }
   | { kind: "target"; label: string }
   | { kind: "text"; h: number }
-  | { kind: "bubble"; line: string; frame: HTMLElement | null };
+  | { kind: "bubble"; line: string; frame: HTMLElement | null; once?: boolean };
 
 const INTERACTIVE = "a, button, [role='button'], label, summary, input, select, textarea";
 const TEXTY = "p, h1, h2, h3, h4, h5, li, dt, dd, figcaption, blockquote, span, time";
@@ -79,6 +83,11 @@ const shapeOf = (el: HTMLElement): Frame => {
   return f === "card" || f === "button" ? f : "pill";
 };
 
+/** Lines already said inside `data-cursor-once`, for this page view, and
+ *  the element saying one now (it keeps its pill while the pointer stays). */
+const said = new Set<string>();
+let saying: Element | null = null;
+
 function read(el: Element | null, x: number, y: number): State {
   if (!el) return { kind: "rest" };
   const bubble = el.closest<HTMLElement>("[data-cursor-bubble]");
@@ -94,11 +103,20 @@ function read(el: Element | null, x: number, y: number): State {
   // A labelled thing gets the same speech pill, typing its label, and keeps
   // its own hover fill if it has one (a project card).
   const labelled = el.closest<HTMLElement>("[data-cursor]");
+  const once = !!labelled?.closest("[data-cursor-once]");
+  if (labelled !== saying) saying = null;
+  if (labelled && once && !saying) {
+    const line = labelled.dataset.cursor ?? "";
+    if (said.has(line)) return el.closest(INTERACTIVE) ? { kind: "target", label: "" } : { kind: "rest" };
+    said.add(line);
+    saying = labelled;
+  }
   if (labelled) {
     return {
       kind: "bubble",
       line: labelled.dataset.cursor ?? "",
       frame: labelled.closest<HTMLElement>("[data-cursor-frame]"),
+      once,
     };
   }
   // An unlabelled item with a fill of its own (nav links, footer links,
@@ -297,6 +315,17 @@ export function Cursor() {
 
   const label = useTyped(state.kind === "target" || state.kind === "frame" ? state.label : "", LABEL_MS);
   const typedLine = useTyped(line, BUBBLE_MS);
+
+  // A once-only label goes back to the resting circle a second after it is
+  // fully typed. The hover key is unchanged, so it stays at rest until the
+  // pointer moves onto something with a different label.
+  const once = state.kind === "bubble" && state.once;
+  const typed = once && line !== "" && typedLine.length >= line.length;
+  useEffect(() => {
+    if (!typed) return;
+    const id = window.setTimeout(() => setState({ kind: "rest" }), 1000);
+    return () => window.clearTimeout(id);
+  }, [typed, line]);
 
   if (!enabled) return null;
 

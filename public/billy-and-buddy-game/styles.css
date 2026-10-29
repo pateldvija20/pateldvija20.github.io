@@ -1,0 +1,653 @@
+/* Billy & Buddy prototype. Everything on the stage is positioned in the
+   1512x982 coordinate space of the Figma frames; game.js scales the stage
+   to fit the window. Colours are the palette from the Figma Assets page. */
+:root {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --red: #e35e54;
+  --red-dark: #bd4e46;
+  --teal: #0ab4ad;
+  --teal-light: #5ccdc8;
+  --teal-wash: #cef0ef;
+  --yellow: #f3af26;
+  --yellow-light: #f7ca6e;
+  --green: #71a54a;
+  --ink: #1c1c1c;
+  --grey: #545555;
+  --paper: #fafafa;
+  --bubble: #4a9df8;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #12322f;
+  font-family: Lexend, system-ui, sans-serif;
+  color: var(--ink);
+  overflow: hidden;
+}
+
+.viewport {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1512px;
+  height: 982px;
+  transform-origin: 0 0;
+  overflow: hidden;
+  background: #fff;
+  user-select: none;
+}
+
+.screen { position: absolute; inset: 0; }
+.abs { position: absolute; }
+.bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.dim { position: absolute; inset: 0; background: rgba(20, 32, 20, 0.45); }
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+}
+/* A dark ring, so it reads against the buttons' own white border */
+button:focus-visible { outline: 4px solid #12322f; outline-offset: 3px; }
+
+/* The one button component, from the Figma pills: a solid fill, a #FAFAFA
+   border, a solid drop below, Urbanist Bold. Everything scales off --h:
+     sizes    .btn-sm 60 · .btn-md 72 · .btn-lg 96 · .btn-xl 124
+     content  text, .btn-ico + text (either side), or .btn-icon (a circle)
+     fills    .teal · .red · .yellow
+   Pressing sinks the button onto its drop. A span.btn is display-only (or
+   lives inside a larger button that handles the press), so it never moves. */
+.btn {
+  --h: 60px;
+  --fill: #00b3ad;
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: calc(var(--h) * 0.2);
+  height: var(--h); min-width: var(--h);
+  padding: 0 calc(var(--h) * 0.4);
+  border: calc(var(--h) / 12) solid #fafafa;
+  border-radius: 999px;
+  background: var(--fill); color: #fafafa;
+  font: 700 calc(var(--h) * 0.4) / 1 Urbanist, Lexend, sans-serif;
+  white-space: nowrap;
+  filter: drop-shadow(0 calc(var(--h) / 12) 0 rgba(0, 0, 0, 0.18));
+}
+.btn-sm { --h: 60px; }
+.btn-md { --h: 72px; }
+.btn-lg { --h: 96px; }
+.btn-xl { --h: 124px; }
+.btn.teal { --fill: #00b3ad; }
+.btn.red { --fill: #e55436; }
+.btn.yellow { --fill: #f3af26; }
+.btn-ico { flex: none; width: calc(var(--h) * 0.6); height: calc(var(--h) * 0.6); object-fit: contain; }
+.btn-icon { width: var(--h); padding: 0; }
+/* Menu icons at their Figma sizes: the gear is 30.6px square, the person 23.3 by 30 */
+.btn-ico.ico-settings { width: 31px; height: 31px; }
+.btn-ico.ico-person { width: 23px; height: 30px; }
+.btn-icon .btn-ico { width: calc(var(--h) * 0.45); height: calc(var(--h) * 0.45); }
+/* The Figma play triangle points up, so it is turned and nudged to look centred.
+   Beside text it matches the cap height; alone in a circle it can be larger. */
+.btn .ico-play { width: calc(var(--h) * 0.32); height: calc(var(--h) * 0.32); rotate: 90deg; translate: 4% 0; }
+.btn-icon .ico-play { width: calc(var(--h) * 0.45); height: calc(var(--h) * 0.45); }
+button.btn { transition: translate 0.1s cubic-bezier(0.23, 1, 0.32, 1), filter 0.1s cubic-bezier(0.23, 1, 0.32, 1); }
+@media (hover: hover) and (pointer: fine) {
+  button.btn:hover { translate: 0 -2px; filter: drop-shadow(0 calc(var(--h) / 12 + 2px) 0 rgba(0, 0, 0, 0.18)); }
+}
+button.btn:active { translate: 0 calc(var(--h) / 12); filter: drop-shadow(0 0 0 rgba(0, 0, 0, 0.18)); }
+span.btn { cursor: default; }
+.btn.abs { position: absolute; }
+.btn-row { position: absolute; display: flex; gap: 16px; }
+
+/* Speech bubbles */
+.bubble {
+  position: absolute;
+  background: var(--bubble);
+  color: #fff;
+  border-radius: 14px;
+  padding: 18px 24px;
+  font-size: 22px;
+  line-height: 1.35;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  animation: pop 0.25s var(--ease-out) both;
+}
+.bubble.big { font-size: 40px; padding: 40px; border-radius: 20px; line-height: 1.3; }
+.bubble.red { background: var(--red); }
+@keyframes pop { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: none; } }
+
+/* Intro. A one-off title sequence, so it gets the playful motion: the bushes
+   rise, the logo spins up from small, the banner rises, the play button slides
+   in, then the bone wiggles every few seconds until the player presses play.
+   Nothing runs until game.js adds .ready, once every layer has decoded. */
+.intro {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+.intro:not(.ready) * { animation-play-state: paused !important; }
+.intro-bush { position: absolute; animation: bushRise 0.5s var(--ease-out) both; }
+.intro-bush.far-left { animation-delay: 0.04s; }
+.intro-bush.right { animation-delay: 0.08s; }
+.intro-bush.left { animation-delay: 0.12s; }
+/* Fade, spin and scale run as separate properties so each gets its own curve:
+   the fade is done in 0.2s, the spin decelerates smoothly, the scale overshoots */
+.intro-logo {
+  position: absolute; left: 378px; top: 178px; width: 754.68px; height: 463.41px;
+  animation: logoFade 0.2s ease-out 0.15s both, logoSpin 0.7s var(--ease-out) 0.15s both, logoGrow 0.7s 0.15s both;
+}
+.intro-logo img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; }
+.intro-logo .intro-bone {
+  left: 346px; top: 284px; width: 74px; height: 112px;
+  animation: boneWiggle 3.2s var(--ease-in-out) 1.6s infinite;
+}
+.intro-banner {
+  position: absolute; left: 445px; top: 622.9px; width: 623px; height: 154.87px;
+  animation: bannerUp 0.4s var(--ease-out) 0.6s both;
+}
+.intro-play {
+  position: absolute; left: 1000px; top: 676px; width: 117px; height: 117px;
+  border-radius: 50%; animation: playIn 0.4s var(--ease-out) 0.8s both;
+}
+/* Leaving: the logo and banner shrink together into the menu's logo in the
+   top left (the Figma menu has it 68 wide at 30, 34.55, a scale of 0.0901),
+   then the play button shrinks away. Both use one scale about the logo's
+   top-left corner, so the banner keeps its place under the logo as they
+   travel. game.js then fades the menu in over them; its logo is the same layers. */
+.intro.leaving .intro-bone { animation: none; }
+.intro.leaving .intro-logo { transform-origin: 0 0; animation: logoToCorner 0.45s var(--ease-in-out) both; }
+.intro.leaving .intro-banner { transform-origin: 0 0; animation: bannerToCorner 0.45s var(--ease-in-out) both; }
+.intro.leaving .intro-play { animation: playShrink 0.3s var(--ease-in-out) 0.15s both; }
+.intro.gone * { animation: none !important; }
+.intro.gone .intro-logo { transform-origin: 0 0; transform: translate(-348px, -143.45px) scale(0.0901); }
+.intro.gone .intro-banner { transform-origin: 0 0; transform: translate(-408.96px, -548.27px) scale(0.0901); }
+.intro.gone .intro-play { visibility: hidden; }
+.intro-play img { display: block; width: 100%; height: 100%; transition: scale 0.12s var(--ease-out); }
+.intro-play:active img { scale: 0.94; }
+.intro-play:focus-visible { outline: 4px solid #fff; outline-offset: 4px; }
+@media (hover: hover) and (pointer: fine) {
+  .intro-play:hover img { animation: playWiggle 0.45s var(--ease-in-out); }
+}
+@keyframes bushRise { from { transform: translateY(105%); } }
+@keyframes logoFade { from { opacity: 0; } }
+@keyframes logoSpin { from { rotate: -200deg; } }
+/* A short shrink, then a grow that overshoots and settles */
+@keyframes logoGrow {
+  0% { scale: 0.2; animation-timing-function: ease-in-out; }
+  15% { scale: 0.15; animation-timing-function: cubic-bezier(0.23, 1, 0.32, 1); }
+  70% { scale: 1.08; animation-timing-function: ease-in-out; }
+  100% { scale: 1; }
+}
+@keyframes logoToCorner { to { transform: translate(-348px, -143.45px) scale(0.0901); } }
+/* The banner's corner (445, 622.9) lands at (30, 34.55) + 0.0901 * (67, 444.9) */
+@keyframes bannerToCorner { to { transform: translate(-408.96px, -548.27px) scale(0.0901); } }
+@keyframes playShrink {
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: scale(0.15); }
+}
+@keyframes bannerUp {
+  0% { opacity: 0; transform: translateY(380px); }
+  70% { opacity: 1; transform: translateY(-10px); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes playIn {
+  0% { opacity: 0; transform: translateX(420px); }
+  70% { opacity: 1; transform: translateX(-10px); }
+  100% { opacity: 1; transform: none; }
+}
+/* The wiggle takes the first fifth of each cycle; the rest is a pause */
+@keyframes boneWiggle {
+  0%, 20%, 100% { rotate: 0deg; }
+  4% { rotate: -16deg; }
+  8% { rotate: 14deg; }
+  12% { rotate: -10deg; }
+  16% { rotate: 6deg; }
+}
+@keyframes playWiggle {
+  20% { rotate: -14deg; }
+  40% { rotate: 12deg; }
+  60% { rotate: -8deg; }
+  80% { rotate: 4deg; }
+}
+
+/* Menu. The logo is the title's layers scaled to the Figma menu size. */
+.menu-logo {
+  position: absolute; left: 30px; top: 34.55px; width: 754.68px; height: 600px;
+  transform-origin: 0 0; transform: scale(0.0901);
+}
+.menu-logo img { position: absolute; }
+.menu-ui { animation: fade 0.3s ease-out 0.1s both; }
+
+/* Level cards. Motion splits across separate properties so nothing fights:
+   the card spawns with `transform`, the face presses with `translate` and
+   wiggles with `rotate`, and the play button wiggles with its own `rotate`. */
+.menu-card {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  position: absolute; top: 240px; width: 360px; height: 500px; border-radius: 24px;
+  animation: cardSpawn 0.5s var(--ease-out) calc(0.15s + var(--i) * 0.08s) both;
+}
+.menu-card .face { position: absolute; inset: 0; display: block; transition: translate 0.1s var(--ease-out), scale 0.1s var(--ease-out); }
+/* The Figma export carries the 8px #FAFAFA stroke but has square white
+   corners, so the card's 24px radius is applied here */
+.menu-card .art { width: 100%; height: 100%; display: block; border-radius: 24px; }
+/* Figma: #E55436, 4px #FAFAFA border, 16px radius, Urbanist Bold 24 */
+.menu-card .tag {
+  position: absolute; left: 50%; top: -33px; translate: -50% 0; rotate: -4deg;
+  background: #e55436; color: #fafafa; border: 4px solid #fafafa; border-radius: 16px;
+  font: 700 24px/1.2 Urbanist, Lexend, sans-serif; padding: 18px 24px; white-space: nowrap;
+}
+/* The play button is a .btn-md .btn-icon, centred with its middle 6px above
+   the card's bottom edge. The pop-in lives on the wrapper and the hover wiggle
+   on the button, so hovering never replaces (and so never replays) the pop-in. */
+.menu-card .play-pop {
+  position: absolute; left: 50%; bottom: -30px; margin-left: -36px;
+  animation: playPop 0.35s var(--ease-out) calc(0.45s + var(--i) * 0.08s) both;
+}
+.menu-card .done {
+  position: absolute; left: 18px; bottom: 18px; background: #fff; color: var(--teal);
+  border-radius: 12px; font-size: 18px; font-weight: 600; padding: 6px 12px;
+}
+/* Locked: the art under a cool wash and a lock in place of play, from the
+   Main Menu frame. The wash stops inside the card's 8px white stroke. */
+.menu-card .veil { position: absolute; inset: 8px; border-radius: 16px; background: rgba(78, 128, 140, 0.62); }
+.menu-card .ico-lock { width: 26px; height: 34px; }
+.menu-card.locked { cursor: default; }
+.menu-card:not(.locked):active .face { translate: 0 8px; scale: 0.98; }
+.menu-card.pressing .face { animation: cardPress 0.24s var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  .menu-card:not(.locked):hover .face { animation: cardWiggle 0.5s var(--ease-in-out); }
+  .menu-card:not(.locked):hover .play { animation: playWiggle 0.45s var(--ease-in-out); }
+  .menu-card.pressing .face { animation: cardPress 0.24s var(--ease-out); }
+}
+@keyframes cardSpawn {
+  0% { opacity: 0; transform: translateY(60px) scale(0.9); }
+  65% { opacity: 1; transform: translateY(-8px) scale(1.01); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes playPop {
+  0% { opacity: 0; transform: scale(0.9); }
+  70% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: none; }
+}
+/* Down and back up: the click reads as a physical press */
+@keyframes cardPress {
+  40% { translate: 0 8px; scale: 0.98; }
+  100% { translate: 0 0; scale: 1; }
+}
+@keyframes cardWiggle {
+  25% { rotate: -2deg; }
+  50% { rotate: 1.6deg; }
+  75% { rotate: -0.8deg; }
+}
+
+/* Zoo Level Intro: the Figma layers, with the animals moving.
+   A walker strolls --dist one way, turns round, strolls back and turns
+   again; it bobs with each step. The turn is a flip in a single frame
+   (walkFace runs step-end) so it never passes through a paper-thin squash. Everything is translate / scale / rotate on its own layer, so it all
+   runs on the compositor. Durations differ so the animals never sync up. */
+.scene { position: absolute; inset: 0; overflow: hidden; }
+.scene .layer { position: absolute; }
+.scene .layer img { display: block; width: 100%; height: 100%; }
+.scene img.mirrored { scale: -1 1; }
+.scene .walk {
+  --dist: -60px;
+  animation: walkMove var(--dur, 12s) ease-in-out var(--delay, 0s) infinite, walkFace var(--dur, 12s) step-end var(--delay, 0s) infinite;
+}
+/* A rigged animal: the body (legs masked out) and its leg copies share one
+   box, and bob together with each step. Each leg swings from its hip for one
+   step's length and back; .beat-1 legs swing the other way, so diagonal pairs
+   move together, as in a real walk. --step sets the pace per animal. */
+.scene .stride { position: absolute; inset: 0; }
+.scene .stride.mirrored { scale: -1 1; }
+.scene .stride img { position: absolute; inset: 0; }
+.scene .stride .body, .scene .stride .leg { -webkit-mask: var(--mask) 0 0 / 100% 100% no-repeat; mask: var(--mask) 0 0 / 100% 100% no-repeat; }
+.scene .leg { --s: 1; --swing: 10deg; }
+.scene .leg.beat-1 { --s: -1; }
+.scene .walk { --step: 0.55s; }
+.scene .walk .stride { animation: step var(--step) ease-in-out infinite alternate; }
+.scene .walk .leg { animation: legSwing var(--step) ease-in-out infinite alternate; }
+.scene .giraffe { --dist: -70px; --dur: 15s; --step: 0.7s; }
+.scene .gorilla { --dist: -60px; --dur: 11s; --delay: -4s; }
+.scene .gorilla .leg { --swing: 7deg; }
+.scene .tiger { --dist: 50px; --dur: 9s; --delay: -2s; --step: 0.4s; }
+.scene .tiger .leg { --swing: 14deg; }
+/* The antelope stands to graze, so its legs only step while it moves */
+.scene .graze .leg { animation: grazeLegs 7s ease-in-out infinite; }
+@keyframes legSwing {
+  from { rotate: calc(var(--s) * var(--swing) * -1); }
+  to { rotate: calc(var(--s) * var(--swing)); }
+}
+@keyframes grazeLegs {
+  0%, 45%, 60%, 100% { rotate: 0deg; }
+  49% { rotate: calc(var(--s) * 9deg); }
+  53% { rotate: calc(var(--s) * -9deg); }
+  57% { rotate: calc(var(--s) * 6deg); }
+}
+.scene .crawl {
+  --dist: -80px; --dur: 17s; --delay: -6s; --step: 0.45s;
+  animation: walkMove var(--dur) ease-in-out var(--delay) infinite, walkFace var(--dur) step-end var(--delay) infinite;
+}
+.scene .crawl > img, .scene .crawl .stride { animation: wobble 0.9s ease-in-out infinite alternate; }
+.scene .crawl .leg { --swing: 16deg; animation: legSwing var(--step) ease-in-out infinite alternate; }
+.scene .graze { transform-origin: 50% 100%; animation: graze 7s ease-in-out infinite; }
+.scene .perch { transform-origin: 40% 75%; animation: perch 4.5s ease-in-out -1s infinite; }
+.scene .sway { transform-origin: 50% 100%; animation: sway 4s ease-in-out infinite alternate; }
+/* Pack plants are inlined; each leaf sways about its own base, and game.js
+   gives each one its own pace so the plant never moves as one block */
+/* Each leaf is its own small <svg> layer (liftShapes in game.js), so the sway
+   runs on the compositor instead of repainting the plant every frame */
+.scene .leaves .leaf { animation: leaf 3s ease-in-out infinite alternate; }
+@keyframes walkMove {
+  0%, 100% { translate: 0 0; }
+  44%, 50% { translate: var(--dist) 0; }
+  94% { translate: 0 0; }
+}
+@keyframes walkFace {
+  0%, 97% { scale: 1 1; }
+  47% { scale: -1 1; }
+}
+@keyframes step { to { translate: 0 -5px; } }
+@keyframes wobble { from { rotate: -1deg; } to { rotate: 1deg; } }
+/* Head down to graze, a couple of steps, head back up */
+@keyframes graze {
+  0%, 15%, 100% { rotate: 0deg; translate: 0 0; }
+  25%, 45% { rotate: -4deg; translate: 0 0; }
+  60% { rotate: 0deg; translate: 14px 0; }
+  80% { rotate: 1.5deg; translate: 14px 0; }
+}
+/* Two quick head bobs, then a stretch of sitting still */
+@keyframes perch {
+  0%, 30%, 100% { rotate: 0deg; }
+  8% { rotate: -7deg; }
+  16% { rotate: 3deg; }
+  22% { rotate: -5deg; }
+}
+@keyframes sway { from { rotate: -1.5deg; } to { rotate: 1.5deg; } }
+@keyframes leaf { from { rotate: -2.5deg; } to { rotate: 2.5deg; } }
+
+/* Story and rules */
+.rule-card {
+  position: absolute; left: 306px; top: 200px; width: 900px; padding: 56px 64px;
+  background: #fff; border-radius: 28px; text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.2);
+  animation: pop 0.25s var(--ease-out) both;
+}
+.rule-card .phase { margin: 0 0 6px; font-size: 22px; font-weight: 600; color: var(--grey); letter-spacing: 0.04em; text-transform: uppercase; }
+.rule-card h2 { margin: 0 0 28px; font-size: 52px; color: var(--teal); }
+.rule-card ul { list-style: none; margin: 0 0 40px; padding: 0; display: grid; gap: 22px; text-align: left; }
+.rule-card li { font-size: 30px; display: flex; gap: 20px; align-items: center; }
+.rule-card li b { color: var(--red); }
+.rule-card .dot { flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 26px; }
+
+/* Billy and Buddy (see billy() and buddy() in game.js). Every moving part is
+   its own layer and moves with transform or opacity only. */
+.billy, .buddy { --ease-out: cubic-bezier(0.23, 1, 0.32, 1); --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1); }
+.billy .breath { position: relative; transform-origin: 50% 100%; animation: breathe 3.8s ease-in-out infinite; }
+.billy svg { display: block; width: 100%; height: auto; overflow: visible; }
+.billy .arm { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* The full-body rig: every part and joint fills the same 210x780 box and
+   turns about its own transform-origin, set per joint in game.js */
+.pose-full .breath { aspect-ratio: 210 / 780; }
+.pose-full .j, .pose-full .breath > img, .pose-full .j > img { position: absolute; inset: 0; width: 100%; height: 100%; }
+.pose-full .j { transition: transform 600ms var(--ease-in-out); }
+.billy .head { position: absolute; transition: transform 480ms var(--ease-in-out); }
+.billy .take, .billy .face { position: absolute; inset: 0; width: 100%; height: 100%; }
+.billy .face { opacity: 0; }
+/* Her free arm follows her words with a transition, so each new word picks
+   up from wherever the last one left it */
+.pose-billy-wave .arm-0 { transition: transform 600ms var(--ease-in-out); }
+.pose-billy-wave.wave .arm-0 { animation: wave 0.36s var(--ease-in-out) 5 alternate; }
+.pose-billy.cheer .arm-0 { animation: cheer-l 0.7s var(--ease-out) both; }
+.pose-billy.cheer .arm-1 { animation: cheer-r 0.7s var(--ease-out) both; }
+.pose-billy.cheer .breath { animation: hop 0.5s var(--ease-out), breathe 3.8s ease-in-out 0.5s infinite; }
+.billy.droop .take { animation: droop 1.2s var(--ease-in-out) both; }
+.pose-billy.droop .arm-0 { animation: droop-l 1.2s var(--ease-in-out) both; }
+.pose-billy.droop .arm-1 { animation: droop-r 1.2s var(--ease-in-out) both; }
+.buddy .hopper, .buddy .bob, .buddy .breath { position: absolute; inset: 0; transform-origin: 50% 100%; }
+.buddy .breath { animation: breathe 3.2s ease-in-out -1.1s infinite; }
+.buddy .pose { position: absolute; left: 50%; bottom: 0; translate: -50% 0; opacity: 0; }
+@keyframes breathe { 50% { transform: scale(1.006, 1.014); } }
+@keyframes wave { from { transform: rotate(-9deg); } to { transform: rotate(8deg); } }
+@keyframes cheer-l { 40% { transform: rotate(30deg); } 100% { transform: rotate(0); } }
+@keyframes cheer-r { 40% { transform: rotate(-30deg); } 100% { transform: rotate(0); } }
+@keyframes hop { 40% { transform: translateY(-14px); } }
+@keyframes droop { 30%, 70% { transform: rotate(5deg) translateY(3%); } }
+@keyframes droop-l { 30%, 70% { transform: rotate(-6deg); } }
+@keyframes droop-r { 30%, 70% { transform: rotate(6deg); } }
+
+/* Sorting */
+.side { position: absolute; left: 1092px; top: 0; width: 420px; height: 982px; background: var(--paper); }
+.timer { position: absolute; left: 24px; top: 24px; font-size: 40px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.timer.low { color: var(--red); }
+.hearts { position: absolute; right: 24px; top: 24px; display: flex; gap: 8px; }
+.heart { width: 50px; height: 50px; transition: transform 0.3s, opacity 0.3s; }
+.heart.lost { opacity: 0.18; transform: scale(0.8); filter: grayscale(1); }
+.heart.broken { animation: pop 0.25s var(--ease-out); }
+.cart {
+  position: absolute; left: 0; top: 576px; width: 420px; height: 406px;
+  background: var(--teal-wash); border-radius: 28px 28px 0 0; padding: 29px 24px;
+}
+.cart h3 { margin: 0; display: flex; justify-content: space-between; font-size: 26px; font-weight: 600; }
+.cart-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px 8px; margin-top: 26px; }
+.cart-slot { height: 92px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; }
+.cart-slot img { max-width: 56px; max-height: 52px; animation: pop 0.25s var(--ease-out) both; }
+.cart-slot.empty::before { content: ""; width: 44px; height: 44px; border-radius: 12px; border: 3px dashed rgba(5, 90, 87, 0.25); margin-bottom: 30px; }
+.price {
+  background: var(--ink); color: #fff; border-radius: 20px; font-size: 16px; font-weight: 600; padding: 3px 10px;
+}
+.price.need { background: var(--teal); }
+.price.want { background: #cb9220; }
+.cart .total { position: absolute; left: 24px; right: 24px; bottom: 29px; display: flex; justify-content: space-between; font-size: 26px; font-weight: 600; }
+
+/* Sorting: the aisle is a six-column grid. The left half drops into Needs,
+   the right half into Wants. */
+.basket {
+  position: absolute; top: 782px; width: 546px; height: 200px;
+  color: #fff; font-size: 77px; font-weight: 600; letter-spacing: 0.01em;
+  display: grid; place-items: center; padding-top: 30px;
+}
+.basket::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 38px; border-radius: 14px 14px 0 0; }
+.basket.need { left: 0; background: var(--teal); }
+.basket.need::before { background: var(--teal-light); }
+.basket.want { left: 546px; background: #f3af26; }
+.basket.want::before { background: #ffcb62; }
+.basket .key { position: absolute; bottom: 14px; font-size: 18px; font-weight: 500; opacity: 0.85; }
+.basket:disabled { cursor: default; }
+/* Right and wrong, from the bucket frames: the basket turns green or red,
+   its top band lighter, with a glow rising 100px above it. Both ease back. */
+.basket, .basket::before { transition: background-color 0.3s ease; }
+.basket::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 100px;
+  opacity: 0; transition: opacity 0.3s ease; pointer-events: none;
+}
+.basket.right { background-color: #71a54a; }
+.basket.right::before { background-color: #89b468; }
+.basket.right::after { opacity: 1; background: linear-gradient(to top, rgba(137, 180, 104, 0.75), rgba(137, 180, 104, 0)); }
+.basket.wrong { background-color: #e33434; }
+.basket.wrong::before { background-color: #ff5d5d; }
+.basket.wrong::after { opacity: 1; background: linear-gradient(to top, rgba(255, 93, 93, 0.6), rgba(255, 93, 93, 0)); }
+
+.item-stage { position: absolute; left: 0; top: 0; width: 1092px; height: 782px; overflow: hidden; }
+/* The item on its own with its label, snapping a cell at a time like a
+   Tetris piece; the short transition only softens each snap */
+.piece {
+  position: absolute; left: 0; top: 40px; display: grid; justify-items: center; gap: 6px;
+  transition: transform 90ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.piece img { width: 140px; height: 140px; object-fit: contain; filter: drop-shadow(0 8px 10px rgba(0, 0, 0, 0.2)); }
+.piece .name {
+  background: #fff; border-radius: 14px; padding: 5px 14px; font-size: 22px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+.bubble.green { background: var(--teal); }
+/* Billy's lines stack in a column, so a long line pushes the next one down
+   instead of running into it, and they sit in front of her */
+.talk { position: absolute; z-index: 2; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.talk .bubble { position: relative; max-width: 100%; }
+.talk-side { left: 24px; top: 92px; width: 372px; }
+.talk-side .bubble { font-size: 21px; padding: 14px 20px; }
+.talk-co { left: 47px; top: 596px; width: 340px; }
+.talk-co .bubble:first-child { margin-left: 33px; max-width: calc(100% - 33px); }
+@keyframes flash { to { opacity: 0; } }
+
+/* Result overlay (win / lose) */
+/* Above everything on the screen beneath it, Billy's bubbles included */
+.overlay { position: absolute; inset: 0; z-index: 100; background: rgba(20, 20, 20, 0.6); animation: fade 0.25s var(--ease-out) both; }
+@keyframes fade { from { opacity: 0; } }
+.result {
+  position: absolute; left: 62px; top: 50px; width: 1388px; height: 881px;
+  background: var(--teal-wash); border-radius: 32px; animation: pop 0.3s var(--ease-out) both;
+  overflow: hidden;
+}
+.result .bubble { font-size: 22px; background: #4099ff; }
+/* The two word tags, tilted against each other as in the frame */
+.result .tag {
+  position: absolute; display: grid; place-items: center;
+  background: #e55436; color: #fafafa; border: 14px solid #fafafa; border-radius: 40px;
+  font: 700 86px/1 Lexend, sans-serif; letter-spacing: 0.01em;
+}
+.result .tag-1 { left: 44px; top: 42px; width: 290px; height: 205px; rotate: 3deg; }
+.result .tag-2 { left: 104px; top: 212px; width: 330px; height: 220px; rotate: -11deg; }
+.result.win .tag { background: var(--teal); }
+/* Every item that went into a basket */
+.result .tried { position: absolute; left: 515px; top: 36px; width: 837px; margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(5, 1fr); row-gap: 50px; }
+.result .tried li { display: grid; justify-items: center; align-content: start; gap: 18px; }
+.result .tried img { width: 104px; height: 110px; object-fit: contain; }
+.result .pill {
+  position: relative; min-width: 78px; height: 50px; padding: 0 16px; border-radius: 25px;
+  display: grid; place-items: center; background: var(--ink); color: #fafafa; font-size: 28px; font-weight: 600;
+}
+.result .pill i {
+  position: absolute; right: -16px; bottom: -16px; width: 34px; height: 34px; border-radius: 50%;
+  background: #e33434 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Cpath d='M12 12l10 10M22 12L12 22' stroke='%23fff' stroke-width='3.2' stroke-linecap='round'/%3E%3C/svg%3E") center / 34px no-repeat;
+}
+.result .stats { position: absolute; left: 701px; top: 527px; width: 651px; display: grid; gap: 32px; font-size: 32px; font-weight: 600; }
+.result .stats div { display: flex; justify-content: space-between; align-items: center; min-height: 38px; }
+.result .stats b { font-weight: 600; }
+.hearts-inline { display: flex; gap: 8px; }
+.hearts-inline .heart { width: 50px; height: 50px; }
+.result .actions { position: absolute; left: 701px; top: 749px; width: 651px; display: flex; justify-content: space-between; }
+
+/* Checkout, from the Checkout frame. The belt texture runs the full width
+   under the cart panel. It is one 508px lane tiled sideways and two lanes
+   wider than the belt, so it can run left and end where it began. */
+/* The belt layer covers only the visible belt plus two lanes of travel; the
+   tile is offset so its lines still fall where the full-width belt had them */
+.co-belt { position: absolute; left: 579px; top: 119px; width: 933px; height: 831px; overflow: hidden; }
+.co-run { width: 1949px; height: 831px; background: url("assets/bg/belt-tile.jpg") repeat-x -71px 0 / 508px 831px; }
+.co-band { position: absolute; left: 579px; top: 0; width: 933px; height: 150px; background: #ddd; border-top: 4px solid #1c1c1c; }
+.co-till { position: absolute; left: -10px; top: 0; width: 256px; height: 146px; background: #ecdccb; border-right: 6px solid #855947; }
+.co-till img { position: absolute; left: 31px; top: 18px; width: 171px; }
+.co-cashier { position: absolute; left: 968px; top: -20px; width: 251px; rotate: 180deg; }
+.belt-items { position: absolute; inset: 0; pointer-events: none; clip-path: inset(150px 0 103px 579px); }
+.on-belt {
+  position: absolute; pointer-events: auto; cursor: grab; touch-action: none;
+  translate: -50% -50%; rotate: var(--turn);
+}
+.on-belt img { display: block; width: 170px; height: 170px; object-fit: contain; filter: drop-shadow(0 10px 8px rgba(0, 0, 0, 0.35)); }
+.on-belt.lifting { opacity: 0.3; }
+.co-ghost {
+  position: absolute; left: 0; top: 0; margin: -65px 0 0 -65px; z-index: 50; width: 130px; height: 130px; object-fit: contain; pointer-events: none; filter: drop-shadow(0 14px 12px rgba(0, 0, 0, 0.3)); transition: scale 0.15s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.co-ghost.over-belt { scale: 1.25; }
+
+.co-side { position: absolute; left: 0; top: 0; width: 579px; height: 982px; background: var(--paper); }
+.co-top { position: absolute; left: 0; top: 0; width: 579px; height: 573px; background: var(--teal-wash); border-radius: 0 0 24px 0; padding: 48px 24px 0; }
+.co-top h3 { margin: 0; display: flex; justify-content: space-between; font-size: 28px; font-weight: 600; line-height: 34px; }
+.co-top .co-left { position: absolute; left: 24px; right: 24px; top: 491px; }
+.co-top .co-left.over .leftover { color: var(--red); }
+.shelf { list-style: none; margin: 64px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); row-gap: 24px; }
+.shelf li { display: grid; justify-items: center; gap: 13px; transition: opacity 0.2s ease; }
+.shelf li button { width: 90px; height: 82px; display: grid; place-items: center; cursor: grab; touch-action: none; }
+.shelf li button img { max-width: 82px; max-height: 82px; object-fit: contain; pointer-events: none; }
+.shelf li .pill { min-width: 59px; height: 37.5px; padding: 0 12px; border-radius: 19px; display: grid; place-items: center; background: var(--ink); color: #fafafa; font-size: 22px; font-weight: 600; }
+/* Needs and wants in their basket colours */
+.shelf li .pill.need { background: #00b3ad; }
+.shelf li .pill.want { background: #f3af26; }
+.shelf li.in, .shelf li.lifting { opacity: 0.3; }
+@media (hover: hover) and (pointer: fine) { .shelf li:not(.in) button:hover img { scale: 1.08; } }
+.shelf li button img { transition: scale 0.15s ease; }
+
+.talk-co { left: 47px; top: 617px; width: 344px; gap: 14px; }
+.talk-co .bubble { max-width: 277px; font-size: 17px; padding: 18px 24px; background: #4099ff; }
+.talk-co .bubble:nth-child(odd) { margin-left: 67px; }
+
+.co-foot { position: absolute; left: 579px; top: 879px; width: 933px; height: 103px; display: flex; }
+.co-foot .readout {
+  width: 587px; background: #010101; border: 3px solid #14b6b3; color: #14b6b3;
+  padding: 9px 12px; display: grid; gap: 12px; font-size: 28px; font-weight: 500; line-height: 34px;
+}
+.co-foot .readout div { display: flex; justify-content: space-between; }
+.co-foot .pay {
+  flex: 1; background: #14b6b3; color: var(--ink); font-size: 34px; font-weight: 500;
+  transition: background-color 0.12s ease;
+}
+/* Pressing darkens the block; it stays the same size */
+@media (hover: hover) and (pointer: fine) { .co-foot .pay:hover { background-color: #12a5a2; } }
+.co-foot .pay:active { background-color: #0f8f8c; transition-duration: 0s; }
+.co-foot .pay:disabled { cursor: default; }
+
+/* Victory: earned stars come in like the title logo (fade, spin, grow with
+   a small overshoot), one after another; missing ones sit pale. Buddy only
+   appears with all three, after the last star. */
+.victory-art svg { display: block; width: 100%; height: auto; overflow: visible; }
+.v-star { transform-origin: 50% 50%; }
+.v-star.earned { animation: logoFade 0.2s ease-out both, logoSpin 0.7s var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) both, logoGrow 0.7s both; animation-delay: calc(0.25s + var(--i) * 0.28s); }
+.v-star.empty { animation: logoFade 0.3s ease-out 0.2s both; }
+.v-star.empty path { fill: #bfdedd; }
+.v-dog { transform-origin: 50% 100%; animation: dogUp 0.5s cubic-bezier(0.23, 1, 0.32, 1) 1.25s both; }
+.v-banner { animation: logoFade 0.3s ease-out 0.1s both; }
+@keyframes dogUp { from { opacity: 0; transform: translateY(40px) scale(0.9); } }
+.result-stats { margin: 0; padding: 0; list-style: none; display: grid; gap: 26px; font-size: 30px; font-weight: 500; }
+.result-stats li { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 16px; color: var(--grey); }
+.result-stats li.got { color: var(--ink); }
+.result-stats .mark { width: 40px; height: 40px; border-radius: 50%; border: 4px solid #bfdedd; }
+.result-stats li.got .mark { border: 0; background: #f3af26 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Cpath d='M12 20.5l5.5 5.5L29 14.5' stroke='%23fff' stroke-width='4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 40px no-repeat; }
+.result-stats .tag { font-size: 20px; font-weight: 600; color: var(--grey); }
+
+/* Money: the victory line shows the round's change and the new total; on
+   the menu the wallet counts to it, with a tag that rises and fades */
+.money-line { display: flex; justify-content: space-between; font-size: 26px; font-weight: 500; color: var(--ink); padding-top: 20px; border-top: 3px dashed #bfdedd; }
+.money-line b { font-weight: 700; }
+.money-line .neg { color: var(--red); }
+.wallet { position: relative; }
+.wallet .amount { font-variant-numeric: tabular-nums; }
+.wallet .delta {
+  position: absolute; right: 10px; top: -30px; font-size: 22px; font-weight: 700; color: var(--teal);
+  text-shadow: 0 2px 0 #fff; animation: walletTag 1.6s cubic-bezier(0.23, 1, 0.32, 1) 0.4s both;
+}
+.wallet .delta.down { color: var(--red); }
+@keyframes walletTag { 0% { opacity: 0; transform: translateY(14px); } 20%, 70% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-10px); } }
+@media (prefers-reduced-motion: reduce) { .wallet .delta { animation: fade 0.3s ease both; } }
+
+/* Phones held upright: the stage needs landscape */
+.rotate-hint {
+  display: none; position: fixed; left: 0; right: 0; bottom: 0; margin: 0; padding: 14px 16px;
+  text-align: center; color: #fff; font-size: 15px; background: rgba(0, 0, 0, 0.5);
+}
+@media (orientation: portrait) and (max-width: 700px) { .rotate-hint { display: block; } }
+
+/* Reduced motion means gentler, not none: every movement (translate, scale,
+   rotate, the spins, hops and walks) stops, while fades and colour changes
+   stay, because they help a child follow what changed. Keyframe motion is
+   cut to an instant; the entrances that carried meaning fade in instead. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-property: opacity, color, background-color, filter !important; }
+  .bubble, .overlay, .result, .rule-card, .cart-slot img, .heart.broken, .menu-card, .menu-ui,
+  .v-star, .v-dog, .v-banner { animation: fade 0.25s var(--ease-out) both !important; }
+  /* The title still eases in, just without the spin and slides */
+  .intro .intro-logo, .intro .intro-banner, .intro .intro-play { animation: fade 0.3s ease both !important; }
+  .intro.leaving .intro-logo, .intro.leaving .intro-banner, .intro.leaving .intro-play { animation: flash 0.25s ease forwards !important; }
+  .intro.gone .intro-logo, .intro.gone .intro-banner { visibility: hidden; }
+}
