@@ -6,3 +6,4 @@ dist/
 
 # Full-res photo originals (web-sized copies live in public/assets/)
 assets-src/
+.video-frames/

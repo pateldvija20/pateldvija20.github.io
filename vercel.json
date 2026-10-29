@@ -1,6 +1,8 @@
 {
   "rewrites": [
     { "source": "/bind-desk/(.*)", "destination": "/bind-desk/index.html" },
+    { "source": "/billy-and-buddy-game", "destination": "/billy-and-buddy-game/index.html" },
+    { "source": "/billy-and-buddy-game/", "destination": "/billy-and-buddy-game/index.html" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

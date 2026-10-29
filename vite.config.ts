@@ -366,6 +366,8 @@ function bindDeskPrototype(): Plugin {
   const rewrite = (req: { url?: string }, _res: unknown, next: () => void) => {
     const [pathname, rest = ''] = (req.url ?? '').split(/(?=[?#])/)
     if (pathname === '/bind-desk' || pathname === '/bind-desk/') req.url = `/bind-desk/index.html${rest}`
+    // The Billy & Buddy game is plain static files with hash routes
+    if (pathname === '/billy-and-buddy-game' || pathname === '/billy-and-buddy-game/') req.url = `/billy-and-buddy-game/index.html${rest}`
     next()
   }
   return {
