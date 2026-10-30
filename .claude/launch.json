@@ -4,7 +4,24 @@
     {
       "name": "portfolio-dev",
       "runtimeExecutable": "npx",
-      "runtimeArgs": ["vite", "--host", "0.0.0.0"]
+      "runtimeArgs": [
+        "vite",
+        "--host",
+        "0.0.0.0"
+      ]
+    },
+    {
+      "name": "bind-desk-prototype",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--prefix",
+        "/Users/dvijapatel/Projects/bind-desk-prototype",
+        "vite",
+        "/Users/dvijapatel/Projects/bind-desk-prototype",
+        "--port",
+        "5178"
+      ],
+      "port": 5178
     }
   ],
   "autoPort": true,
