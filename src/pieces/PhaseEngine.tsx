@@ -96,7 +96,12 @@ export type Draw = (t: number, p: boolean) => ReactNode;
 export type Clip = { draw: Draw; from: number; to: number; secs: number; lines: string[] };
 /** A number that counts up in the band's corner across a run of clips: the evidence, as part of the picture. */
 export type Stat = { clips: [number, number]; value: (q: number) => string; label: string };
-export type Track = { clips: Clip[]; stat?: Stat };
+/**
+ * A stage's clips, an optional counting number, and an optional `coda`: a
+ * line that fades into the caption band as the last caption fades out and
+ * stays, so the band is never left empty at the end of a stage.
+ */
+export type Track = { clips: Clip[]; stat?: Stat; coda?: string };
 /** Seconds each clip holds still while its caption comes in. */
 const LEAD = 0.8;
 
@@ -358,7 +363,7 @@ export function PhaseExplorer({ stages, label: listLabel, title, eyebrow, tone: 
           height={portrait ? stages[stage].tallH : undefined}
           maxHeight={room}
           label={`${stages[stage].name}. ${label}`}
-          band={<Band portrait={portrait} lines={clip.lines} t={lt} len={lens[ci]} stat={track.stat && statWin ? { ...track.stat, q: clamp01((now - statWin[0]) / (statWin[1] - statWin[0])), on: now >= statWin[0] - 0.3 } : undefined} />}
+          band={<Band portrait={portrait} lines={clip.lines} t={lt} len={lens[ci]} coda={ci === track.clips.length - 1 ? track.coda : undefined} stat={track.stat && statWin ? { ...track.stat, q: clamp01((now - statWin[0]) / (statWin[1] - statWin[0])), on: now >= statWin[0] - 0.3 } : undefined} />}
         >
           {under && fade < 1 ? (
             <div style={{ position: "absolute", inset: 0, opacity: 1 - fade, transform: `translate(${under.offset})` }}>
@@ -396,8 +401,9 @@ export function PhaseExplorer({ stages, label: listLabel, title, eyebrow, tone: 
  * stage's live number on the right (above the caption on a phone). `t` runs
  * from the clip's start to `len`.
  */
-function Band({ portrait, lines, t, len, stat }: { portrait: boolean; lines: string[]; t: number; len: number; stat?: Stat & { q: number; on: boolean } }) {
+function Band({ portrait, lines, t, len, stat, coda }: { portrait: boolean; lines: string[]; t: number; len: number; stat?: Stat & { q: number; on: boolean }; coda?: string }) {
   const o = Math.min(seg(t, 0, FADE), 1 - seg(t, len - FADE, len));
+  const co = coda ? seg(t, len - FADE, len) : 0;
   // Marked phrases are counted across the lines, so the highlighter runs through them in reading order.
   const before = (i: number) => lines.slice(0, i).join("").split("**").length >> 1;
   const sweep = (k: number) => seg(t, FADE + 0.1 + k * HL_STEP, FADE + 0.1 + k * HL_STEP + HL_SWEEP);
@@ -410,6 +416,11 @@ function Band({ portrait, lines, t, len, stat }: { portrait: boolean; lines: str
   return (
     <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: portrait ? "column" : "row", alignItems: portrait ? "stretch" : "center", justifyContent: portrait ? "center" : "space-between", gap: portrait ? 6 : 24, padding: portrait ? "10px 18px" : "0 28px", borderTop: `1px solid ${DIVIDER}` }}>
       {portrait ? statBox : null}
+      {coda ? (
+        <div style={{ position: "absolute", left: portrait ? 18 : 28, right: portrait ? 18 : 28, top: "50%", opacity: co, transform: `translateY(calc(-50% + ${(1 - co) * 8}px))`, fontSize: portrait ? 16 : 19, lineHeight: portrait ? "23px" : "28px", fontWeight: 500, color: INK }}>
+          <Typed text={coda} n={coda.length} caret={false} lit={() => co} />
+        </div>
+      ) : null}
       <div style={{ opacity: o, transform: `translateY(${(1 - o) * 8}px)`, minWidth: 0 }}>
         {lines.map((line, i) => (
           <div key={line} style={{ fontSize: portrait ? 16 : 19, lineHeight: portrait ? "23px" : "28px", fontWeight: 500, letterSpacing: "-0.1px", color: MUTED }}>

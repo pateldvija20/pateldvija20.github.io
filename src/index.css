@@ -414,13 +414,16 @@ body[data-project-open] #root {
      than stacked — a pair of screenshots meant to be compared, where making
      each one full-width separates the two things being compared by a
      screenful. Those hold at two columns instead.
+   - `data-cs-keep` marks a grid whose columns are the content itself (a dot
+     chart, a blueprint that scrolls sideways): it, and grids inside it,
+     keep the template they declare.
    - `[data-site-scroller]` marks a scaled replica of a real page inside a
      browser frame. It shrinks as one object via its own transform, so
      reflowing its interior would break the very thing it is showing. */
 @media (max-width: 767px) {
-  [data-cs-body] .grid:not([data-cs-cols], [data-site-scroller] *),
+  [data-cs-body] .grid:not([data-cs-cols], [data-cs-keep], [data-cs-keep] *, [data-site-scroller] *),
   [data-cs-body]
-    [style*="grid-template-columns"]:not([data-cs-cols], [data-site-scroller] *) {
+    [style*="grid-template-columns"]:not([data-cs-cols], [data-cs-keep], [data-cs-keep] *, [data-site-scroller] *) {
     grid-template-columns: minmax(0, 1fr) !important;
   }
 

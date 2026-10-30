@@ -578,6 +578,7 @@ export const BIND_DESK_SECTIONS: CaseStudySection[] = [
   {
     id: "ai",
     title: "AI",
+    inRail: false,
     children: (
       <div className="max-w-3xl">
         <P>

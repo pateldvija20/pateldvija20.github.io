@@ -678,228 +678,158 @@ function replayService(t: number, p: boolean) {
   );
 }
 
-/* ------------------------------ the service, in four stages ------------------------------ */
+/* ------------------------------ the service blueprint, section by section ------------------------------ */
 
 /**
- * A text box with an emoji: the service is told in these alone, no
- * illustration. `q` brings it in (fade and a small rise); `lit` lifts its edge
- * when it is the box being talked about.
+ * One step of the journey as a vertical slice of the blueprint: what the
+ * family does, what they meet (frontstage), the work they never see
+ * (backstage) and what supports it. Each is one box; `null` leaves a lane
+ * empty for that step.
  */
-function EBox({ x, y, w, h, emoji, title, sub, q = 1, lit = 0, tone = INK, center = false }: { x: number; y: number; w: number; h?: number; emoji: string; title: string; sub?: string; q?: number; lit?: number; tone?: string; center?: boolean }) {
-  return (
-    <Abs x={x} y={y + (1 - q) * 10} w={w} h={h} o={q}>
-      <div
-        style={{
-          ...boxed,
-          height: h,
-          padding: "10px 12px",
-          display: "flex",
-          flexDirection: center ? "column" : "row",
-          alignItems: center ? "center" : "flex-start",
-          textAlign: center ? "center" : "left",
-          gap: center ? 4 : 10,
-          border: `1px solid color-mix(in srgb, ${tone} ${Math.round(lerp(0, 80, lit))}%, ${DIVIDER})`,
-          background: `color-mix(in srgb, ${tone} ${Math.round(lerp(0, 12, lit))}%, ${RAISED})`,
-        }}
-      >
-        <span style={{ fontSize: center ? 24 : 20, lineHeight: "24px" }} aria-hidden>
-          {emoji}
-        </span>
-        <span>
-          <span style={{ ...label, display: "block" }}>{title}</span>
-          {sub ? <span style={{ display: "block", fontSize: 11.5, lineHeight: "15px", color: MUTED, marginTop: 3 }}>{sub}</span> : null}
-        </span>
-      </div>
-    </Abs>
-  );
+type Slice = { who: string; does: string; front: string | null; back: [string, string?] | null; support: [string, string?] | null };
+
+const LANE_Y = { does: 18, front: 138, back: 258, support: 368 };
+const BOX_H = 52;
+const RULE_Y: [number, string, boolean][] = [
+  [118, "Line of interaction", true],
+  [238, "Line of visibility", false],
+  [348, "Line of internal interaction", true],
+];
+const LANE_NAME: [keyof typeof LANE_Y, string][] = [
+  ["does", "The family"],
+  ["front", "Frontstage"],
+  ["back", "Backstage"],
+  ["support", "Support"],
+];
+const YELLOW = "#F3AF26";
+
+/**
+ * Draws a section: its steps side by side, revealed lane by lane from the
+ * family down, each lane's box joined by an arrow up to the one it serves.
+ * The family and frontstage come in during the first clip, the backstage
+ * and support during the second.
+ */
+function slices(steps: Slice[]) {
+  return function draw(t: number, p: boolean) {
+    const wide = W(p);
+    const left = p ? 92 : 150;
+    const gap = 24;
+    const bw = Math.min(p ? 280 : 250, (wide - left - 16 - gap * (steps.length - 1)) / steps.length);
+    const total = bw * steps.length + gap * (steps.length - 1);
+    const x0 = left + (wide - left - 16 - total) / 2;
+    const at = (i: number) => x0 + i * (bw + gap);
+    const show = { does: seg(t, 0.2, 0.7), front: seg(t, 1, 1.5), back: seg(t, 3.2, 3.7), support: seg(t, 4, 4.5) };
+    const arrowUp = (i: number, from: keyof typeof LANE_Y, to: keyof typeof LANE_Y, q: number) => {
+      const x = at(i) + bw / 2;
+      return <Link key={`${i}${from}`} d={`M${x} ${LANE_Y[from] - 2} V${LANE_Y[to] + BOX_H + 4}`} lit={q} tone={YELLOW} dim={0} />;
+    };
+    return (
+      <>
+        {LANE_NAME.map(([k, name]) => (
+          <Abs key={k} x={12} y={LANE_Y[k] + BOX_H / 2 - 7} w={left - 20}>
+            <div style={tiny}>{name}</div>
+          </Abs>
+        ))}
+        <Svg w={wide} h={450}>
+          {RULE_Y.map(([y, , dashed]) => (
+            <line key={y} x1={12} x2={wide - 12} y1={y} y2={y} stroke={MUTED} strokeOpacity={0.45} strokeDasharray={dashed ? "5 5" : undefined} />
+          ))}
+          {steps.map((s, i) =>
+            i < steps.length - 1 ? <Link key={`h${i}`} d={`M${at(i) + bw + 3} ${LANE_Y.does + BOX_H / 2} H${at(i + 1) - 5}`} lit={show.does} /> : null,
+          )}
+          {steps.map((s, i) => (
+            <g key={`v${i}`}>
+              {s.front ? arrowUp(i, "front", "does", seg(t, 1.5, 2)) : null}
+              {s.back && s.front ? arrowUp(i, "back", "front", seg(t, 3.7, 4.1)) : null}
+              {s.back && !s.front ? arrowUp(i, "back", "does", seg(t, 3.7, 4.1)) : null}
+              {s.support && s.back ? arrowUp(i, "support", "back", seg(t, 4.5, 4.9)) : null}
+            </g>
+          ))}
+        </Svg>
+        {RULE_Y.map(([y, name]) => (
+          <Abs key={name} x={12} y={y + 4} w={200}>
+            <div style={{ fontSize: 10, color: MUTED }}>{name}</div>
+          </Abs>
+        ))}
+        {steps.map((s, i) => (
+          <div key={i}>
+            <Node x={at(i)} y={LANE_Y.does + (1 - show.does) * 8} w={bw} h={BOX_H} title={s.does} sub={s.who} o={show.does} lit={show.does} />
+            {s.front ? <Node x={at(i)} y={LANE_Y.front + (1 - show.front) * 8} w={bw} h={BOX_H} title={s.front} o={show.front} /> : null}
+            {s.back ? <Node x={at(i)} y={LANE_Y.back + (1 - show.back) * 8} w={bw} h={BOX_H} title={s.back[0]} sub={s.back[1]} o={show.back} lit={show.back} tone={NEED} /> : null}
+            {s.support ? <Node x={at(i)} y={LANE_Y.support + (1 - show.support) * 8} w={bw} h={BOX_H} title={s.support[0]} sub={s.support[1]} o={show.support} lit={show.support} tone={NEED} /> : null}
+          </div>
+        ))}
+      </>
+    );
+  };
 }
 
-/** A small mono heading over a group of boxes. */
-const Head = ({ x, y, w, text, q = 1 }: { x: number; y: number; w: number; text: string; q?: number }) => (
-  <Abs x={x} y={y} w={w} o={q}>
-    <div style={tiny}>{text}</div>
-  </Abs>
+const FINDING = slices([
+  { who: "Parent", does: "Sees advertising", front: "Advertisements, digital and print", back: ["Marketing and promotions"], support: ["Libraries and schools", "pass it on to families"] },
+  { who: "Parent", does: "Subscribes", front: "Ordering the book: $10 a month or $100 a year", back: ["Order processing"], support: ["Payment processing", "banks and cards"] },
+]);
+const ARRIVING = slices([
+  { who: "Child", does: "Receives the book", front: "Unboxing the package", back: ["Logistics, manufacturing and storage"], support: ["Distribution channels"] },
+]);
+const READING = slices([
+  { who: "Child", does: "Reads, using the interactions", front: "Book interaction: stickers, coins, slide tabs", back: ["Story, design and print", "writer, illustrator, editor, publisher"], support: null },
+  { who: "Parent", does: "Supports the child", front: null, back: null, support: null },
+]);
+const PLAYING = slices(
+  [
+    { who: "Child", does: "Finishes the book, unlocks the code", front: "Website interaction", back: ["UX and UI web design"], support: ["Tech support"] },
+    { who: "Child", does: "Plays the game on the website", front: "Playing the game", back: ["Web development"], support: ["Customer service and feedback"] },
+  ],
 );
 
-const LOOP = [
-  ["📚", "A book", "every quarter, read together"],
-  ["🔑", "A code", "on its last page"],
-  ["🎮", "A game", "for each book, played alone"],
-] as const;
-
-/** 1. What it is: a book, its code, its game, and sixteen books over four years. */
-function whatService(t: number, p: boolean) {
-  const series = seg(t, 3.4, 4.2);
-  const bw = p ? 300 : 200;
-  return (
-    <>
-      <Svg w={W(p)} h={p ? 560 : 450}>
-        {[0, 1].map((i) =>
-          p ? (
-            <Link key={i} d={`M200 ${100 + i * 110} L200 ${130 + i * 110}`} lit={seg(t, 1 + i * 0.8, 1.5 + i * 0.8)} />
-          ) : (
-            <Link key={i} d={`M${80 + bw + i * 250} 130 L${80 + 250 + i * 250 - 6} 130`} lit={seg(t, 1 + i * 0.8, 1.5 + i * 0.8)} />
-          ),
-        )}
-      </Svg>
-      {LOOP.map(([e, ti, sub], i) => (
-        <EBox key={ti} x={p ? 50 : 80 + i * 250} y={p ? 30 + i * 110 : 90} w={bw} h={p ? 70 : 80} emoji={e} title={ti} sub={sub} q={seg(t, 0.3 + i * 0.8, 0.8 + i * 0.8)} lit={i === 2 ? win(t, 2.4, 3.2) : 0} tone={NEED} />
-      ))}
-      <Head x={p ? 50 : 80} y={p ? 370 : 230} w={300} text="The series" q={series} />
-      <Abs x={p ? 50 : 80} y={p ? 392 : 252} w={p ? 300 : 700} o={series}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-          {["Year 1", "Year 2", "Year 3", "Year 4"].map((yr, i) => (
-            <div key={yr} style={{ ...boxed, padding: "8px 10px", opacity: seg(t, 3.6 + i * 0.3, 4 + i * 0.3) }}>
-              <div style={{ ...label }}>{yr}</div>
-              <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>4 books</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ ...tiny, marginTop: 10, color: NEED, opacity: seg(t, 5, 5.4) }}>16 books over 4 years · Volume 1 first</div>
-      </Abs>
-    </>
-  );
-}
-
-const WHO = [
-  ["🧒", "Children, 4 to 7", "Money habits form by about age seven"],
-  ["👪", "Parents", "Want a fun way to teach money at home"],
-  ["🏫", "Educators", "Want something that fits the class easily"],
-] as const;
-
-/** 2. Who it is for, and why each of them needs it. */
-function whoService(t: number, p: boolean) {
-  const why = seg(t, 3.4, 4.2);
-  return (
-    <>
-      {WHO.map(([e, ti, sub], i) => (
-        <EBox key={ti} x={p ? 40 : 60 + i * 235} y={p ? 20 + i * 104 : 70} w={p ? 320 : 215} h={p ? 88 : 110} emoji={e} title={ti} sub={sub} q={seg(t, 0.3 + i * 0.7, 0.8 + i * 0.7)} lit={i === 0 ? win(t, 0.8, 2.4) : 0} tone={NEED} center={!p} />
-      ))}
-      <Abs x={p ? 40 : 160} y={p ? 360 : 230} w={p ? 320 : 480} o={why}>
-        <div style={{ ...boxed, padding: "14px 16px", border: `1px dashed ${mix(MUTED, 60)}`, background: "transparent", textAlign: "center" }}>
-          <div style={tiny}>Why now</div>
-          <div style={{ ...label, marginTop: 6 }}>Where school teaches personal finance at all, it waits for high school.</div>
-        </div>
-      </Abs>
-    </>
-  );
-}
-
-const MAKE = [
-  ["✍️", "Author", "writes the story"],
-  ["🎨", "Illustrator", "draws Billy and Buddy"],
-  ["💰", "Financial advisor", "checks the money facts"],
-  ["📝", "Editor", "holds the reading level"],
-] as const;
-
-/** 3. How it is made, and who is involved: four makers, a printer, and a web team for the game. */
-function makeService(t: number, p: boolean) {
-  const print = seg(t, 3.2, 3.8);
-  const web = seg(t, 4.4, 5);
-  const mw = p ? 155 : 160;
-  return (
-    <>
-      <Head x={p ? 40 : 40} y={p ? 14 : 40} w={300} text="The book" />
-      {MAKE.map(([e, ti, sub], i) => (
-        <EBox key={ti} x={p ? 40 + (i % 2) * 165 : 40 + i * 172} y={p ? 36 + Math.floor(i / 2) * 82 : 62} w={mw} h={p ? 70 : 84} emoji={e} title={ti} sub={sub} q={seg(t, 0.3 + i * 0.6, 0.8 + i * 0.6)} />
-      ))}
-      <Svg w={W(p)} h={p ? 560 : 450}>
-        <Link d={p ? "M200 202 L200 230" : "M380 150 L380 196"} lit={print} />
-        <Link d={p ? "M200 290 L200 318" : "M380 254 L380 300"} lit={web} />
-      </Svg>
-      <EBox x={p ? 70 : 260} y={p ? 232 : 198} w={p ? 260 : 240} h={56} emoji="🖨️" title="Publisher and printer" sub="print run and price" q={print} lit={print} center={false} />
-      <EBox x={p ? 70 : 260} y={p ? 320 : 302} w={p ? 260 : 240} h={56} emoji="💻" title="Designer and developer" sub="build the website and its games" q={web} lit={web} tone={NEED} />
-      <Abs x={p ? 40 : 520} y={p ? 400 : 306} w={p ? 320 : 240} o={seg(t, 5.4, 5.9)}>
-        <div style={{ ...tiny, color: NEED }}>My part: the website game</div>
-      </Abs>
-    </>
-  );
-}
-
-const CHANNELS = [
-  ["🏫", "Schools"],
-  ["📖", "Libraries"],
-  ["🛍️", "Bookstores"],
-  ["📱", "Social media"],
-] as const;
-const BOX = [
-  ["📘", "The book", "one money idea, one story"],
-  ["✋", "Paper interactions", "stickers, coins, pop ups, slide tabs"],
-  ["🔑", "The game code", "opens the website game"],
-] as const;
-
-/** 4. How it reaches families, the plan they choose, and what the box holds. */
-function reachService(t: number, p: boolean) {
-  const plan = seg(t, 2.6, 3.2);
-  const ship = seg(t, 3.6, 4.2);
-  const open = seg(t, 4.6, 6.2) * BOX.length;
-  const cw = p ? 75 : 120;
-  return (
-    <>
-      <Head x={p ? 40 : 40} y={p ? 14 : 30} w={300} text="Hears about it" />
-      {CHANNELS.map(([e, ti], i) => (
-        <EBox key={ti} x={p ? 30 + i * (cw + 10) : 40 + i * (cw + 10)} y={p ? 34 : 52} w={cw} h={p ? 70 : 74} emoji={e} title={ti} q={seg(t, 0.3 + i * 0.4, 0.7 + i * 0.4)} center />
-      ))}
-      <Svg w={W(p)} h={p ? 560 : 450}>
-        <Link d={p ? "M200 112 L200 140" : "M540 89 L586 89"} lit={plan} />
-        <Link d={p ? "M200 210 L200 238" : "M680 130 L680 176"} lit={ship} />
-        <Link d={p ? "M200 298 L200 326" : "M588 206 C 565 206 565 222 546 222"} lit={seg(t, 4.2, 4.6)} />
-      </Svg>
-      <EBox x={p ? 70 : 590} y={p ? 142 : 52} w={p ? 260 : 180} h={p ? 64 : 74} emoji="💳" title="$10 a month" sub="or $100 a year" q={plan} lit={plan} tone={NEED} />
-      <EBox x={p ? 70 : 590} y={p ? 240 : 178} w={p ? 260 : 180} h={56} emoji="🚚" title="Shipped each quarter" q={ship} />
-      <Head x={p ? 40 : 40} y={p ? 312 : 170} w={300} text="In the box" q={seg(t, 4.4, 4.8)} />
-      {BOX.map(([e, ti, sub], i) => (
-        <EBox key={ti} x={p ? 40 : 40} y={p ? 334 + i * 66 : 192 + i * 70} w={p ? 320 : 500} h={p ? 58 : 60} emoji={e} title={ti} sub={sub} q={clamp(open - i)} lit={i === 2 ? seg(t, 6.2, 6.6) : 0} tone={NEED} />
-      ))}
-    </>
-  );
-}
-
-const SERVICE_STORY: StageDef[] = [
+const BLUEPRINT: StageDef[] = [
   {
-    name: "What it is",
-    center: [[0, 40], [0, 0]],
-    tallH: 520,
+    name: "Finding it",
+    tallH: 450,
     track: {
       clips: [
-        clip(whatService, 0, 3.2, 3.8, "A **book every quarter**, read together,", "and **a game for each book**, played alone."),
-        clip(whatService, 3.2, 5.6, 3.4, "**Sixteen books over four years**, starting with Volume 1."),
+        clip(FINDING, 0, 2.6, 3.4, "A parent **sees an ad** and **subscribes**."),
+        clip(FINDING, 2.6, 5.4, 4, "Behind it: **marketing, order processing**,", "and the **libraries, schools and payments** that support them."),
       ],
     },
   },
   {
-    name: "Who and why",
-    center: [[0, 50], [0, 0]],
-    tallH: 470,
+    name: "The book arrives",
+    tallH: 450,
     track: {
       clips: [
-        clip(whoService, 0, 3.2, 3.8, "For **children aged 4 to 7**, their **parents** and their **teachers**."),
-        clip(whoService, 3.2, 4.6, 3, "Money habits form early, but school **teaches money late**."),
+        clip(ARRIVING, 0, 2.6, 3, "The child **receives the book** and unboxes it."),
+        clip(ARRIVING, 2.6, 5.4, 3.6, "Behind it: **logistics and storage**, through the **distribution channels**."),
       ],
     },
   },
   {
-    name: "Who makes it",
-    center: [[22, 24], [0, 0]],
-    tallH: 430,
+    name: "Reading together",
+    tallH: 450,
     track: {
       clips: [
-        clip(makeService, 0, 3, 3.6, "**Four makers** turn one money idea into one book."),
-        clip(makeService, 3, 6, 4, "A **printer** produces it; a **web team** builds its game."),
+        clip(READING, 0, 2.6, 3.4, "The child **reads, using the paper interactions**,", "with **a parent there to help**."),
+        clip(READING, 2.6, 5.4, 3.6, "Behind it: **the writer, illustrator, editor and publisher**."),
       ],
     },
   },
   {
-    name: "How it reaches them",
-    tallH: 540,
+    name: "Playing the game",
+    tallH: 450,
     track: {
       clips: [
-        clip(reachService, 0, 4.4, 4.8, "Families hear about it through **schools, libraries and stores**,", "then subscribe for **$10 a month or $100 a year**."),
-        clip(reachService, 4.4, 6.8, 3.6, "Each box holds **the book, its paper interactions** and **the code to the game**."),
+        clip(PLAYING, 0, 2.6, 3.4, "The last page unlocks **the code**, and the child **plays the game alone**."),
+        clip(PLAYING, 2.6, 6, 4.2, "Behind it: **web design and development**, with **tech support and feedback**."),
       ],
+      coda: "↻ **Next quarter the parent renews**, and the next book arrives.",
     },
   },
 ];
+
+/** The service blueprint, a section at a time as the reader scrolls. */
+export function BillyServiceBlueprint() {
+  return <PhaseExplorer stages={BLUEPRINT} label="The service blueprint, section by section" />;
+}
 
 /* ------------------------------ the stages ------------------------------ */
 
@@ -1039,11 +969,6 @@ export function BillyOutcome() {
 
 export function BillyService() {
   return <PhaseExplorer stages={SERVICE} label="The proposed service, overview then close ups" />;
-}
-
-/** The service in four stages: what it is, who it is for, who makes it, how it reaches families. */
-export function BillyServiceStory() {
-  return <PhaseExplorer stages={SERVICE_STORY} label="The service, in four stages" />;
 }
 
 /** The system: one turn of the service, then who makes a book and how it reaches families. */
