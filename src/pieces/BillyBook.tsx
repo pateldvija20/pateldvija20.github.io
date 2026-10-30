@@ -816,7 +816,8 @@ export function BillyBook() {
           if (e.key === "ArrowLeft") go(-1);
         }}
         className="relative w-full outline-none"
-        style={{ height: PH * scale }}
+        // On a phone the next and previous pages wait just off to the side; clip them, keeping room for the shadow
+        style={{ height: PH * scale, overflowX: single ? "clip" : undefined, overflowClipMargin: single ? 24 : undefined }}
         // The page turn is explained once: on the cover, the first time the
         // pointer comes over the book. After that the pages carry no label.
         data-cursor={k === 0 && !told ? "Drag to open the book" : undefined}
@@ -882,6 +883,11 @@ export function BillyBook() {
           </div>
         )}
       </div>
+      {single ? (
+        <p className="mt-4 text-center text-sm" style={{ color: COLOR.textSecondary }}>
+          Swipe, or tap a page edge, to turn
+        </p>
+      ) : null}
     </div>
   );
 }

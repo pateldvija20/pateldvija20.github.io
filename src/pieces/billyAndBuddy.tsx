@@ -1,7 +1,7 @@
+import { useRef, useState } from "react";
 import type { CaseStudySection } from "./CaseStudy";
 import { RelatedProjects } from "./caseStudyBits";
 import { BillyBook } from "./BillyBook";
-import { BillyServiceStory } from "./BillyPhases";
 import {
   Band,
   Clip,
@@ -20,6 +20,8 @@ import {
   SM,
   TITLE,
   DIVIDER,
+  STATEMENT,
+  WELL,
   INK,
   ITEM_LABEL,
   MUTED,
@@ -30,8 +32,7 @@ import {
 /**
  * The Billy & Buddy case study, on the Bind Desk model.
  *
- * Order: TL;DR, four solution clips, the problem, the service (four stages: what it
- * is, who it is for, who makes it, how it reaches families), the design
+ * Order: TL;DR, four solution clips, the problem, the service (one blueprint), the design
  * process (two decisions), the
  * outcome (the book you can turn on screen, then the game), next steps, how AI
  * was used, and credits.
@@ -156,9 +157,9 @@ function ProblemBody() {
         <p className="text-[56px] font-medium leading-none tracking-[-1px]" style={ink}>
           26<span className="text-[24px]" style={ink2}> / 50</span>
         </p>
-        <div aria-hidden="true" className="mt-5 grid max-w-[300px] grid-cols-10 gap-[6px]">
+        <div aria-hidden="true" data-cs-keep="" className="mt-5 grid gap-[6px]" style={{ gridTemplateColumns: "repeat(10, 24px)" }}>
           {Array.from({ length: 50 }, (_, i) => (
-            <span key={i} className="aspect-square rounded-full" style={i < 26 ? { background: INK } : { boxShadow: `inset 0 0 0 1.5px ${DIVIDER}` }} />
+            <span key={i} className="block h-6 w-6 rounded-full" style={i < 26 ? { background: INK } : { boxShadow: `inset 0 0 0 1.5px ${DIVIDER}` }} />
           ))}
         </div>
         <figcaption className={`mt-4 max-w-sm ${MD}`} style={ink2}>
@@ -212,6 +213,100 @@ function GamePlay() {
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * The service as a journey a family swipes through: one stage per card, what
+ * they do and what is behind it, with the next card peeking in so it reads as
+ * a row to move along. Scroll snap does the swiping; the dots and arrows are
+ * for a mouse.
+ */
+const SERVICE_STAGES: { emoji: string; title: string; does: string; behind: string }[] = [
+  { emoji: "📣", title: "Finds it", does: "A parent sees an ad, or hears about it from a school or library.", behind: "Behind it: marketing and promotions, with libraries and schools passing it on." },
+  { emoji: "💳", title: "Subscribes", does: "They choose a plan: $10 a month or $100 a year.", behind: "Behind it: order processing and payments." },
+  { emoji: "📦", title: "The book arrives", does: "Every quarter a box arrives with the next book in the series.", behind: "Behind it: printing, logistics, storage and distribution." },
+  { emoji: "📖", title: "Reads together", does: "The child reads with a parent, sorting stickers, paying coins and pulling slide tabs.", behind: "Behind it: the writer, illustrator, editor and publisher." },
+  { emoji: "🔑", title: "Unlocks the game", does: "The last page asks questions whose answers make a code for the website.", behind: "Behind it: UX and UI design, with tech support." },
+  { emoji: "🎮", title: "Plays alone", does: "The child plays Basket of Choices: the book's lesson, as a game, without an adult.", behind: "Behind it: web development and customer feedback. Next quarter, the next book." },
+];
+function ServiceJourney() {
+  const track = useRef<HTMLDivElement>(null);
+  const [at, setAt] = useState(0);
+  const cards = () => Array.from(track.current?.children ?? []) as HTMLElement[];
+  const go = (i: number) => {
+    const el = track.current;
+    const card = cards()[Math.max(0, Math.min(SERVICE_STAGES.length - 1, i))];
+    if (el && card) el.scrollTo({ left: card.offsetLeft, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+  };
+  const onScroll = () => {
+    const el = track.current;
+    if (!el) return;
+    const mid = el.scrollLeft + el.clientWidth * 0.3;
+    const i = cards().findIndex((c) => c.offsetLeft + c.offsetWidth > mid);
+    if (i >= 0 && i !== at) setAt(i);
+  };
+  return (
+    <div>
+      <div
+        ref={track}
+        onScroll={onScroll}
+        role="region"
+        aria-roledescription="carousel"
+        aria-label="The service, stage by stage"
+        className="no-scrollbar relative flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1"
+        style={{ scrollPaddingLeft: 0, overscrollBehaviorX: "contain" }}
+      >
+        {SERVICE_STAGES.map((s, i) => (
+          <div key={s.title} className="shrink-0 snap-start" style={{ width: "min(78%, 560px)", opacity: i === at ? 1 : 0.55, transition: "opacity 300ms ease" }}>
+            <p className="m-0 mb-3 uppercase" style={{ ...ITEM_LABEL, color: MUTED }}>
+              Stage {i + 1}
+            </p>
+            <article aria-roledescription="slide" aria-label={`Stage ${i + 1} of ${SERVICE_STAGES.length}: ${s.title}`} className="flex flex-col rounded-[16px] p-6 md:p-8" style={{ minHeight: 250, border: `1px solid ${DIVIDER}`, background: WELL }}>
+              <span className="text-[40px] leading-none" aria-hidden>
+                {s.emoji}
+              </span>
+              <h4 className={`m-0 mt-5 ${STATEMENT}`} style={ink}>
+                {s.title}
+              </h4>
+              <p className={`m-0 mt-3 ${MD}`} style={ink}>
+                {s.does}
+              </p>
+              <p className={`m-0 mt-2 ${SM}`} style={ink2}>
+                {s.behind}
+              </p>
+            </article>
+          </div>
+        ))}
+        <span aria-hidden className="w-px shrink-0" />
+      </div>
+      <div className="mt-5 flex items-center justify-between">
+        <div className="flex gap-1.5" role="tablist" aria-label="Stages">
+          {SERVICE_STAGES.map((s, i) => (
+            <button key={s.title} type="button" role="tab" aria-selected={i === at} aria-label={`Stage ${i + 1}: ${s.title}`} onClick={() => go(i)} className="grid h-6 cursor-pointer place-items-center">
+              <span className="block h-1.5 rounded-full" style={{ width: i === at ? 22 : 6, background: i === at ? INK : MUTED, opacity: i === at ? 1 : 0.5, transition: "width 250ms cubic-bezier(0.23, 1, 0.32, 1), opacity 200ms" }} />
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          {[-1, 1].map((d) => (
+            <button
+              key={d}
+              type="button"
+              aria-label={d < 0 ? "Previous stage" : "Next stage"}
+              disabled={d < 0 ? at === 0 : at === SERVICE_STAGES.length - 1}
+              onClick={() => go(at + d)}
+              className="grid size-10 cursor-pointer place-items-center rounded-full transition-opacity duration-150 active:scale-[0.97] disabled:cursor-default disabled:opacity-30"
+              style={{ boxShadow: `0 0 0 1px ${DIVIDER}`, color: INK }}
+            >
+              <svg width={16} height={16} viewBox="0 0 18 18" style={{ transform: d < 0 ? "scaleX(-1)" : undefined }}>
+                <path d="M6 3 L12 9 L6 15" stroke="currentColor" strokeWidth={2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -273,12 +368,7 @@ export const BILLY_AND_BUDDY_SECTIONS: CaseStudySection[] = [
   {
     id: "service",
     title: "The Service",
-    children: (
-      <div>
-        <P className="mb-2 max-w-2xl">Billy &amp; Buddy is a proposed service designed by the team: a book every quarter, read together at home, with a game on its website for each book.</P>
-        <BillyServiceStory />
-      </div>
-    ),
+    children: <ServiceJourney />,
   },
   {
     id: "process",
@@ -319,6 +409,7 @@ export const BILLY_AND_BUDDY_SECTIONS: CaseStudySection[] = [
   {
     id: "ai",
     title: "AI",
+    inRail: false,
     children: (
       <div className="max-w-3xl">
         <P>
@@ -330,6 +421,7 @@ export const BILLY_AND_BUDDY_SECTIONS: CaseStudySection[] = [
   {
     id: "credits",
     title: "Credits",
+    inRail: false,
     children: (
       <div className="grid items-start gap-8 md:grid-cols-2 md:gap-10">
         <ul className="m-0 list-none space-y-2 p-0">
