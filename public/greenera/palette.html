@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Greenera palette</title>
+<link rel="icon" href="data:,">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  /* The prototype's palette, read straight from the tokens in styles.css */
+  body { overflow: auto; background: var(--ink-100); padding: 32px 16px 48px; }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { margin: 0; font-size: 22px; line-height: 28px; font-weight: 500; }
+  p.lede { margin: 8px 0 24px; font-size: 14px; line-height: 20px; color: var(--ink-400); }
+  section { margin-top: 20px; }
+  h2 { margin: 0 0 8px; font-size: 14px; line-height: 20px; font-weight: 600; }
+  h2 small { font-weight: 400; color: var(--ink-400); margin-left: 8px; }
+  .row5 { display: flex; gap: 8px; }
+  .sw { flex: 1 1 0; min-width: 0; border-radius: 16px; overflow: hidden; background: #fff; box-shadow: inset 0 0 0 0.5px var(--ink-200); }
+  .sw i { display: block; height: 64px; }
+  .sw span { display: block; padding: 8px 10px; font-size: 12px; line-height: 16px; }
+  .sw b { display: block; font-weight: 600; }
+  .sw em { font-style: normal; color: var(--ink-400); font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Greenera palette</h1>
+  <p class="lede">Five shades of each colour, 100 lightest to 500 darkest; 300 is the design system's own value. Status reads at 300 (dots, bottle layers, bars), fills and chips at 200 with 500 text, backgrounds and banners at 100.</p>
+  <div id="palette"></div>
+</main>
+<script>
+  const ROLES = {
+    ink: "Text 500, secondary text 400, disabled 300, lines and grey fills 200, page 100",
+    green: "No known concerns, scores 70 and up",
+    yellow: "Use with care, scores 40 to 69",
+    orange: "Marked as an allergy by the shopper, scores under 40",
+    lavender: "AI-generated content, focus and tap hints",
+  };
+  const css = getComputedStyle(document.documentElement);
+  document.getElementById("palette").innerHTML = Object.entries(ROLES).map(([name, role]) => `
+    <section>
+      <h2>${name[0].toUpperCase() + name.slice(1)}<small>${role}</small></h2>
+      <div class="row5">${[100, 200, 300, 400, 500].map((n) => {
+        const v = css.getPropertyValue(`--${name}-${n}`).trim();
+        return `<div class="sw"><i style="background:${v}"></i><span><b>${n}</b><em>${v}</em></span></div>`;
+      }).join("")}</div>
+    </section>`).join("");
+</script>
+</body>
+</html>
