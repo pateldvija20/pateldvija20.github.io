@@ -4,16 +4,13 @@ import { cardImage, PROJECTS, type Project } from "../pieces/projects";
 import { Section } from "./Section";
 
 /**
- * The Work grid (Figma Homepage 2232:4847, "Frame 31"): two columns of
- * 522.5x339 images with 60px between them and between rows, each with a
- * caption under it — a row of three small grey facts (who, what, when), then
- * the project's title in Roboto Slab. No card chrome beyond the image's
- * rounded corners. The cursor carries the call to action ("View project"),
- * so the tile itself stays quiet.
- *
- * One column on the phone.
+ * The Work list, after madhurima.me: one column of large 800x542 images with
+ * 80px between them, each with a short caption under it — one grey uppercase
+ * mono line of facts (who • what • when), then the project's title. No card
+ * chrome beyond the image's rounded corners. The cursor carries the call to
+ * action ("View project"), so the tile itself stays quiet.
  */
-const IMAGE_RATIO = "522.5 / 339.35";
+const IMAGE_RATIO = "800 / 542";
 
 /**
  * One Work tile. On the homepage it opens the case study overlay (`onOpen`);
@@ -59,14 +56,12 @@ export function WorkTile({
           />
         )}
       </div>
-      <div className="flex flex-col gap-[10px] pt-[24px] text-left">
-        <p className="flex flex-wrap gap-x-[24px] gap-y-[4px] text-[14px] leading-[21px]" style={{ color: quiet }}>
-          {facts.map((f) => (
-            <span key={f}>{f}</span>
-          ))}
+      <div className="flex flex-col gap-[6px] pt-[16px] text-left">
+        <p className="font-mono text-[12px] uppercase leading-[18px] tracking-[0.4px] md:text-[14px]" style={{ color: quiet }}>
+          {facts.join(" • ")}
         </p>
         {project.title ? (
-          <p className="font-slab text-[24px] leading-[36px]" style={{ color: ink }}>
+          <p className="font-slab text-[20px] leading-[30px]" style={{ color: ink }}>
             {project.title}
           </p>
         ) : null}
@@ -114,7 +109,7 @@ export function WorkSection({ onOpen }: { onOpen: (slug: string, el: HTMLElement
   return (
     // No visible heading: the hero above already says what this is.
     <Section id="work" label="Work" afterHero>
-      <div className="grid grid-cols-1 gap-[40px] md:grid-cols-2 lg:gap-[60px]">
+      <div className="mx-auto flex w-full max-w-[800px] flex-col gap-[56px] md:gap-[80px]">
         {/* Coming-soon projects stay in the data (the desk's folder still
             shows them) but are left off the grid for now. */}
         {PROJECTS.filter((p) => !p.wip).map((p) => (
