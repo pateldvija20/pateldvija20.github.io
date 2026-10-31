@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>hairline-room bench</title>
+<style>
+  :root {
+    color-scheme: light;
+    --plate: #ffffff;
+    --ink: #111113;
+    --rule: rgba(17, 17, 19, 0.14);
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --plate: #0b0b0d;
+    --ink: #f4f4f6;
+    --rule: rgba(244, 244, 246, 0.16);
+  }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--plate);
+    color: var(--ink);
+    font: 11px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  canvas { display: block; }
+  #bar {
+    position: fixed; left: 0; right: 0;
+    top: env(safe-area-inset-top, 0px);
+    display: flex; gap: 20px; flex-wrap: wrap;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--rule);
+    background: var(--plate);
+    z-index: 10;
+  }
+  .set { display: flex; gap: 6px; align-items: center; }
+  .set > span { opacity: 0.4; }
+  button {
+    font: inherit; text-transform: inherit; letter-spacing: inherit;
+    color: var(--ink); background: none;
+    border: 1px solid var(--rule); border-radius: 2px;
+    padding: 3px 8px; cursor: pointer;
+  }
+  button[aria-pressed="true"] { border-color: var(--ink); }
+  #meta { position: fixed; left: 16px; bottom: 16px; opacity: 0.4; z-index: 10; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <div class="set" id="views"><span>view</span></div>
+  <div class="set" id="states"><span>state</span></div>
+  <div class="set" id="theme"><span>theme</span></div>
+</div>
+<div id="meta"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from "three";
+import * as KIT from "./kit.js";
+
+// Which object to bench: ?o=<path relative to this file>
+const src = new URLSearchParams(location.search).get("o") ?? "../../.claude/skills/hairline-room/examples/lamp.js";
+const mod = await import(src);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const cam = KIT.rig(innerWidth / innerHeight);
+
+// desk plane, drawn as guide so the object has something to sit on
+const desk = new THREE.Group();
+desk.add(KIT.path([
+  new THREE.Vector3(-60, 0, -30), new THREE.Vector3(60, 0, -30),
+  new THREE.Vector3(60, 0, 30), new THREE.Vector3(-60, 0, 30),
+], "guide", { closed: true }));
+scene.add(desk);
+
+const built = mod.build(KIT);
+KIT.place(built.group, mod.meta.anchor ?? [0, 0]);
+scene.add(built.group);
+
+// frame the object, not the desk, so detail is checkable
+const VIEW = { top: "deskTop", front: "computer" };
+function look(which) {
+  const box = new THREE.Box3().setFromObject(built.group);
+  const c = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3());
+  const span = Math.max(size.x, size.y, size.z) * 1.7;
+  const d = KIT.distanceFor(span / Math.max(cam.aspect, 1), 6);
+  const dir = which === "top"
+    ? new THREE.Vector3(0, 1, 0.001).normalize()
+    : new THREE.Vector3(0, 0.12, 1).normalize();
+  cam.up.set(...(which === "top" ? [0, 0, -1] : [0, 1, 0]));
+  cam.fov = 6;
+  cam.position.copy(c).addScaledVector(dir, d);
+  cam.updateProjectionMatrix();
+  cam.lookAt(c);
+}
+
+function group(host, items, onPick, initial) {
+  items.forEach((name) => {
+    const b = document.createElement("button");
+    b.textContent = name;
+    b.setAttribute("aria-pressed", String(name === initial));
+    b.onclick = () => {
+      [...host.querySelectorAll("button")].forEach((o) =>
+        o.setAttribute("aria-pressed", String(o === b)));
+      onPick(name);
+    };
+    host.appendChild(b);
+  });
+}
+
+group(document.getElementById("views"), ["top", "front"], look, "top");
+group(document.getElementById("states"), ["rest", "hover", "open", "visited"],
+  (n) => built.state?.set(n), "rest");
+group(document.getElementById("theme"), ["light", "dark"], (n) => {
+  document.documentElement.dataset.theme = n;
+  KIT.setTheme(n);
+}, "light");
+
+document.getElementById("meta").textContent =
+  `${mod.meta.name} · ${mod.meta.footprint.join("×")}cm · reads: ${mod.meta.reads}`;
+
+function size() {
+  cam.aspect = innerWidth / innerHeight;
+  cam.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+  KIT.resize(innerWidth, innerHeight);
+  look([...document.querySelectorAll("#views button")]
+    .find((b) => b.getAttribute("aria-pressed") === "true").textContent);
+}
+addEventListener("resize", size);
+size();
+
+renderer.setAnimationLoop(() => renderer.render(scene, cam));
+</script>
+</body>
+</html>

@@ -24,6 +24,7 @@ export default defineConfig(({ mode }) => {
       figmaReactRefreshBoundaryFallback(),
       figmaMakeKitPlugin({ storiesGlob: '/src/**/*.stories.{ts,tsx,js,jsx}' }),
       bindDeskPrototype(),
+      inspectorEdit(),
     ],
     resolve: {
       alias: {
@@ -377,6 +378,122 @@ function bindDeskPrototype(): Plugin {
     },
     configurePreviewServer(server) {
       server.middlewares.use(rewrite)
+    },
+  }
+}
+
+/**
+ * Lets the UI inspector (src/dev/Inspector.tsx) edit the page's words in place.
+ * `POST /__inspector/find` takes the text an element shows and finds where it is
+ * written under src/, ignoring what never renders: `**` emphasis marks, JSX tags,
+ * `{" "}` and line breaks. `POST /__inspector/save` swaps that exact range for the
+ * new text, after checking the range is unchanged and the file still parses, and
+ * Vite's hot reload shows the result. Dev server only.
+ */
+function inspectorEdit(): Plugin {
+  type Hit = { file: string; start: number; end: number; line: number; raw: string }
+  const root = path.resolve(__dirname, 'src')
+
+  // The file's text as it would render, with a map back to source offsets.
+  const rendered = (src: string) => {
+    const out: string[] = []
+    const map: number[] = []
+    let space = true
+    const pushSpace = (i: number) => {
+      if (!space) {
+        out.push(' ')
+        map.push(i)
+        space = true
+      }
+    }
+    for (let i = 0; i < src.length; ) {
+      if (src.startsWith('**', i)) { i += 2; continue }
+      if (src.startsWith('{" "}', i)) { pushSpace(i); i += 5; continue }
+      const c = src[i]
+      if (c === '<') {
+        const m = /^<\/?[A-Za-z][^<>]{0,200}>/.exec(src.slice(i, i + 220))
+        if (m) { i += m[0].length; continue }
+      }
+      if (/\s/.test(c)) { pushSpace(i); i++; continue }
+      out.push(c)
+      map.push(i)
+      space = false
+      i++
+    }
+    return { text: out.join(''), map }
+  }
+
+  const files = async (dir: string): Promise<string[]> => {
+    const { readdir } = await import('node:fs/promises')
+    const entries = await readdir(dir, { withFileTypes: true })
+    const all = await Promise.all(
+      entries.map((e) => {
+        const p = path.join(dir, e.name)
+        if (e.isDirectory()) return e.name === 'dev' ? [] : files(p)
+        return /\.(tsx?|jsx?)$/.test(e.name) ? [p] : []
+      }),
+    )
+    return all.flat()
+  }
+
+  const find = async (needle: string): Promise<Hit[]> => {
+    const { readFile } = await import('node:fs/promises')
+    const want = needle.replace(/\s+/g, ' ').trim()
+    if (want.length < 2) return []
+    const hits: Hit[] = []
+    for (const file of await files(root)) {
+      const src = await readFile(file, 'utf8')
+      const { text, map } = rendered(src)
+      for (let at = text.indexOf(want); at >= 0; at = text.indexOf(want, at + 1)) {
+        const start = map[at]
+        const end = map[at + want.length - 1] + 1
+        hits.push({ file: path.relative(__dirname, file), start, end, line: src.slice(0, start).split('\n').length, raw: src.slice(start, end) })
+      }
+    }
+    return hits
+  }
+
+  const body = (req: import('node:http').IncomingMessage) =>
+    new Promise<any>((done, fail) => {
+      let data = ''
+      req.on('data', (c) => (data += c))
+      req.on('end', () => {
+        try { done(JSON.parse(data || '{}')) } catch (e) { fail(e) }
+      })
+    })
+
+  return {
+    name: 'inspector-edit',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        const url = req.url?.split('?')[0]
+        if (req.method !== 'POST' || (url !== '/__inspector/find' && url !== '/__inspector/save')) return next()
+        const reply = (code: number, payload: unknown) => {
+          res.statusCode = code
+          res.setHeader('Content-Type', 'application/json')
+          res.end(JSON.stringify(payload))
+        }
+        try {
+          const input = await body(req)
+          if (url === '/__inspector/find') return reply(200, { hits: await find(String(input.text ?? '')) })
+
+          const { readFile, writeFile } = await import('node:fs/promises')
+          const file = path.resolve(__dirname, String(input.file))
+          if (!file.startsWith(root + path.sep)) return reply(400, { error: 'Only files under src/ can be edited.' })
+          const src = await readFile(file, 'utf8')
+          if (src.slice(input.start, input.end) !== input.raw) return reply(409, { error: 'The file changed since this text was found. Pick it again.' })
+          const next = src.slice(0, input.start) + String(input.next) + src.slice(input.end)
+          const ts = await import('typescript')
+          const sf = ts.createSourceFile(file, next, ts.ScriptTarget.Latest, false, file.endsWith('x') ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
+          const errors = (sf as unknown as { parseDiagnostics: { messageText: unknown }[] }).parseDiagnostics
+          if (errors.length) return reply(422, { error: `That edit would break the code: ${ts.flattenDiagnosticMessageText(errors[0].messageText as string, ' ').replace(/\.$/, '')}. A quote or brace may need escaping.` })
+          await writeFile(file, next)
+          reply(200, { ok: true, file: input.file })
+        } catch (e) {
+          reply(500, { error: String(e) })
+        }
+      })
     },
   }
 }

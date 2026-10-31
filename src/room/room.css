@@ -1,0 +1,218 @@
+/* hairline-room tokens, and the loader that opens /room. Ink and plate match
+   src/room/kit.js; the loader paints with its own colours (SeasonTree.tsx). */
+
+.hl-room {
+  --ink: #111113;
+  --plate: #ffffff;
+  --stroke: 1.1px;
+  --sil: 1;
+  --crease: 0.7;
+  --detail: 0.45;
+  --guide: 0.2;
+  --hover: #00bcd4;
+
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--plate);
+  color: var(--ink);
+  font-family: "DM Mono", ui-monospace, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  .hl-room {
+    --ink: #f4f4f6;
+    --plate: #0b0b0d;
+  }
+}
+
+/* ---- the drawing: an oil pastel tree, seen from underneath */
+
+.hl-art {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #cfe8f2;
+}
+
+.hl-scene {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* The whole tree sways as one layer, about the foot of the trunk. */
+.hl-tree {
+  transform-origin: 50% 100%;
+  will-change: transform;
+  animation: hl-tree 8s ease-in-out infinite alternate;
+}
+@keyframes hl-tree {
+  from { transform: rotate(-0.4deg) scale(1.01); }
+  to { transform: rotate(0.5deg) scale(1.01); }
+}
+
+/* A small plane crosses the sky now and then, behind the leaves. */
+.hl-plane { animation: hl-plane 46s linear infinite; }
+@keyframes hl-plane {
+  0% { transform: translate(-200px, 700px) rotate(-21deg); }
+  45% { transform: translate(1400px, 80px) rotate(-21deg); }
+  45.1%, 100% { transform: translate(1400px, 80px) rotate(-21deg); opacity: 0; }
+}
+
+/* Leaves, petals or snow, each in its own lane (--dx, --spin from the markup). */
+.hl-faller {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation-name: hl-faller;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes hl-faller {
+  0% { transform: translate(0, 0) rotate(0); }
+  25% { transform: translate(calc(var(--dx) * 0.6), 340px) rotate(calc(var(--spin) * 0.25)); }
+  50% { transform: translate(calc(var(--dx) * -0.2), 660px) rotate(calc(var(--spin) * 0.5)); }
+  75% { transform: translate(calc(var(--dx) * 0.8), 980px) rotate(calc(var(--spin) * 0.75)); }
+  100% { transform: translate(var(--dx), 1320px) rotate(var(--spin)); }
+}
+.hl-faller-snow { animation-name: hl-snow; }
+@keyframes hl-snow {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(calc(var(--dx) * 0.3), 660px); }
+  100% { transform: translate(calc(var(--dx) * -0.2), 1320px); }
+}
+
+/* Dark mode: dusk. A blue multiplied over everything, the video included. */
+.hl-dusk {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+  background: linear-gradient(#1d2c55, #3a3560);
+  mix-blend-mode: multiply;
+  opacity: 0.72;
+}
+@media (prefers-color-scheme: dark) {
+  .hl-dusk { display: block; }
+}
+
+/* Paper grain over everything: fractal noise multiplied in. It shifts a few
+   pixels in steps, like film. */
+.hl-grain {
+  position: absolute;
+  inset: -40px;
+  pointer-events: none;
+  opacity: 0.26;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1.6 -.45'/></filter><rect width='240' height='240' filter='url(%23n)'/></svg>");
+  animation: hl-grain 0.9s steps(4) infinite;
+}
+@keyframes hl-grain {
+  25% { transform: translate(-14px, 9px); }
+  50% { transform: translate(8px, -16px); }
+  75% { transform: translate(-6px, 18px); }
+}
+
+.hl-drift-a { animation: hl-drift 46s ease-in-out infinite alternate; }
+.hl-drift-b { animation: hl-drift 61s ease-in-out -20s infinite alternate-reverse; }
+@keyframes hl-drift {
+  to { transform: translateX(64px); }
+}
+
+/* ---- the loader */
+
+.hl-loader-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 1.4s ease;
+  pointer-events: none;
+}
+.hl-loader[data-video="on"] .hl-loader-video { opacity: 1; }
+.hl-loader[data-phase="entered"] .hl-loader-video { opacity: 0; }
+
+.hl-loader-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: max(40px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  transition: opacity 0.6s ease;
+}
+.hl-loader[data-phase="entered"] .hl-loader-prompt { opacity: 0; }
+
+.hl-label {
+  font: 500 12px/1 "DM Mono", ui-monospace, monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.45);
+  background: none;
+  border: 0;
+  padding: 8px 10px;
+}
+
+.hl-progress {
+  display: block;
+  width: 120px;
+  height: var(--stroke);
+  background: rgb(255 255 255 / 0.35);
+}
+.hl-progress span {
+  display: block;
+  height: 100%;
+  background: #ffffff;
+  transform-origin: left;
+}
+
+.hl-scroll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  animation: hl-in 0.8s ease both;
+}
+.hl-scroll svg {
+  width: 12px;
+  height: 8px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--stroke);
+  animation: hl-bob 1.8s ease-in-out infinite;
+}
+.hl-scroll:hover,
+.hl-scroll:focus-visible,
+.hl-sound:hover,
+.hl-sound:focus-visible {
+  color: var(--hover);
+  outline: none;
+}
+@keyframes hl-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
+@keyframes hl-bob {
+  50% { transform: translateY(3px); }
+}
+
+.hl-sound {
+  position: absolute;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hl-art *,
+  .hl-grain,
+  .hl-scroll,
+  .hl-scroll svg { animation: none !important; }
+}

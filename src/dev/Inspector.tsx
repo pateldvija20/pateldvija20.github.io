@@ -10,6 +10,11 @@ import { BORDER, COLOR_VARS, RADIUS, SPACE, TYPE_ROLES, WEIGHT } from "../pieces
  * and the design tokens its values resolve to. Click to copy that card as text,
  * paste it into the chat, and say what should change. `Esc` turns it off.
  *
+ * Press `E` over any text to edit it: the inspector finds where those words are
+ * written under src/ (through the `inspector-edit` plugin in vite.config.ts),
+ * shows them as written, with `**` marking bold, and saves your change into
+ * that file; hot reload shows it on the page.
+ *
  * Mounted only in development (main.tsx), so it never ships.
  */
 
@@ -17,6 +22,25 @@ const MONO = "'DM Mono', ui-monospace, monospace";
 const BLUE = "#0d99ff";
 
 type Line = [string, string];
+type Hit = { file: string; start: number; end: number; line: number; raw: string };
+type Edit = { el: Element; hits: Hit[] | null; pick: number; draft: string; status: string; error: boolean };
+
+/** The block of text to edit: the paragraph, heading, label or control the pointer is on. */
+function textBlock(hit: Element): HTMLElement | null {
+  const block = hit.closest("p, h1, h2, h3, h4, h5, h6, dd, dt, li, blockquote, figcaption, button, a, label, td, th, span");
+  const el = (block ?? hit) as HTMLElement;
+  return (el.textContent ?? "").trim() ? el : null;
+}
+
+/** The words as written, not as styled: hidden text out, whitespace collapsed. */
+function visibleText(el: HTMLElement): string {
+  const copy = el.cloneNode(true) as HTMLElement;
+  copy.querySelectorAll(".sr-only, [aria-hidden='true']").forEach((n) => n.remove());
+  return (copy.textContent ?? "").replace(/\s+/g, " ").trim();
+}
+
+const post = (url: string, body: unknown) =>
+  fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json());
 type Info = { rect: DOMRect; name: string; crumbs: string; lines: Line[]; text: string };
 
 const px = (v: string) => parseFloat(v) || 0;
@@ -189,6 +213,39 @@ export default function Inspector() {
   const pick = () => sel.current ?? last.current;
   const card = useRef<HTMLDivElement>(null);
   const raf = useRef(0);
+  /** The raw element under the pointer, for `E`. */
+  const hitEl = useRef<Element | null>(null);
+  const [edit, setEdit] = useState<Edit | null>(null);
+
+  const startEdit = useCallback(async () => {
+    const block = hitEl.current && textBlock(hitEl.current);
+    if (!block) return;
+    const text = visibleText(block);
+    setEdit({ el: block, hits: null, pick: 0, draft: "", status: "Finding where this is written…", error: false });
+    try {
+      const { hits } = (await post("/__inspector/find", { text })) as { hits: Hit[] };
+      if (!hits?.length) {
+        setEdit((e) => e && { ...e, hits: [], status: "Could not find these words in src/. They may be built from parts, or come from an image or video.", error: true });
+        return;
+      }
+      // Prefer the file the element says it comes from.
+      const src = (block.closest("[data-src]") as HTMLElement | null)?.dataset.src?.split(" › ")[0];
+      const best = Math.max(0, hits.findIndex((h) => src && h.file === src));
+      setEdit((e) => e && { ...e, hits, pick: best, draft: hits[best].raw, status: hits.length > 1 ? `Found in ${hits.length} places` : "", error: false });
+    } catch {
+      setEdit((e) => e && { ...e, hits: [], status: "The dev server did not answer. Restart it so vite.config.ts loads the edit plugin.", error: true });
+    }
+  }, []);
+
+  const saveEdit = useCallback(async () => {
+    if (!edit?.hits?.length) return;
+    const h = edit.hits[edit.pick];
+    if (edit.draft === h.raw) return setEdit(null);
+    setEdit({ ...edit, status: "Saving…", error: false });
+    const r = await post("/__inspector/save", { file: h.file, start: h.start, end: h.end, raw: h.raw, next: edit.draft });
+    if (r.ok) setEdit(null);
+    else setEdit({ ...edit, status: r.error ?? "Could not save.", error: true });
+  }, [edit]);
 
   const inInspector = (el: Element | null) => !!el?.closest("[data-inspector-ui]");
 
@@ -204,6 +261,11 @@ export default function Inspector() {
       if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "i" || e.key === "I") setOn((v) => !v);
       if (e.key === "Escape") setOn(false);
+      if (on && (e.key === "e" || e.key === "E")) {
+        e.preventDefault();
+        startEdit();
+        return;
+      }
       if (on && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
         // Caught before the page sees it, so the arrows never scroll the page underneath.
         e.preventDefault();
@@ -228,13 +290,14 @@ export default function Inspector() {
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [on]);
+  }, [on, startEdit]);
 
   useEffect(() => {
     const root = document.documentElement;
     if (!on) {
       root.removeAttribute("data-inspect");
       setInfo(null);
+      setEdit(null);
       last.current = null;
       sel.current = null;
       trail.current = [];
@@ -247,6 +310,7 @@ export default function Inspector() {
       raf.current = requestAnimationFrame(() => {
         const hit = document.elementFromPoint(e.clientX, e.clientY);
         if (!hit || inInspector(hit)) return;
+        hitEl.current = hit;
         // Compare named elements, not raw ones: moving within the same component
         // must not undo ArrowUp / ArrowDown.
         const el = hit.closest("[data-ui]") ?? hit;
@@ -346,10 +410,74 @@ export default function Inspector() {
               </div>
             ))}
             <div style={{ marginTop: 10, color: copied ? "#5ee08a" : BLUE }}>
-              {copied ? "Copied. Paste it in the chat and add your change." : "Click to copy  ·  ↑ parent  ↓ child"}
+              {copied ? "Copied. Paste it in the chat and add your change." : "Click to copy  ·  E edit text  ·  ↑ parent  ↓ child"}
             </div>
           </div>
         </>
+      ) : null}
+      {on && edit ? (
+        <div
+          data-inspector-ui
+          role="dialog"
+          aria-label="Edit text"
+          style={{
+            position: "fixed", left: "50%", bottom: 64, transform: "translateX(-50%)", width: "min(640px, calc(100vw - 32px))", pointerEvents: "auto",
+            background: "#161616", color: "#f2f2f2", border: `1px solid ${BLUE}`, borderRadius: 12, padding: 14, fontSize: 12, lineHeight: "17px",
+            boxShadow: "0 16px 40px rgba(0,0,0,0.45)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>Edit text</span>
+            <span style={{ color: "#9a9a9a" }}>**bold**  ·  ⌘Enter save  ·  Esc cancel</span>
+          </div>
+          {edit.hits && edit.hits.length > 1 ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              {edit.hits.map((h, i) => (
+                <button
+                  key={`${h.file}:${h.start}`}
+                  type="button"
+                  onClick={() => setEdit({ ...edit, pick: i, draft: h.raw })}
+                  style={{ fontFamily: MONO, fontSize: 11, padding: "3px 8px", borderRadius: 999, cursor: "pointer", border: `1px solid ${i === edit.pick ? BLUE : "#3a3a3a"}`, background: i === edit.pick ? BLUE : "transparent", color: "#fff" }}
+                >
+                  {h.file.replace(/^src\//, "")}:{h.line}
+                </button>
+              ))}
+            </div>
+          ) : edit.hits?.length === 1 ? (
+            <div style={{ color: "#9a9a9a", marginBottom: 8 }}>{edit.hits[0].file}:{edit.hits[0].line}</div>
+          ) : null}
+          {edit.hits?.length ? (
+            <textarea
+              autoFocus
+              value={edit.draft}
+              onChange={(e) => setEdit({ ...edit, draft: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setEdit(null);
+                }
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  saveEdit();
+                }
+              }}
+              rows={Math.min(10, Math.max(3, Math.ceil(edit.draft.length / 70)))}
+              style={{ width: "100%", resize: "vertical", background: "#0e0e0e", color: "#f2f2f2", border: "1px solid #3a3a3a", borderRadius: 8, padding: 10, fontFamily: MONO, fontSize: 13, lineHeight: "19px" }}
+            />
+          ) : null}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+            <span style={{ flex: 1, color: edit.error ? "#ff7b6b" : "#9a9a9a" }}>{edit.status}</span>
+            <button type="button" onClick={() => setEdit(null)} style={{ fontFamily: MONO, fontSize: 12, padding: "6px 12px", borderRadius: 999, border: "1px solid #3a3a3a", background: "transparent", color: "#fff", cursor: "pointer" }}>
+              Cancel
+            </button>
+            {edit.hits?.length ? (
+              <button type="button" onClick={saveEdit} style={{ fontFamily: MONO, fontSize: 12, padding: "6px 12px", borderRadius: 999, border: `1px solid ${BLUE}`, background: BLUE, color: "#fff", cursor: "pointer" }}>
+                Save to file
+              </button>
+            ) : null}
+          </div>
+        </div>
       ) : null}
     </div>
   );
