@@ -166,7 +166,7 @@ export const PLAY: PlayItem[] = [
 export const CV = {
   name: "Dvija Patel",
   summary:
-    "Product designer based in Cincinnati, with 4+ years across startups building 0→1 products and the systems that let them grow. Master of Design in Human-Centered Technology Design from the University of Cincinnati.",
+    "Product Designer with 4+ years of experience building 0→1 products at startups, crafting thoughtful, intuitive experiences that feel human.",
   contact: [
     { label: "LinkedIn", value: "pateldvija", href: "https://www.linkedin.com/in/pateldvija/" },
     { label: "Github", value: "pateldvija20", href: "https://github.com/pateldvija20" },
