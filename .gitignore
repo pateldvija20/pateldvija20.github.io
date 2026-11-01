@@ -7,3 +7,23 @@ dist/
 # Full-res photo originals (web-sized copies live in public/assets/)
 assets-src/
 .video-frames/
+
+# Kept on this machine only. GitHub holds just what the site deploys from;
+# see archive/info.md.
+.bind-desk-compare/
+.claude/
+.agents/
+.env.example
+.opencode/
+AGENTS.md
+CLAUDE.md
+skills-lock.json
+archive/
+docs/
+exports/
+new_assets/
+scripts/
+src/pieces/diagrams/
+src/room/bench.html
+src/room/kit.js
+src/dev/
