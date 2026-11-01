@@ -11,7 +11,11 @@ fresh clone won't have them and the deploy would fail.
 
 ## The live site
 
-- **URL**: https://pateldvija20-github-io.vercel.app
+- **URL**: https://pateldvija20.vercel.app. https://pateldvija20.github.io
+  redirects there: GitHub Pages serves a one-line redirect page, published by
+  a workflow on the old `main` branch, which is in the backup bundle. (The
+  `pateldvija20-github-io.vercel.app` link on the repo page is dead. Vercel's
+  per-deploy URLs ask for a Vercel login.)
 - **Host**: Vercel. Production deploys from the `main-v2` branch (the
   repo's default branch). Other branches get preview deploys.
 - **Build**: `npm install`, then `vite build`, which outputs `dist/`.
