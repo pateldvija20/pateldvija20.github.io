@@ -26,6 +26,10 @@ export default defineConfig(({ mode }) => {
       bindDeskPrototype(),
       inspectorEdit(),
     ],
+    // Scan only the real site for deps; the local room bench imports three, which isn't installed.
+    optimizeDeps: {
+      entries: ['index.html'],
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src'),

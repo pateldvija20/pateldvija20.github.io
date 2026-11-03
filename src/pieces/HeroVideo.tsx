@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 /**
  * Bind Desk's hero: a silent loop recorded from the prototype (`scripts/video.mjs
  * loop` in bind-desk-prototype), in the prototype's own browser window, centred on
- * the project's backdrop with an even margin all round.
+ * a photo of scattered paperwork with an even margin all round. The window sits
+ * over the photo's "DOCUMENTS" tiles, so only the loose pages show around it.
  *
  * The recording is 1150 x 676, the window's own shape, so it fills the frame with
  * nothing cropped. It only plays while on screen, and with reduced motion it holds
@@ -34,6 +35,9 @@ export function HeroVideo({ className = "" }: { className?: string }) {
 
   return (
     <div className={`relative h-full w-full select-none overflow-hidden ${className}`} style={{ containerType: "size" }} aria-hidden>
+      <img src={`${DIR}/documents.jpg`} alt="" className="absolute inset-0 h-full w-full object-cover" draggable={false} />
+      {/* Darkens the photo so the window stays the brightest thing in the frame. */}
+      <div className="absolute inset-0" style={{ background: "rgba(33, 33, 33, 0.5)" }} />
       {/* As wide as the box allows while keeping an 11% margin above and below. */}
       <div
         className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 overflow-hidden"
