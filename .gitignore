@@ -27,3 +27,6 @@ src/pieces/diagrams/
 src/room/bench.html
 src/room/kit.js
 src/dev/
+
+# brainstorm mockups (local only)
+.superpowers/

@@ -1,0 +1,252 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: #ffffff;
+  color: #212121;
+}
+
+#root {
+  height: 100%;
+}
+
+.shelf-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.shelf-canvas {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+.shelf-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-size: 160px 160px;
+  mix-blend-mode: soft-light;
+  opacity: 0.22;
+}
+
+/* Tree-branch shadow from the upper left (LeafShadow.tsx). Faint on purpose. */
+.leaf-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  mix-blend-mode: multiply;
+  opacity: 0.09;
+}
+
+/* Covers the left half of the screen, top to bottom, fading out on the right. */
+.leaf-sway {
+  position: absolute;
+  top: -3vh;
+  left: -3vw;
+  width: 57vw;
+  height: 106vh;
+  transform-origin: 0 0;
+  -webkit-mask-image: linear-gradient(to right, #000 70%, transparent 100%);
+  mask-image: linear-gradient(to right, #000 70%, transparent 100%);
+  will-change: transform;
+  animation: leaf-rock 9.7s ease-in-out infinite alternate;
+}
+
+.leaf-sway-b {
+  animation-name: leaf-rock-b;
+  animation-duration: 7.3s;
+  animation-delay: -3.1s;
+}
+
+.leaf-layer {
+  position: absolute;
+  inset: 0;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  animation: leaf-drift 13.9s ease-in-out infinite alternate;
+}
+
+.leaf-layer-near {
+  opacity: 0.85;
+  animation-duration: 11.3s;
+  animation-delay: -5.7s;
+}
+
+@keyframes leaf-rock {
+  0% { transform: rotate(-1.1deg); }
+  35% { transform: rotate(0.6deg); }
+  60% { transform: rotate(-0.3deg); }
+  100% { transform: rotate(1.3deg); }
+}
+
+@keyframes leaf-rock-b {
+  0% { transform: rotate(0.9deg); }
+  40% { transform: rotate(-0.8deg); }
+  70% { transform: rotate(0.2deg); }
+  100% { transform: rotate(-1.4deg); }
+}
+
+@keyframes leaf-drift {
+  0% { transform: translate(0, 0); }
+  50% { transform: translate(0.5vmax, -0.3vmax); }
+  100% { transform: translate(-0.4vmax, 0.4vmax); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leaf-sway,
+  .leaf-layer {
+    animation: none;
+  }
+}
+
+.shelf-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  color: #6e6b64;
+}
+
+/* Credits for the third-party 3D models (Credits.tsx). Small and out of the way. */
+.shelf-credits {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #55534e;
+}
+.shelf-credits-toggle {
+  font: inherit;
+  color: #55534e;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #d8d3c7;
+  border-radius: 9999px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.shelf-credits-toggle:hover {
+  color: #212121;
+  border-color: #b8b6af;
+}
+.shelf-credits-toggle:focus-visible,
+.shelf-credits a:focus-visible {
+  outline: 2px solid #212121;
+  outline-offset: 2px;
+}
+.shelf-credits-panel {
+  max-width: min(420px, calc(100vw - 32px));
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #d8d3c7;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+.shelf-credits-panel p {
+  margin: 0 0 8px;
+}
+.shelf-credits-panel p:last-child {
+  margin-bottom: 0;
+}
+.shelf-credits-heading {
+  font-weight: 500;
+  color: #212121;
+}
+.shelf-credits a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* 2D style test (flat/TestStrip.tsx), shown at /?style=2d. */
+.flat-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: end center;
+  padding: 0 16px 8vh;
+}
+.flat-svg {
+  width: min(1100px, 100%);
+  height: auto;
+  overflow: visible;
+}
+.flat-book {
+  cursor: pointer;
+  transition: transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  outline: none;
+}
+.flat-book:hover,
+.flat-book:focus-visible {
+  transform: translateY(-12px);
+}
+.lamp-glow {
+  animation: lamp-glow 4.2s ease-in-out infinite alternate;
+}
+.lamp-eyes {
+  animation: lamp-blink 5.5s infinite;
+}
+.pilea-sway {
+  animation: pilea-sway 7s ease-in-out infinite alternate;
+}
+.pilea-leaf-0 { animation: pilea-leaf 3.8s ease-in-out infinite alternate; }
+.pilea-leaf-1 { animation: pilea-leaf 4.6s ease-in-out -1.2s infinite alternate; }
+.pilea-leaf-2 { animation: pilea-leaf 5.3s ease-in-out -2.5s infinite alternate; }
+@keyframes lamp-glow {
+  from { opacity: 0.55; }
+  to { opacity: 0.95; }
+}
+@keyframes lamp-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+@keyframes pilea-sway {
+  from { transform: rotate(-1.5deg); }
+  to { transform: rotate(1.5deg); }
+}
+@keyframes pilea-leaf {
+  from { transform: rotate(-1deg); }
+  to { transform: rotate(1.2deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lamp-glow, .lamp-eyes, .pilea-sway, .pilea-leaf-0, .pilea-leaf-1, .pilea-leaf-2 { animation: none; }
+  .flat-book { transition: none; }
+}
+
+/* The 2D shelf (flat/FlatShelf.tsx). */
+.flat-scroller {
+  position: absolute;
+  inset: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  cursor: grab;
+  touch-action: pan-x;
+  display: flex;
+  align-items: flex-end;
+}
+.flat-scroller::-webkit-scrollbar { display: none; }
+.flat-scroller:active { cursor: grabbing; }
+.flat-shelf {
+  height: min(82vh, 760px);
+  width: auto;
+  flex: none;
+  margin-bottom: 4vh;
+  overflow: visible;
+}
+.plant-sway { animation: pilea-sway 7.5s ease-in-out infinite alternate; }
+.vine-sway { animation: pilea-sway 9s ease-in-out -3s infinite alternate; }
+@media (prefers-reduced-motion: reduce) {
+  .plant-sway, .vine-sway { animation: none; }
+}
