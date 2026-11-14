@@ -23,9 +23,7 @@ docs/
 exports/
 new_assets/
 scripts/
-src/pieces/diagrams/
-src/room/bench.html
-src/room/kit.js
+src/desk/pieces/diagrams/
 src/dev/
 
 # brainstorm mockups (local only)

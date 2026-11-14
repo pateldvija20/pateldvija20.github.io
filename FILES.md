@@ -1,7 +1,22 @@
 # Where everything is
 
 A map of this portfolio's files, for whoever (or whichever AI) works on it
-next. Updated 1 Nov 2026.
+next. Updated 13 Nov 2026.
+
+## Versions of the site
+
+| Version | Where it lives | Status |
+|---|---|---|
+| **3D bookshelf** | `dev-v2` branch; code in `src/shelf/` | In progress. Vercel builds a preview of it. Not live yet |
+| **Desk site** (Scattered + Organised modes, `/room`) | `main-v2` branch and the `desk-site` tag; code in `src/desk/` | Live now. On `dev-v2` its code is kept but not shown, because the bookshelf will reuse its case studies and books |
+| **2D bookshelf** | `bookshelf-2d` tag; code in `archive/versions/bookshelf-2d/` (Mac only) | Retired 10 Nov, when the 3D build was chosen |
+| **`/room` seasonal tree** | `desk-site` tag; code in `archive/versions/room/` (Mac only) | Retired. Its old address now redirects to the shelf |
+| **Next.js portfolio** | `archive/nextjs-portfolio/` and the backup bundle (Mac only) | The first portfolio |
+
+**Branches** keep moving as work is added. **Tags** are fixed bookmarks:
+`git switch --detach desk-site` opens the desk site exactly as it was.
+Work on `dev-v2`. Merge it into `main-v2` only when the bookshelf is ready to
+ship, since `main-v2` is what the live site deploys from.
 
 **The rule:** this GitHub repo holds only the files the live site is built
 from. Everything else (docs, scripts, design exports, archived work, AI and
@@ -43,19 +58,26 @@ fresh clone won't have them and the deploy would fail.
 
 | Path | What it is |
 |---|---|
-| `src/main.tsx` | Entry. Mounts `App`, and lazy-loads `/room` and the dev inspector (dev only) |
-| `src/App.tsx` | The main site: the desk (Scattered mode) and the switch to Organised mode |
+This describes `dev-v2`. On `main-v2` the desk site's files are still at
+`src/App.tsx`, `src/organized/`, `src/pieces/` and so on, without the `desk/`.
+
+| Path | What it is |
+|---|---|
+| `src/main.tsx` | Entry. Mounts `ShelfApp`, and the dev inspector (dev only) |
 | `src/index.css` | Global CSS, Tailwind import and the theme tokens for light, dark and Organised mode |
-| `src/responsive.ts` | Breakpoints and scaling model |
-| `src/organized/` | Organised mode, the linkable page version: hero, Work, Play, About, CV, Writing, Archive, sidebar, footer, router and `content.ts` (copy) |
-| `src/pieces/` | The desk objects (pencils, file folder, keyboard, coaster, stamp, puzzle and so on) and the case studies |
-| `src/pieces/projects.ts` | The project list. Each project's name, title, hero and card image |
-| `src/pieces/CaseStudy.tsx` | The case-study page layout shared by every project |
-| `src/pieces/bindDesk.tsx`, `billyAndBuddy.tsx`, `greenera.tsx`, `theFamilyTable.tsx` | Each case study's content |
-| `src/pieces/caseStudySections.ts`, `caseStudyKit.tsx`, `caseStudyBits.tsx` | Section lists and building blocks for case studies |
-| `src/pieces/tokens.ts` | Design tokens |
-| `src/room/` | `/room`, an early page: the seasonal tree loader (`RoomLoader.tsx`, `SeasonTree.tsx`, `ambience.ts`, `room.css`) |
-| `src/assets/sticker-sheet.svg` | Imported by `StickerSheet.tsx` |
+| `src/shelf/` | **The 3D bookshelf, the current site.** `ShelfApp.tsx` (page, routes, old-address redirects), `ShelfScene.tsx` and `scene/` (the three.js room, cabinet, books, plants, coffee corner, lights, camera), `Credits.tsx` (model credits) |
+| `src/desk/` | **The desk site, kept for reuse.** Nothing imports it yet, so none of it ships |
+| `src/desk/App.tsx` | The desk (Scattered mode) and the switch to Organised mode |
+| `src/desk/responsive.ts` | Breakpoints and scaling model |
+| `src/desk/organized/` | Organised mode, the linkable page version: hero, Work, Play, About, CV, Writing, Archive, sidebar, footer, router and `content.ts` (copy) |
+| `src/desk/pieces/` | The desk objects (pencils, file folder, keyboard, coaster, stamp, puzzle and so on) and the case studies |
+| `src/desk/pieces/projects.ts` | The project list. Each project's name, title, hero and card image |
+| `src/desk/pieces/CaseStudy.tsx` | The case-study page layout shared by every project |
+| `src/desk/pieces/bindDesk.tsx`, `billyAndBuddy.tsx`, `greenera.tsx`, `theFamilyTable.tsx` | Each case study's content. The shelf's books will use these words |
+| `src/desk/pieces/BillyBook.tsx`, `AboutBook.tsx` | The page-turning books the shelf's books are modelled on |
+| `src/desk/pieces/caseStudySections.ts`, `caseStudyKit.tsx`, `caseStudyBits.tsx` | Section lists and building blocks for case studies |
+| `src/desk/pieces/tokens.ts` | Design tokens |
+| `src/desk/assets/sticker-sheet.svg` | Imported by `StickerSheet.tsx` |
 
 ### `public/`: copied as-is into the site
 
@@ -64,7 +86,8 @@ fresh clone won't have them and the deploy would fail.
 | `public/assets/*.svg` | Desk illustrations, each in `_light` and `_dark` |
 | `public/assets/projects/<project>/` | Case-study images and clips for bind-desk, billy-and-buddy, greenera and the-family-table, plus the card images |
 | `public/assets/aboutme/`, `hero/`, `logos/`, `play/`, `puzzle/` | Images for those sections |
-| `public/assets/room/loader/` | Start frames for the `/room` loader |
+| `public/models/` | The shelf's 3D models: `breville.glb` (in use), `phone.glb`, `coffee.glb` (kept, unused) |
+| `public/draco/` | The decoder three.js uses to unpack the compressed models |
 | `public/bind-desk/` | The Bind Desk prototype, **built output**. Its source is in another project (see below) |
 | `public/billy-and-buddy-game/` | The Billy & Buddy game. Plain HTML, JS and CSS, edited here |
 | `public/greenera/` | The Greenera prototype. Plain HTML, JS and CSS, edited here |
@@ -80,6 +103,8 @@ All of these are in the project folder,
 |---|---|
 | `archive/` | Work not on the site. **Read `archive/info.md` first.** |
 | `archive/full-repo-backup-2026-11-01.bundle` | The whole git repo before the cleanup: every old branch (`main`, `dev-v2`, `bind-desk-case-study`, `archive/nextjs-portfolio`, `main-v2`) with full history. Restore with `git clone <bundle> <folder>` |
+| `archive/versions/bookshelf-2d/` | The retired 2D bookshelf (`flat/`) and its styles (`flat-styles.css`), taken out of `src/shelf/` on 13 Nov |
+| `archive/versions/room/` | The retired `/room` seasonal tree page (`src-room/`, with its test bench) and its loader frames (`public-assets/room/`), taken out on 13 Nov |
 | `archive/room-window-view/` | The next `/room` (three.js window view, pull-back into the room, Work book, case study), with steps to bring it back |
 | `archive/nextjs-portfolio/` | The first portfolio, in Next.js with Sanity |
 | `archive/projects/`, `archive/scripts/` | Case-study media and scripts taken out of the site |
@@ -90,8 +115,7 @@ All of these are in the project folder,
 | `assets-src/` | Full-resolution photo originals. Web-sized copies are in `public/assets/` |
 | `.bind-desk-compare/` | Before and after screenshots of the Bind Desk case study at 1440 and 390 px |
 | `src/dev/Inspector.tsx` | The dev-only UI inspector. Dev builds load it if it's present. Never ship it |
-| `src/room/bench.html`, `src/room/kit.js` | The hairline room's object test bench (dev only) |
-| `src/pieces/diagrams/` | Four service-design SVGs that nothing imports yet |
+| `src/desk/pieces/diagrams/` | Four service-design SVGs that nothing imports yet |
 | `AGENTS.md`, `CLAUDE.md` | Instructions for AI agents |
 | `.claude/`, `.agents/`, `skills-lock.json` | Claude Code settings, launch config and skills (including `hairline-room` for the room's style) |
 | `.opencode/` | OpenCode editor config |
