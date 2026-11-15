@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { SHELF } from "./Room";
 import { About, CaseStudies, Experiments, Notebooks, Resume } from "./objects/Books";
 import { Pothos, SmilePilea, SnakePlant, WavyPilea } from "./objects/Plants";
-import { Clock, Phone } from "./objects/Props";
+import { Phone } from "./objects/Props";
 import CoffeeCorner from "./CoffeeCorner";
 import Model from "./Model";
 
@@ -26,11 +26,10 @@ const SLOTS: Slot[] = [
   { id: "experiments", width: 1.16, node: <Experiments /> },
   { id: "about", width: 0.24, node: <About /> },
   { id: "snake-plant", width: 0.66, node: <SnakePlant /> },
-  { id: "clock", width: 0.96, node: <Clock /> },
   { id: "resume", width: 0.94, node: <Resume /> },
   { id: "notebooks", width: 1.25, node: <Notebooks /> },
   { id: "pothos", width: 0.72, node: <Pothos /> },
-  { id: "phone", width: 1.45, node: <Model src="/models/phone.glb" height={0.6} fallback={<Phone />} tint={PHONE_TINT} /> },
+  { id: "phone", width: 1.45, node: <Model src="/models/phone.glb" height={0.6} fallback={<Phone />} tint={PHONE_TINT} palette={{ Glass: { color: "#E9EAEC", metalness: 1, roughness: 0.14 } }} /> },
   { id: "wavy-pilea", width: 0.62, node: <WavyPilea /> },
 ];
 

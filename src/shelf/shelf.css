@@ -2,8 +2,9 @@ html,
 body {
   margin: 0;
   height: 100%;
-  background: #ffffff;
-  color: #212121;
+  /* Light #F9FCFF / dark #010407, set by story/theme.ts as --bg and --ink. */
+  background: var(--bg, #f9fcff);
+  color: var(--ink, #010407);
 }
 
 #root {
@@ -14,7 +15,7 @@ body {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: #ffffff;
+  background: var(--bg, #f9fcff);
 }
 
 .shelf-canvas {
@@ -23,95 +24,27 @@ body {
   touch-action: none;
 }
 
-.shelf-grain {
+/* Scene 1: the shelf line, painted by the page from the first frame, exactly
+   where the 3D shelf draws it (--shelf-y, set from the same framing). The
+   canvas covers it once it's ready. */
+.shelf-line {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-size: 160px 160px;
-  mix-blend-mode: soft-light;
-  opacity: 0.22;
+  left: 0;
+  right: 0;
+  top: var(--shelf-y, 88vh);
+  height: 1px;
+  background: var(--ink, #010407);
 }
 
-/* Tree-branch shadow from the upper left (LeafShadow.tsx). Faint on purpose. */
-.leaf-shadow {
+/* For screen readers only: "Loading" while the scene loads. */
+.shelf-sr {
   position: absolute;
-  inset: 0;
-  pointer-events: none;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
   overflow: hidden;
-  mix-blend-mode: multiply;
-  opacity: 0.09;
-}
-
-/* Covers the left half of the screen, top to bottom, fading out on the right. */
-.leaf-sway {
-  position: absolute;
-  top: -3vh;
-  left: -3vw;
-  width: 57vw;
-  height: 106vh;
-  transform-origin: 0 0;
-  -webkit-mask-image: linear-gradient(to right, #000 70%, transparent 100%);
-  mask-image: linear-gradient(to right, #000 70%, transparent 100%);
-  will-change: transform;
-  animation: leaf-rock 9.7s ease-in-out infinite alternate;
-}
-
-.leaf-sway-b {
-  animation-name: leaf-rock-b;
-  animation-duration: 7.3s;
-  animation-delay: -3.1s;
-}
-
-.leaf-layer {
-  position: absolute;
-  inset: 0;
-  background-size: 100% 100%;
-  background-repeat: no-repeat;
-  animation: leaf-drift 13.9s ease-in-out infinite alternate;
-}
-
-.leaf-layer-near {
-  opacity: 0.85;
-  animation-duration: 11.3s;
-  animation-delay: -5.7s;
-}
-
-@keyframes leaf-rock {
-  0% { transform: rotate(-1.1deg); }
-  35% { transform: rotate(0.6deg); }
-  60% { transform: rotate(-0.3deg); }
-  100% { transform: rotate(1.3deg); }
-}
-
-@keyframes leaf-rock-b {
-  0% { transform: rotate(0.9deg); }
-  40% { transform: rotate(-0.8deg); }
-  70% { transform: rotate(0.2deg); }
-  100% { transform: rotate(-1.4deg); }
-}
-
-@keyframes leaf-drift {
-  0% { transform: translate(0, 0); }
-  50% { transform: translate(0.5vmax, -0.3vmax); }
-  100% { transform: translate(-0.4vmax, 0.4vmax); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .leaf-sway,
-  .leaf-layer {
-    animation: none;
-  }
-}
-
-.shelf-loading {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  margin: 0;
-  font-family: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  font-size: 14px;
-  color: #6e6b64;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 /* Credits for the third-party 3D models (Credits.tsx). Small and out of the way. */

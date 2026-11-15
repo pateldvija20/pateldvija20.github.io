@@ -37,8 +37,6 @@ const END_MARGIN = 0.25;
 // just under the sideboard top up to the snake plant, edge to edge of the
 // sideboard. The rest of the cabinet and the floor stay below the frame.
 const CORNER = { left: -3.0, right: 3.0, top: 6.05, bottom: -1.0 };
-/** Where the step back begins: near the bookshelf's right end. */
-const STEP_BACK_FROM = 5.0;
 
 export default function CameraRig() {
   const { camera, gl } = useThree();
@@ -108,8 +106,13 @@ export default function CameraRig() {
     const cornerW = CORNER.right - CORNER.left;
     const cornerDistance = Math.max(cornerH / 2 / tanHalf, cornerW / (2 * tanHalf * cam.aspect));
     const cornerY = (bottomY + topY) / 2;
-    // The travel limits use the shelf framing, so set it before clamping.
-    view.current.shelfHalfWidth = shelfHalfHeight * cam.aspect;
+    // One framing for the whole site (13 Nov): the corner's wider view, so the
+    // camera never steps back or pushes in as you scroll. The shelf framing
+    // above is unused but kept, to bring the old step-back back if wanted.
+    const distance = cornerDistance;
+    const halfWidth = distance * tanHalf * cam.aspect;
+    // The travel limits use this framing, so set it before clamping.
+    view.current.shelfHalfWidth = halfWidth;
 
     // First frame: start at the left end, on the case studies.
     if (target.current === null) {
@@ -120,16 +123,14 @@ export default function CameraRig() {
     // Ease toward the target, so a flick glides to a stop.
     x.current += (target.current - x.current) * (1 - Math.exp(-dt * 7));
 
-    // Blend from shelf framing to corner framing across the gap.
-    const raw = THREE.MathUtils.clamp((x.current - STEP_BACK_FROM) / (cornerX - STEP_BACK_FROM), 0, 1);
-    const t = raw * raw * (3 - 2 * raw);
-    const distance = THREE.MathUtils.lerp(shelfDistance, cornerDistance, t);
-    const centreY = THREE.MathUtils.lerp(shelfY, cornerY, t);
-    view.current = { distance, halfWidth: distance * tanHalf * cam.aspect, shelfHalfWidth: shelfHalfHeight * cam.aspect };
+    // Always the corner's framing: the light uses its wide-view setting too.
+    const t = 1;
+    const centreY = cornerY;
+    view.current = { distance, halfWidth, shelfHalfWidth: halfWidth };
     framing.t = t;
     framing.x = x.current;
 
-    cam.position.set(x.current, centreY + THREE.MathUtils.lerp(0.25, 0.6, t), distance);
+    cam.position.set(x.current, centreY + 0.6, distance);
     cam.lookAt(x.current, centreY, 0);
   });
 

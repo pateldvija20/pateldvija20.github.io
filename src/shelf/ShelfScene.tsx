@@ -14,7 +14,9 @@ export default function ShelfScene({ route }: { route: Route }) {
   return (
     <Canvas
       className="shelf-canvas"
-      dpr={[1, 2]}
+      // Up to 3x pixel density, so zooming the page in (which raises the density)
+      // stays sharp instead of stretching a 2x frame.
+      dpr={[1, 3]}
       shadows={{ type: THREE.PCFShadowMap }}
       camera={{ fov: 30, position: [0, 1.2, 9], near: 0.1, far: 100 }}
       // No tone mapping: colours land exactly as picked, and the white wall stays

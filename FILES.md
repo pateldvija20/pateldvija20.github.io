@@ -65,7 +65,7 @@ This describes `dev-v2`. On `main-v2` the desk site's files are still at
 |---|---|
 | `src/main.tsx` | Entry. Mounts `ShelfApp`, and the dev inspector (dev only) |
 | `src/index.css` | Global CSS, Tailwind import and the theme tokens for light, dark and Organised mode |
-| `src/shelf/` | **The 3D bookshelf, the current site.** `ShelfApp.tsx` (page, routes, old-address redirects), `ShelfScene.tsx` and `scene/` (the three.js room, cabinet, books, plants, coffee corner, lights, camera), `Credits.tsx` (model credits) |
+| `src/shelf/` | **The 3D bookshelf, the current site.** `ShelfApp.tsx` (page, address to scene state, keys), `routes.ts` (addresses, old-address redirects), `story/` (the storyboard shelf: layout, flat decor drawings, 3D books and cup, camera, interface). `ShelfScene.tsx`, `scene/` and `Credits.tsx` are the earlier long shelf and coffee corner, parked: nothing imports them |
 | `src/desk/` | **The desk site, kept for reuse.** Nothing imports it yet, so none of it ships |
 | `src/desk/App.tsx` | The desk (Scattered mode) and the switch to Organised mode |
 | `src/desk/responsive.ts` | Breakpoints and scaling model |

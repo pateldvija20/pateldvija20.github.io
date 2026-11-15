@@ -13,10 +13,10 @@ import { SHELF, STATION } from "./Room";
  * full length. The books and objects stand on it, towards the wall.
  */
 
-const YELLOW = "#EAE1A4";
+const YELLOW = "#ECDF94";
 /** The reveal behind the fronts: the same lacquer, in shadow. */
-const REVEAL = "#B8AE70";
-const PLINTH = "#D6CB8F";
+const REVEAL = "#7E7440";
+const PLINTH = "#D8CA82";
 
 const W = SHELF.length;
 const HEIGHT = -STATION.floor;
@@ -27,7 +27,7 @@ const D = 1.9;
 const R = 0.16;
 /** The carcass border visible around the fronts. */
 const FRAME = 0.09;
-const GAP = 0.03;
+const GAP = 0.05;
 const BEVEL = 0.03;
 
 function roundedRect(w: number, h: number, r: number) {
@@ -86,11 +86,12 @@ export default function BookCabinet() {
   const fronts: { x: number; y: number; w: number; h: number }[] = [
     { x: colX(0), y: top - innerH / 2, w: cols[0] - GAP, h: innerH - GAP },
     { x: colX(1), y: top - innerH / 2, w: cols[1] - GAP, h: innerH - GAP },
-    ...[0, 1, 2].map((k) => ({ x: colX(2), y: top - (innerH / 3) * (k + 0.5), w: cols[2] - GAP, h: innerH / 3 - GAP })),
+    // Drawers sit a touch low in their openings, so a deeper shadow line shows above each (refs/66).
+    ...[0, 1, 2].map((k) => ({ x: colX(2), y: top - (innerH / 3) * (k + 0.5) - GAP * 0.2, w: cols[2] - GAP, h: innerH / 3 - GAP * 1.4 })),
   ];
 
   return (
-    <group position={[0, SHELF.top, 0.02]}>
+    <group name="book-cabinet" position={[0, SHELF.top, 0.02]}>
       <mesh geometry={carcass} material={mats.body} position={[0, -BODY / 2, BEVEL]} castShadow receiveShadow />
       {/* The shadowed reveal the fronts sit in, so the gaps between them read. */}
       <mesh position={[0, top - innerH / 2, faceZ + 0.002]} material={mats.reveal}>

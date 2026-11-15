@@ -14,10 +14,33 @@ import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
  *
  * GTAO ("ground-truth" AO) works on the finished frame, from its depth and
  * normals, so it costs the same however many objects there are. It runs at
- * up to 1.5x pixel density to stay smooth on large screens.
+ * the canvas's own pixel density (see ShelfScene's dpr cap).
  */
 export default function Effects() {
   const { gl, scene, camera, size } = useThree();
+  const dpr = useThree((s) => s.viewport.dpr);
+  const setDpr = useThree((s) => s.setDpr);
+
+  // Browser zoom and moving to another display change window.devicePixelRatio
+  // without resizing the canvas. Watch for it (both the resize event and a
+  // resolution media query, re-armed at each new ratio) and re-apply the
+  // canvas's density, kept within ShelfScene's 1x to 3x.
+  useEffect(() => {
+    let query: MediaQueryList | null = null;
+    const apply = () => {
+      const next = Math.min(Math.max(window.devicePixelRatio || 1, 1), 3);
+      setDpr(next);
+      query?.removeEventListener("change", apply);
+      query = window.matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+      query.addEventListener("change", apply);
+    };
+    apply();
+    window.addEventListener("resize", apply);
+    return () => {
+      window.removeEventListener("resize", apply);
+      query?.removeEventListener("change", apply);
+    };
+  }, [setDpr]);
 
   const composer = useMemo(() => {
     const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: 4 });
@@ -34,10 +57,14 @@ export default function Effects() {
     return c;
   }, [gl, scene, camera]);
 
+  // The composer draws the final image, so it must match the canvas's own pixel
+  // density exactly, and follow it when the page is zoomed (13 Nov). It used to
+  // be capped at 1.5x and set only on resize, so the frame was upscaled onto a
+  // 2x canvas (soft) and went blocky after any browser zoom.
   useEffect(() => {
-    composer.setPixelRatio(Math.min(gl.getPixelRatio(), 1.5));
+    composer.setPixelRatio(dpr);
     composer.setSize(size.width, size.height);
-  }, [composer, gl, size]);
+  }, [composer, dpr, size]);
 
   useEffect(() => {
     if (import.meta.env.DEV) (window as unknown as { __composer: unknown }).__composer = composer;
