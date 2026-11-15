@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import { CASES } from "../routes";
 import { ABOUT_SPREADS, CASE_INFO, PLAYGROUND_PAGES } from "./content";
-import { BOOK_SIZE, type BookId } from "./layout";
+import { BOOK_CORNER, BOOK_SIZE, type BookId } from "./layout";
 
 /**
  * The open books' pages, after the HTWKR picture book (14 Nov): each spread
@@ -16,6 +16,44 @@ const SERIF = 'Fraunces, Georgia, "Times New Roman", serif';
 const SANS = '"DM Sans", "Helvetica Neue", Helvetica, Arial, sans-serif';
 const HAND = '"Cabin Sketch", "DM Sans", sans-serif';
 const CHALK = "#F4EFE6";
+/**
+ * The page's own button (16 Nov): each spread prints its action on the right-hand page's lower right, so it turns with
+ * the page. `actionLabel` is its text (none for a spread with no action).
+ */
+export const ACTION = { h: 84, padX: 36, font: 34, right: 70, bottom: 62 };
+export function actionLabel(book: BookId, i: number): string | null {
+  if (book === "work") return "Read the case study \u2197";
+  if (book === "playground") return "See everything \u2197";
+  return ABOUT_SPREADS[i]?.link ? `${ABOUT_SPREADS[i].link!.label}` : null;
+}
+let measurer: CanvasRenderingContext2D | null = null;
+/** The printed pill's width, in page-canvas pixels. */
+export function actionWidth(label: string) {
+  measurer ??= document.createElement("canvas").getContext("2d")!;
+  measurer.font = `600 ${ACTION.font}px ${SANS}`;
+  return Math.ceil(measurer.measureText(label).width) + ACTION.padX * 2;
+}
+
+/**
+ * The punched holes along a spiral book's top edge, drawn on a top-bound page (the paper runs up to the coil, with the holes
+ * the wire passes through, as on a real pad). Positions follow the Playground's slots.
+ */
+function holes(g: CanvasRenderingContext2D, W: number, H: number) {
+  const { w, h } = BOOK_SIZE.playground;
+  const pageW = w - 0.004;
+  const pitch = (w - 0.1) / 29;
+  g.fillStyle = "#2B2B2A";
+  for (let k = 0; k < 30; k++) {
+    const x = ((-w / 2 + 0.05 + k * pitch + pageW / 2) / pageW) * W;
+    const y = (0.045 / (h - 0.014)) * H;
+    g.beginPath();
+    g.arc(x, y, (0.0105 / pageW) * W, 0, Math.PI * 2);
+    g.fill();
+  }
+}
+
+/** The blank spreads' paper. */
+const PAPER = "#F3EFE7";
 
 export type Side = "left" | "right" | "single" | "blank";
 
@@ -40,8 +78,8 @@ function pagePx(book: BookId): [number, number] {
   const pw = book === "playground" ? w : w - 0.05;
   return [PAGE_PX, Math.round((PAGE_PX * h) / pw)];
 }
-/** The corner radius, matching the boards' (0.06 scene units). */
-const radiusPx = (book: BookId) => (0.06 * PAGE_PX) / (book === "playground" ? BOOK_SIZE[book].w : BOOK_SIZE[book].w - 0.05);
+/** The corner radius, matching the boards' (BOOK_CORNER, per book). */
+const radiusPx = (book: BookId) => (BOOK_CORNER[book] * PAGE_PX) / (book === "playground" ? BOOK_SIZE[book].w : BOOK_SIZE[book].w - 0.05);
 
 type Spread = { canvas: HTMLCanvasElement; textures: Partial<Record<Side, THREE.CanvasTexture>> };
 const spreads = new Map<string, Spread>();
@@ -100,72 +138,35 @@ function paint(book: BookId, i: number, sp: Spread) {
   g.beginPath();
   g.roundRect(0, 0, W, H, R);
   g.clip();
-  const tint = pageTint(book, i);
-  g.fillStyle = tint;
+  // Blank for now (16 Nov): one plain paper spread running unbroken across both pages, with just the fold's shadow, until the
+  // illustrations arrive (each will be one continuous picture across the spread).
+  g.fillStyle = PAPER;
   g.fillRect(0, 0, W, H);
+  if (top) holes(g, W, H);
   const pw = top ? W : W / 2;
-
-  if (book === "work") {
-    const info = CASE_INFO[CASES[i]];
-    const img = imageFor(info.image, () => refresh(book, i));
-    if (img) {
-      // Cover the whole spread with the picture.
-      const s = Math.max(W / img.width, H / img.height);
-      const sw = W / s;
-      const sh = H / s;
-      g.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, 0, 0, W, H);
-    }
-    // Shade the lower right, where the words go.
-    const shade = g.createLinearGradient(0, H * 0.42, 0, H);
-    shade.addColorStop(0, "rgba(10,10,10,0)");
-    shade.addColorStop(1, "rgba(10,10,10,0.82)");
-    g.fillStyle = shade;
-    g.fillRect(pw, 0, pw, H);
-    words(g, pw + 96, H * 0.66, pw - 180, `Case study ${i + 1} of ${CASES.length}${info.kind ? ` · ${info.kind}` : ""}${info.year ? ` · ${info.year}` : ""}`, info.name, info.line);
-  } else if (book === "about") {
-    const a = ABOUT_SPREADS[i];
-    dots(g, W, H, "rgba(255,255,255,0.09)");
-    // A big hand-lettered word across the left page, like the reference's lettering.
-    g.fillStyle = CHALK;
-    g.font = `700 ${Math.round(pw * 0.24)}px ${HAND}`;
-    g.textBaseline = "middle";
-    g.fillText(a.title, pw * 0.1, H * 0.44);
-    g.textBaseline = "alphabetic";
-    words(g, pw + 96, H * 0.7, pw - 180, `About · ${i + 1} of ${ABOUT_SPREADS.length}`, a.title, a.note);
-  } else {
-    const p = PLAYGROUND_PAGES[i];
-    dots(g, W, H, "rgba(255,255,255,0.07)", 90, 12);
-    g.fillStyle = CHALK;
-    g.font = `700 ${Math.round(W * 0.11)}px ${HAND}`;
-    g.fillText(p.title, W * 0.08, H * 0.3);
-    g.font = `400 40px ${SERIF}`;
-    g.fillStyle = "rgba(244, 239, 230, 0.88)";
-    g.fillText(p.note, W * 0.08, H * 0.3 + 70);
-    // Two pinned pictures, waiting for their images, and a chalk cloud.
-    g.lineWidth = 5;
-    g.strokeStyle = CHALK;
-    [0, 1].forEach((k) => {
-      const x = W * 0.08 + k * 340;
-      const y = H * 0.48;
-      g.fillStyle = "rgba(0,0,0,0.22)";
-      g.beginPath();
-      g.roundRect(x, y, 300, 380, 20);
-      g.fill();
-      g.stroke();
-    });
+  // The page's own button, lower right of the right-hand page.
+  const label = actionLabel(book, i);
+  if (label) {
+    const bw = actionWidth(label);
+    const x1 = W - ACTION.right;
+    const y1 = H - ACTION.bottom;
+    g.fillStyle = "#0C0F12";
     g.beginPath();
-    g.arc(W * 0.72, H * 0.62, 60, Math.PI, 0);
-    g.arc(W * 0.8, H * 0.6, 72, Math.PI, 0);
-    g.arc(W * 0.88, H * 0.64, 48, Math.PI * 1.1, 0.2);
-    g.stroke();
+    g.roundRect(x1 - bw, y1 - ACTION.h, bw, ACTION.h, ACTION.h / 2);
+    g.fill();
+    g.fillStyle = "#F4F8FB";
+    g.font = `600 ${ACTION.font}px ${SANS}`;
+    g.textBaseline = "middle";
+    g.fillText(label, x1 - bw + ACTION.padX, y1 - ACTION.h / 2 + 2);
+    g.textBaseline = "alphabetic";
   }
   if (!top) {
     // The gutter: a soft shadow either side of the fold.
     const gut = g.createLinearGradient(pw - 120, 0, pw + 120, 0);
     gut.addColorStop(0, "rgba(0,0,0,0)");
-    gut.addColorStop(0.47, "rgba(0,0,0,0.28)");
-    gut.addColorStop(0.5, "rgba(0,0,0,0.38)");
-    gut.addColorStop(0.53, "rgba(0,0,0,0.28)");
+    gut.addColorStop(0.47, "rgba(0,0,0,0.10)");
+    gut.addColorStop(0.5, "rgba(0,0,0,0.17)");
+    gut.addColorStop(0.53, "rgba(0,0,0,0.10)");
     gut.addColorStop(1, "rgba(0,0,0,0)");
     g.fillStyle = gut;
     g.fillRect(pw - 120, 0, 240, H);
@@ -203,8 +204,7 @@ function spread(book: BookId, i: number): Spread {
   spreads.set(key, sp);
   paint(book, i, sp);
   // The display faces may still be loading: paint again once they're in.
-  if (!document.fonts.check(`500 84px ${SERIF}`) || !document.fonts.check(`700 84px ${HAND}`))
-    Promise.all([document.fonts.load(`500 84px ${SERIF}`), document.fonts.load(`700 84px ${HAND}`)]).then(() => refresh(book, i));
+  if (!document.fonts.check(`600 34px ${SANS}`)) document.fonts.load(`600 34px ${SANS}`).then(() => refresh(book, i));
   return sp;
 }
 
@@ -221,6 +221,7 @@ function blankTexture() {
   g.beginPath();
   g.roundRect(0, 0, w, h, radiusPx("playground"));
   g.fill();
+  holes(g, w, h);
   blank = new THREE.CanvasTexture(c);
   blank.colorSpace = THREE.SRGBColorSpace;
   return blank;

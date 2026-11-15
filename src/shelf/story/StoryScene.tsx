@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
-import { anim, BOOKS } from "./anim";
+import { anim, BOOKS, toScreen, type Clickable } from "./anim";
 import { MACHINE } from "./design";
 import InkPass, { Inked } from "./InkPass";
-import { CUP, MACHINE_Z, PLANT_Z, SHELF, view, type BookId } from "./layout";
+import { BOOK_SIZE, CAM_D, CONTENT, CUP, MACHINE_Z, PLANT_Z, SHELF, view, type BookId } from "./layout";
 import { Jelly } from "./physics";
 import { FrameGuard, preloadObjects, SceneObject, toVec, useObjectModule } from "./registry";
 import Rig from "./Rig";
 import Studio from "./Studio";
 import { BG, INK } from "./theme";
-import { DRAWN } from "./toy";
+import { DRAWN, REVEAL_RECT, tracked } from "./toy";
 import ToyBook from "./ToyBook";
 import ToyCup from "./ToyCup";
 
@@ -32,6 +32,8 @@ type Props = {
   onPickBook: (id: BookId) => void;
   onPickCup: () => void;
   onTurn: (book: BookId, dir: -1 | 1) => void;
+  /** A click that hit nothing (the page behind the shelf). */
+  onMiss?: () => void;
 };
 
 /**
@@ -42,15 +44,67 @@ type Props = {
  * or three wobbles, then still. Heavier things bend less and settle sooner.
  */
 const JELLY = {
-  plant: { amount: 0.1, maxLean: 0.27, stiffness: 170, damping: 4.5 },
-  book: { amount: 0.1, maxLean: 0.3, stiffness: 225, damping: 4 },
-  machine: { amount: 0.05, maxLean: 0.12, stiffness: 200, damping: 6 },
-  cup: { amount: 0.08, maxLean: 0.25, stiffness: 130, damping: 6 },
-  hanger: { amount: 0.12, maxLean: 0.45, stiffness: 40, damping: 3.2 },
+  plant: { amount: 0.1, maxLean: 0.27, stiffness: 170, damping: 3.1 },
+  book: { amount: 0.1, maxLean: 0.3, stiffness: 225, damping: 2.8 },
+  machine: { amount: 0.05, maxLean: 0.12, stiffness: 200, damping: 4.4 },
+  cup: { amount: 0.08, maxLean: 0.25, stiffness: 130, damping: 4.4 },
+  hanger: { amount: 0.05, maxLean: 0.16, stiffness: 55, damping: 4 },
 };
 
 /** The hanging plant on the screen's top-right (frame 2): its middle this far in from the right edge, its top just past the top edge (scene units). */
-const HANG = { fromRight: 0.32, aboveTop: 0.03 };
+const HANG = { fromRight: 0.33, aboveTop: -0.305 };
+/** Its depth: behind the machine's back (z = -0.85), scaled up so it still draws at the size of the sketch. */
+const HANG_Z = -1.0;
+
+/**
+ * Which book the pointer is over, from the screen alone (every pointer move, like the menu bar's hover), and where on
+ * it. The books read it each frame, so the tilt follows the pointer as smoothly as the bar's, with no 3D picking in the way.
+ * The front-most shut book whose rectangle holds the pointer wins.
+ */
+function BookHover() {
+  const gl = useThree((s) => s.gl);
+  useEffect(() => {
+    const el = gl.domElement;
+    const move = (e: PointerEvent) => {
+      let best: BookId | null = null;
+      let bestZ = -Infinity;
+      let nx = 0;
+      let ny = 0;
+      if (e.pointerType !== "touch" && e.target === el) {
+        for (const id of BOOKS) {
+          const p = anim.books[id];
+          if (p.cover > 0.05 || anim.follow.mix > 0.01) continue;
+          const { w, h } = BOOK_SIZE[id];
+          const a = toScreen(p.x - (w / 2) * p.s, p.y + h * p.s, p.z);
+          const b = toScreen(p.x + (w / 2) * p.s, p.y, p.z);
+          if (e.clientX < a.x || e.clientX > b.x || e.clientY < a.y || e.clientY > b.y) continue;
+          if (p.z > bestZ) {
+            best = id;
+            bestZ = p.z;
+            // Full tilt is reached a third of the way out from the middle (not at the edge), so a small move of the pointer tips it.
+            nx = THREE.MathUtils.clamp(((e.clientX - (a.x + b.x) / 2) / (b.x - a.x)) * 6, -1, 1);
+            ny = THREE.MathUtils.clamp(((e.clientY - (a.y + b.y) / 2) / (b.y - a.y)) * 6, -1, 1);
+          }
+        }
+      }
+      anim.hover.id = best;
+      anim.hover.nx = nx;
+      anim.hover.ny = ny;
+      document.body.style.cursor = best ? "pointer" : "";
+    };
+    const leave = () => {
+      anim.hover.id = null;
+      document.body.style.cursor = "";
+    };
+    window.addEventListener("pointermove", move);
+    el.addEventListener("pointerleave", leave);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerleave", leave);
+    };
+  }, [gl]);
+  return null;
+}
 
 /** The page colour, behind everything; it follows light and dark. */
 function Clear() {
@@ -59,26 +113,64 @@ function Clear() {
   return null;
 }
 
-/** Hands the director's "drawn" amount to the toy materials. */
+/** Hands each thing's own "drawn" amount to its toy materials, and the selection frame to the shaders. */
 function DrawnSync() {
+  const size = useThree((s) => s.size);
+  const dpr = useThree((s) => s.viewport.dpr);
   useFrame(() => {
+    const d = anim.drawnBy;
+    anim.drawn = Math.max(d.playground, d.work, d.about, d.cup);
     DRAWN.value = anim.drawn;
+    const r = anim.reveal;
+    REVEAL_RECT.value.set(Math.min(r.x0, r.x1) * dpr, (size.height - Math.max(r.y0, r.y1)) * dpr, Math.max(r.x0, r.x1) * dpr, (size.height - Math.min(r.y0, r.y1)) * dpr);
+    for (const t of tracked) {
+      const ch = t.channel as Clickable | undefined;
+      t.drawn.value = ch ? d[ch] : anim.drawn;
+      t.rectOn.value = ch && r.on === ch && r.show > 0.01 ? 1 : 0;
+    }
   });
   return null;
 }
 
-/** True while the books and cup are still line drawings (frame 2), for their `drawn` prop. */
-function useDrawn() {
-  const [drawn, setDrawn] = useState(anim.drawn > 0.5);
+/** Tells the toy materials under a group which clickable thing they belong to (checked a few times a second, as objects rebuild). */
+function useChannel(ref: React.RefObject<THREE.Object3D | null>, ch: Clickable) {
+  const n = useRef(0);
+  useFrame(() => {
+    if (n.current++ % 15 !== 0) return;
+    ref.current?.traverse((o) => {
+      const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+      if (!m) return;
+      for (const x of Array.isArray(m) ? m : [m]) if (x.userData.tracked) x.userData.tracked.channel = ch;
+    });
+  });
+}
+
+/** True while this thing is still a line drawing, for its `drawn` prop. */
+function useDrawn(ch: Clickable) {
+  const [drawn, setDrawn] = useState(anim.drawnBy[ch] > 0.5);
   const last = useRef(drawn);
   useFrame(() => {
-    const now = anim.drawn > 0.5;
+    const now = anim.drawnBy[ch] > 0.5;
     if (now !== last.current) {
       last.current = now;
       setDrawn(now);
     }
   });
   return drawn;
+}
+
+/** True while a book is standing spine-out (turned more than halfway to the screen), for its `spine` prop. */
+function useSpine(id: BookId) {
+  const [spine, setSpine] = useState(Math.abs(anim.books[id].ry - Math.PI / 2) < 0.5);
+  const last = useRef(spine);
+  useFrame(() => {
+    const now = Math.abs(anim.books[id].ry - Math.PI / 2) < 0.6;
+    if (now !== last.current) {
+      last.current = now;
+      setSpine(now);
+    }
+  });
+  return spine;
 }
 
 /** Tells the page the objects have loaded and the scene is drawing (or gives up waiting on a slow file after a few seconds). */
@@ -165,28 +257,51 @@ function useStandInInk(ref: React.RefObject<THREE.Group | null>) {
  */
 function Book({ id, onPick, onTurn }: { id: BookId; onPick: (id: BookId) => void; onTurn: (dir: -1 | 1) => void }) {
   const mod = useObjectModule(id);
-  const drawn = useDrawn();
+  const drawn = useDrawn(id);
+  const spine = useSpine(id);
   const own = useRef<THREE.Group>(null);
   const turned = useRef<THREE.Group>(null);
   const rig = useRef<THREE.Group>(null);
   const toy = useRef<THREE.Group>(null);
   const hover = useRef(false);
   const lift = useRef(0);
+  // The menu's hover, on the book: it tips a few degrees with the corner under the pointer pushed back (no overlay on the cover).
+  const tilt = useRef({ rx: 0, ry: 0, trx: 0, tr: 0 });
+  const closedNow = useRef(false);
+  if (import.meta.env.DEV) Object.assign((((window as unknown as { __tilt?: Record<string, unknown> }).__tilt ??= {}) as Record<string, unknown>), { [id]: tilt.current });
+  const pivot = useRef<THREE.Group>(null);
+  const leaveTimer = useRef(0);
   useStandInInk(toy);
+  useChannel(own, id);
+  useChannel(rig, id);
   useFrame((_, dt) => {
     const p = anim.books[id];
     const enter = anim.enter[id];
     const following = anim.follow.book === id && anim.follow.mix > 0.001;
     const closed = !!mod && p.cover < 0.001 && !following;
+    closedNow.current = closed;
+    hover.current = anim.hover.id === id;
     const target = hover.current && closed ? 0.04 : 0;
     lift.current += (target - lift.current) * (1 - Math.exp(-dt * 12));
     if (own.current) {
       own.current.visible = closed;
-      own.current.position.set(p.x + enter, p.y + lift.current, p.z);
+      // Hovering swells the book a touch from its foot, so it never leaves the shelf.
+      own.current.position.set(p.x + enter, p.y, p.z);
     }
     if (turned.current) {
+      const ti = tilt.current;
+      // The corner under the pointer goes back: up to 15 degrees at the book's far edges.
+      const on = anim.hover.id === id && closed;
+      ti.trx = on ? anim.hover.ny * THREE.MathUtils.degToRad(15) : 0;
+      ti.tr = on ? anim.hover.nx * THREE.MathUtils.degToRad(15) : 0;
+      const k = 1 - Math.exp(-dt * 20);
+      ti.rx += (ti.trx - ti.rx) * k;
+      ti.ry += (ti.tr - ti.ry) * k;
       turned.current.rotation.set(p.rx, p.ry, 0, "YXZ");
-      turned.current.scale.setScalar(p.s);
+      turned.current.scale.setScalar(p.s * (1 + lift.current * 0.4));
+      // The tilt turns the book about its own middle (not its foot), so the corner under the pointer goes back
+      // without the whole book swinging out from under the pointer.
+      pivot.current?.rotation.set(ti.rx, ti.ry, 0, "YXZ");
     }
     if (rig.current) {
       rig.current.visible = !closed;
@@ -195,17 +310,11 @@ function Book({ id, onPick, onTurn }: { id: BookId; onPick: (id: BookId) => void
   });
   const events = {
     onClick: (e: ThreeEvent<MouseEvent>) => {
+      // The shut model stays in the scene (hidden) while the book is open, and raycasts ignore visibility: let the
+      // click through to the open book's pages then, or it would swallow every page turn.
+      if (anim.books[id].cover >= 0.05 || !closedNow.current) return;
       e.stopPropagation();
-      if (anim.books[id].cover < 0.05) onPick(id);
-    },
-    onPointerOver: (e: ThreeEvent<PointerEvent>) => {
-      e.stopPropagation();
-      hover.current = true;
-      document.body.style.cursor = "pointer";
-    },
-    onPointerOut: () => {
-      hover.current = false;
-      document.body.style.cursor = "";
+      onPick(id);
     },
   };
   return (
@@ -214,7 +323,11 @@ function Book({ id, onPick, onTurn }: { id: BookId; onPick: (id: BookId) => void
         <group ref={own} {...events}>
           <Jelly {...JELLY.book}>
             <group ref={turned}>
-              <SceneObject name={id} drawn={drawn} />
+              <group ref={pivot} position={[0, BOOK_SIZE[id].h / 2, 0]}>
+                <group position={[0, -BOOK_SIZE[id].h / 2, 0]}>
+                  <SceneObject name={id} drawn={drawn} spine={spine} />
+                </group>
+              </group>
             </group>
           </Jelly>
         </group>
@@ -232,11 +345,14 @@ function Book({ id, onPick, onTurn }: { id: BookId; onPick: (id: BookId) => void
 
 /** The cup, standing on the machine's drip tray; it has its own little wobble on top of the machine's. */
 function Cup({ at, onPick }: { at: [number, number, number]; onPick: () => void }) {
-  const drawn = useDrawn();
+  const drawn = useDrawn("cup");
+  const group = useRef<THREE.Group>(null);
+  useChannel(group, "cup");
   const toy = useRef<THREE.Group>(null);
   useStandInInk(toy);
   return (
     <group
+      ref={group}
       position={at}
       onClick={(e) => {
         e.stopPropagation();
@@ -298,9 +414,12 @@ function Machine({ onPickCup }: { onPickCup: () => void }) {
   return (
     <Placed x={() => anim.machineX + anim.enter.machine} z={MACHINE_Z}>
       <Jelly {...JELLY.machine}>
-        <SceneObject name="machine" />
-        <Cup at={cup} onPick={onPickCup} />
-        <SpoutPin at={outlet} />
+        {/* Mirrored left to right (16 Nov): the hopper and group head on the right, the steam wand on the left. */}
+        <group scale-x={-1}>
+          <SceneObject name="machine" />
+        </group>
+        <Cup at={[-cup[0], cup[1], cup[2]]} onPick={onPickCup} />
+        <SpoutPin at={[-outlet[0], outlet[1], outlet[2]]} />
       </Jelly>
     </Placed>
   );
@@ -349,7 +468,10 @@ function Hanger() {
         b.position.set(-measured.current.x, -measured.current.top, -measured.current.z);
       }
     }
-    g.position.set(view.right - HANG.fromRight + anim.enter.hanger, view.top + HANG.aboveTop, -0.3);
+    // Pinned to the scene's right edge (CONTENT), not the screen's, so it stays beside the machine on wide screens; behind the machine, so the machine's drawing covers it.
+    const far = (CAM_D - HANG_Z) / CAM_D;
+    g.position.set((CONTENT.halfW - HANG.fromRight + anim.enter.hanger) * far, (view.top + HANG.aboveTop + anim.hangerLift) * far, HANG_Z);
+    g.scale.setScalar(far);
   });
   return (
     <group ref={pin}>
@@ -371,7 +493,7 @@ function Hanger() {
  * the page). Page-coloured, so it reads as the background closing over the
  * shelf. It also catches clicks, so nothing behind it can be picked.
  */
-function Backdrop() {
+function Backdrop({ onMiss }: { onMiss?: () => void }) {
   const m = useRef<THREE.Mesh>(null);
   const mat = useMemo(() => new THREE.MeshBasicMaterial({ color: BG, transparent: true, opacity: 0, depthWrite: false, toneMapped: false }), []);
   useFrame(() => {
@@ -385,16 +507,20 @@ function Backdrop() {
     m.current.position.x = (view.left + view.right) / 2;
   });
   return (
-    <mesh ref={m} material={mat} position={[0, 0.7, 1.0]} renderOrder={5} visible={false} onClick={(e) => e.stopPropagation()}>
+    <mesh ref={m} material={mat} position={[0, 0.7, 0.95]} renderOrder={5} visible={false} onClick={(e) => {
+        e.stopPropagation();
+        onMiss?.();
+      }}>
       <planeGeometry args={[30, 12]} />
     </mesh>
   );
 }
 
-export default function StoryScene({ onReady, onPickBook, onPickCup, onTurn }: Props) {
+export default function StoryScene({ onReady, onPickBook, onPickCup, onTurn, onMiss }: Props) {
   return (
     <Canvas
       className="shelf-canvas"
+      onPointerMissed={() => onMiss?.()}
       dpr={[1, 2]}
       shadows={{ type: THREE.VSMShadowMap }}
       gl={{ antialias: true, alpha: false, toneMapping: THREE.NeutralToneMapping, toneMappingExposure: 1.0 }}
@@ -405,6 +531,7 @@ export default function StoryScene({ onReady, onPickBook, onPickCup, onTurn }: P
     >
       <FrameGuard />
       <Clear />
+      <BookHover />
       <Rig follow={() => anim.camX} />
       <DrawnSync />
       <Ready onReady={onReady} />
@@ -420,7 +547,7 @@ export default function StoryScene({ onReady, onPickBook, onPickCup, onTurn }: P
       {BOOKS.map((id) => (
         <Book key={id} id={id} onPick={onPickBook} onTurn={(dir) => onTurn(id, dir)} />
       ))}
-      <Backdrop />
+      <Backdrop onMiss={onMiss} />
       {/* The line art: every outline in the scene, one 1px ink line. It fades while a book's spread is open over the page. */}
       <InkPass fade={() => 1 - anim.backdrop} />
     </Canvas>

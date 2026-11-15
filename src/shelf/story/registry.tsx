@@ -138,7 +138,7 @@ class ObjectBoundary extends Component<BoundaryProps, { failed: boolean; key: un
  * One object from ./objects, in its own space (foot at the origin, front
  * to +Z). `standIn` replaces the box while it's missing, loading or broken.
  */
-export function SceneObject({ name, drawn, standIn }: { name: ObjectName; drawn?: boolean; standIn?: ReactNode }) {
+export function SceneObject({ name, drawn, spine, standIn }: { name: ObjectName; drawn?: boolean; spine?: boolean; standIn?: ReactNode }) {
   const mod = useObjectModule(name);
   const fallback = standIn ?? <Placeholder name={name} />;
   if (!mod) return <>{fallback}</>;
@@ -146,7 +146,7 @@ export function SceneObject({ name, drawn, standIn }: { name: ObjectName; drawn?
   return (
     <ObjectBoundary name={name} fallback={fallback} resetKey={mod}>
       <Suspense fallback={fallback}>
-        <Obj drawn={drawn} />
+        <Obj drawn={drawn} spine={spine} />
       </Suspense>
     </ObjectBoundary>
   );

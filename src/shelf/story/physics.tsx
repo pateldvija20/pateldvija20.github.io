@@ -47,6 +47,12 @@ export function useMotion(ref: RefObject<THREE.Object3D | null>) {
       s.started = true;
       return;
     }
+    // A jump of more than a unit in one frame is something being put somewhere (an entrance resetting), not motion.
+    if (Math.abs(s.now.x - s.last.x) > 1.2 || Math.abs(s.now.y - s.last.y) > 1.2) {
+      s.last.copy(s.now);
+      s.vx = s.vy = s.ax = s.ay = 0;
+      return;
+    }
     const vx = (s.now.x - s.last.x) / dt;
     const vy = (s.now.y - s.last.y) / dt;
     // Smoothed, so a single long frame doesn't kick everything.
@@ -59,6 +65,11 @@ export function useMotion(ref: RefObject<THREE.Object3D | null>) {
   });
   return state.current;
 }
+
+/** How strong the wobble is, 0 to 1: full on the first load in a tab, subtle on later loads (the director sets it). */
+export const wobble = { k: 0.45 };
+/** Full wobble for the opening's slide-in; every later move (clicking a book, coming back) uses the calmer one. */
+export const WOBBLE_CALM = 0.45;
 
 /**
  * Bends whatever is inside it at the top as it moves sideways, like jelly:
@@ -80,8 +91,17 @@ export function Jelly({ children, amount = 0.075, stiffness = 90, damping = 7, m
     const g = inner.current;
     if (!g) return;
     // Moving right, the top trails left (and the other way about).
-    const k = THREE.MathUtils.clamp(lean.current.step(-motion.vx * amount, dt), -maxLean, maxLean);
-    const sq = THREE.MathUtils.clamp(squash.current.step(Math.abs(motion.ax) * 0.0025, dt), -0.12, 0.12);
+    // Soft limits on the targets (not a hard clamp after the spring): the top leans in proportion to speed up to
+    // maxLean, then eases against it, so a fast slide doesn't pin the spring and flap between the stops.
+    // After the opening the wobble is calmer and dies away sooner.
+    const calm = wobble.k < 0.99 ? 1.5 : 1;
+    lean.current.damping = damping * calm;
+    squash.current.damping = damping * calm;
+    const want = -motion.vx * amount * wobble.k;
+    // Speeding up, the top settles into its lean without wobbling; it's only braking that sets it swinging.
+    lean.current.damping = motion.vx * motion.ax > 0 ? damping * 4 : damping;
+    const k = lean.current.step(maxLean * Math.tanh(want / maxLean), dt);
+    const sq = squash.current.step(0.12 * Math.tanh((Math.abs(motion.ax) * 0.0025 * wobble.k) / 0.12), dt);
     // x += k·y (lean), y scaled down a touch as it lands (squash), x the other way (stretch).
     m.current.set(1 + sq * 0.5, k, 0, 0, 0, 1 - sq, 0, 0, 0, 0, 1 + sq * 0.5, 0, 0, 0, 0, 1);
     g.matrix.copy(m.current);

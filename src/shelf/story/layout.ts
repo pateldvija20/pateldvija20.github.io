@@ -27,8 +27,18 @@ export const STROKE = 0.009;
 export const SHELF = { width: 12, depth: 1.8, thick: 0.2 };
 
 /** Things that slide aside when the books turn (frame 3 to frame 4), by their foot's x. */
-export const PLANT_X: Record<Frame, number> = { intro: -0.773, home: -1.196 };
-export const MACHINE_X: Record<Frame, number> = { intro: 0.923, home: 1.398 };
+export const PLANT_X: Record<Frame, number> = { intro: -1.029, home: -1.452 };
+export const MACHINE_X: Record<Frame, number> = { intro: 1.073, home: 1.548 };
+
+/**
+ * The spine-out row (16 Nov): the three books stand shoulder to shoulder,
+ * touching, thickness by thickness. The plant stands a hand's width clear
+ * on its left, the machine just clear on its right, and the lot is centred
+ * on x = 0 (the camera's home).
+ */
+export const SPINE_T: Record<BookId, number> = { playground: 0.15, work: 0.19, about: 0.072 };
+/** The scene's width, edge to edge including the hanging plant's right edge and a small margin: the camera fits this. */
+export const CONTENT = { halfW: 2.2, minH: 2.4 };
 export const PLANT_Z = 0.1;
 /** The machine's middle, front to back. Its drawing stands here; the 3D one is 0.9 deep around it. */
 export const MACHINE_Z = -0.35;
@@ -37,10 +47,13 @@ export const HANGER = { x: 0.78, y: 1.65, z: -0.3 };
 /** The cup, relative to the machine's foot: on the drip platform, under the group head, in front. */
 export const CUP = { x: -0.286, y: 0.18, z: 0.2 };
 
+/** Each book's cover corner radius, seen front-on (the pages' art is cut to match). */
+export const BOOK_CORNER: Record<BookId, number> = { work: 0.004, about: 0.003, playground: 0.012 };
+
 export const BOOK_SIZE: Record<BookId, { w: number; h: number; t: number }> = {
   work: { w: 0.92, h: 1.14, t: 0.19 },
-  about: { w: 0.6, h: 0.95, t: 0.165 },
-  playground: { w: 1.5, h: 1.34, t: 0.2 },
+  about: { w: 0.6, h: 0.81, t: 0.072 },
+  playground: { w: 1.5, h: 1.264, t: 0.15 },
 };
 
 /** Where a book stands: x, depth, turn about its spine, and an optional scale (pulled-forward books grow). */
@@ -57,20 +70,20 @@ export type Pose = { x: number; z: number; ry: number; s?: number };
  */
 export const POSES: Record<Frame, Record<BookId, Pose>> = {
   intro: {
-    playground: { x: -0.3, z: 0, ry: Math.PI / 2 },
-    work: { x: -0.095, z: 0, ry: Math.PI / 2 },
-    about: { x: 0.095, z: 0, ry: Math.PI / 2 },
+    playground: { x: -0.131, z: 0, ry: Math.PI / 2 },
+    work: { x: 0.039, z: 0, ry: Math.PI / 2 },
+    about: { x: 0.17, z: 0, ry: Math.PI / 2 },
   },
   home: {
-    playground: { x: -0.155, z: -0.5, ry: 0 },
-    work: { x: -0.315, z: -0.05, ry: 0 },
-    about: { x: 0.036, z: 0.35, ry: 0 },
+    playground: { x: 0.0, z: -0.5, ry: 0 },
+    work: { x: -0.16, z: -0.05, ry: 0 },
+    about: { x: 0.19, z: 0.35, ry: 0 },
   },
 };
 export const HOME_TURN: Record<BookId, number> = { playground: 0, work: 0.2, about: -0.16 };
 
 /** The top of the tallest thing on the shelf: the Playground's coil. */
-export const TALLEST = 1.42;
+export const TALLEST = 1.32;
 /** On screens wider than the sketches: the least room kept for the shelf's front (the menu bar) and above the coil. */
 export const MIN_BAND = 0.09;
 export const MIN_HEADROOM = 0.04;
@@ -132,8 +145,10 @@ export function sceneFor(state: SceneState): SceneLayout {
       const spine = Math.PI / 2;
       const books = {
         [state.book]: { x: 0, z: 0.6, ry: 0, s: FOCUS_SCALE[state.book] },
-        [left]: { x: -0.95, z: -0.1, ry: spine },
-        [right]: { x: 0.78, z: -0.1, ry: spine },
+        // In front of the plant and the machine (their leaves and parts reach to z = 0.55), so as these two step aside and the
+        // plant and machine slide out past them nothing passes through anything.
+        [left]: { x: -0.95, z: 0.85, ry: spine },
+        [right]: { x: 0.78, z: 0.85, ry: spine },
       } as Record<BookId, Pose>;
       return { books, plantX: -1.55, machineX: 1.8, camX: 0 };
     }

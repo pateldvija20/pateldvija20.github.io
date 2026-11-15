@@ -1,7 +1,8 @@
 import gsap from "gsap";
-import { anim, BOOKS, ENTERING, focusDecor, focusPoses, homePose, openPose, spinePose, zoomPose, type BookPose, type Entering } from "./anim";
+import { anim, BOOKS, ENTERING, focusDecor, focusPoses, homePose, openPose, waitingPose, spinePose, toScreen, zoomPose, type BookPose, type Clickable, type Entering } from "./anim";
 import { PAGE_COUNT } from "./pages";
-import { COFFEE_PAN, MACHINE_X, PLANT_X, view, type BookId } from "./layout";
+import { WOBBLE_CALM, wobble } from "./physics";
+import { BOOK_SIZE, COFFEE_PAN, CUP, MACHINE_X, MACHINE_Z, PLANT_X, homePoses, view, type BookId } from "./layout";
 
 /**
  * The opening plays scenes 1 and 2 and holds there (the user, 15 Nov: "let's
@@ -9,7 +10,10 @@ import { COFFEE_PAN, MACHINE_X, PLANT_X, view, type BookId } from "./layout";
  * scenes 3 and 4: the drawings turn 3D, the books turn covers-out, the logo
  * and menu arrive, coffee fills the cup.
  */
-export const PLAY_PAST_SCENE_2 = false;
+export const PLAY_PAST_SCENE_2 = true;
+
+/** How far the hanging planter is pulled up (scene units) to be out of the screen while a book is forward. */
+const HANGER_UP = 2.2;
 
 /** Scene 1: the empty page and the shelf line hold this long (s) once the scene is ready, before anything moves. */
 const SCENE_1_HOLD = 0;
@@ -20,7 +24,7 @@ const SCENE_1_HOLD = 0;
  * each other, then the machine (the cup rides on its drip tray), and the
  * hanging plant swings in last along the top.
  */
-const ENTRANCE: Record<Entering, number> = { plant: 0, playground: 0.12, work: 0.24, about: 0.36, machine: 0.48, hanger: 0.6 };
+const ENTRANCE: Record<Entering, number> = { plant: 0, playground: 0.08, work: 0.16, about: 0.24, machine: 0.32, hanger: 0.4 };
 
 /**
  * The slide (the user, 15 Nov): in fast from off the right and skidding to a
@@ -29,13 +33,13 @@ const ENTRANCE: Record<Entering, number> = { plant: 0, playground: 0.12, work: 0
  * about 10° past upright as the foot stops, and wobbles 2 to 3 times.
  */
 const SLIDE = {
-  duration: 0.85,
+  duration: 0.6,
   // Half cruise, half braking: the foot is still moving at full tilt when it reaches its mark, so it stops dead (a skid)
   // and the jelly's top whips past upright.
-  ease: (t: number) => 0.5 * (1 - (1 - t) ** 3) + 0.5 * t,
+  ease: (t: number) => 0.3 * (1 - (1 - t) ** 3) + 0.7 * t,
 };
 /** From the first object setting off to the last one's jelly having settled (s). */
-const SCENE_2_LENGTH = ENTRANCE.hanger + SLIDE.duration + 0.9;
+const SCENE_2_LENGTH = ENTRANCE.hanger + SLIDE.duration + 1.4;
 
 /**
  * Plays the storyboard's sequences (docs/storyboard-plan.md), one numbered
@@ -59,6 +63,8 @@ export type Sub = "spread" | "read" | "grid";
 export type Target = { mode: "home" } | { mode: "open"; book: BookId; page: number; sub: Sub } | { mode: "coffee" };
 export type Ui = { logo: boolean; menu: boolean; open: BookId | null; contact: boolean; read: boolean; grid: boolean };
 
+const CLICKABLE: Clickable[] = ["playground", "work", "about", "cup"];
+
 const reduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export function createDirector(onUi: (ui: Partial<Ui>) => void) {
@@ -67,6 +73,8 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
   let introTl: gsap.core.Timeline | null = null;
   /** Resting at the end of scene 2 (PLAY_PAST_SCENE_2 off): the first move away plays scene 3 (the drawings turn 3D) on the way. */
   let holding = false;
+  /** A book that's been clicked and stands forward, waiting to be opened (frame 5): a second click opens it. */
+  let focusing: BookId | null = null;
 
   /** Moves every book to its pose in `poses` together. */
   const books = (t: gsap.core.Timeline, poses: Record<BookId, BookPose>, at: gsap.Position, duration: number, ease = "power3.inOut") => {
@@ -93,9 +101,9 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
   /** Frames 14, 23, 29, 33: everything back in its place, covers out. */
   const toHome = (t: gsap.core.Timeline, duration = 0.9) => {
     // The plant and machine step aside a beat before the books turn out, so no cover swings across a drawing.
-    t.to(anim, { plantX: PLANT_X.home, machineX: MACHINE_X.home, camX: 0, duration: duration * 0.85, ease: "power3.inOut" }, ">");
+    t.to(anim, { plantX: PLANT_X.home, machineX: MACHINE_X.home, camX: 0, hangerLift: 0, backdrop: 0, duration: duration * 0.85, ease: "power3.inOut" }, ">");
     books(t, Object.fromEntries(BOOKS.map((id) => [id, homePose(id)])) as Record<BookId, BookPose>, "<0.18", duration);
-    t.call(() => onUi({ menu: true, logo: true }));
+    t.call(() => onUi({ menu: true }));
   };
 
   /**
@@ -107,16 +115,44 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
     t.call(() => onUi({ open: null, read: false, grid: false }));
     if (sub === "read") t.to(anim.follow, { mix: 0, duration: 0.55, ease: "power3.inOut" }, ">");
     if (sub === "grid") t.to(anim.books[id], { ...strip(openPose(id)), duration: 0.5, ease: "power3.inOut" }, ">");
-    const last = PAGE_COUNT[id] - 1;
-    const from = anim.pages[id].right;
-    for (let k = from; k < last; k++) turn(t, id, k, k + 1, 0.2);
+    // Closing from wherever the book is open (no riffling to the end first): the cover swings shut over the current spread.
     const top = id === "playground";
-    t.to(anim, { backdrop: 0, duration: 0.45, ease: "power2.out" }, ">");
-    if (top) t.to(anim.books[id], { rx: -0.35, duration: 0.35, ease: "power2.out" }, "<");
-    t.to(anim.books[id], { cover: 0, duration: 0.7, ease: "power2.inOut" }, "<");
     const f = focusPoses(id)[id];
-    t.to(anim.books[id], { x: f.x, y: f.y, z: f.z, s: f.s, ry: f.ry, duration: 0.7, ease: "power3.inOut" }, "<0.1");
-    if (top) t.to(anim.books[id], { rx: 0, duration: 0.35, ease: "power2.inOut" }, "<0.35");
+    if (top) {
+      t.to(anim, { backdrop: 0, duration: 0.45, ease: "power2.out" }, ">");
+      t.to(anim.books[id], { rx: -0.35, duration: 0.35, ease: "power2.out" }, "<");
+      t.to(anim.books[id], { cover: 0, duration: 0.7, ease: "power2.inOut" }, "<");
+      t.to(anim.books[id], { x: f.x, y: f.y, z: f.z, s: f.s, ry: f.ry, duration: 0.7, ease: "power3.inOut" }, "<0.1");
+      t.to(anim.books[id], { rx: 0, duration: 0.35, ease: "power2.inOut" }, "<0.35");
+    } else {
+      // Closed from the back, like any book (16 Nov): the back board and the right-hand pages come over, toward you, from the
+      // right onto the left side, on the clear page. The shut book then flips over to its front cover and goes home.
+      const bk = anim.books[id];
+      const { w } = BOOK_SIZE[id];
+      t.call(() => (wobble.k = 0));
+      t.to(bk, { fold: 1, duration: 0.75, ease: "power2.inOut" }, ">");
+      t.to(anim, { backdrop: 0, duration: 0.5, ease: "power2.inOut" }, ">0.05");
+      t.to(bk, { x: f.x + w * f.s, y: f.y, z: f.z, s: f.s, duration: 0.6, ease: "power3.inOut" }, "<");
+      const turn = { u: 0 };
+      t.to(turn, {
+        u: Math.PI,
+        duration: 0.55,
+        ease: "power2.inOut",
+        onUpdate: () => {
+          bk.ry = f.ry + turn.u;
+          bk.x = f.x + w * f.s * Math.cos(turn.u);
+          bk.z = f.z - w * f.s * Math.sin(turn.u);
+        },
+      }, ">0.02");
+      t.call(() => {
+        bk.fold = 0;
+        bk.cover = 0;
+        bk.ry = f.ry;
+        bk.x = f.x;
+        bk.z = f.z;
+        wobble.k = WOBBLE_CALM;
+      });
+    }
     t.call(() => {
       anim.pages[id].left = 0;
       anim.pages[id].right = 0;
@@ -124,16 +160,20 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
   };
 
   /** Frames 5 to 7 (15 to 17 for the Playground). */
-  const open = (t: gsap.core.Timeline, id: BookId, page: number) => {
+  const open = (t: gsap.core.Timeline, id: BookId, page: number, fromFocus = false) => {
     t.call(() => {
-      onUi({ menu: false, open: null, contact: false });
+      // About keeps the home bar (it has no pages to show circles for); the others get their own bar.
+      onUi({ menu: id === "about", open: null, contact: false });
       anim.pages[id].left = page;
       anim.pages[id].right = page;
       anim.pages[id].leaf.on = false;
     });
-    // 5: it comes forward; the other two turn spine-out and step aside; the plant and machine move out.
-    books(t, focusPoses(id), ">", 0.75);
-    t.to(anim, { ...focusDecor(id), duration: 0.75, ease: "power3.inOut" }, "<");
+    // 5: it comes forward; the other two turn spine-out and step aside; the plant and machine move out
+    // (all of that has already happened if the book was clicked first and is waiting: see focus()).
+    if (!fromFocus) {
+      books(t, focusPoses(id), ">", 0.75);
+      t.to(anim, { ...focusDecor(id), hangerLift: HANGER_UP, duration: 0.75, ease: "power3.inOut" }, "<");
+    }
     const o = openPose(id);
     const { cover: _c, ...pose } = o;
     if (id === "playground") {
@@ -171,7 +211,7 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
       if (forward) p.right = to;
       else if (id !== "playground") p.left = to;
       // In place: the tween below holds this same object.
-      Object.assign(p.leaf, { on: true, front: forward ? from : to, back: forward ? to : from, t: forward ? 0 : 1 });
+      Object.assign(p.leaf, { on: true, front: forward ? from : to, back: forward ? to : from, t: forward ? 0 : 1, fwd: forward });
     });
     // fromTo, so it starts from the side set just above, not from wherever the leaf last was.
     t.fromTo(p.leaf, { t: forward ? 0 : 1 }, { t: forward ? 1 : 0, duration, ease: duration < 0.4 ? "power1.inOut" : "power2.inOut", immediateRender: false });
@@ -217,7 +257,8 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
 
   /** Frames 30 and 31. */
   const coffee = (t: gsap.core.Timeline) => {
-    t.call(() => onUi({ menu: true, logo: true, contact: false }));
+    t.call(() => onUi({ menu: true, contact: false }));
+    t.to(anim, { lidAside: 0, duration: 0.45, ease: "power2.inOut" }, ">");
     books(t, Object.fromEntries(BOOKS.map((id) => [id, spinePose(id)])) as Record<BookId, BookPose>, ">", 1.0);
     t.to(anim, { plantX: PLANT_X.intro, machineX: MACHINE_X.intro, camX: COFFEE_PAN, duration: 1.0, ease: "power3.inOut" }, "<");
     pourCoffee(t, ">-0.1");
@@ -253,22 +294,89 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
     ENTERING.forEach((k) => (anim.enter[k] = 0));
     anim.enter.books = 0;
     BOOKS.forEach((id) => Object.assign(anim.books[id], spinePose(id)));
-    Object.assign(anim, { plantX: PLANT_X.intro, machineX: MACHINE_X.intro, camX: 0, drawn: 1, backdrop: 0, lid: 0, pour: 0 });
+    Object.assign(anim, { plantX: PLANT_X.intro, machineX: MACHINE_X.intro, camX: 0, drawn: 1, backdrop: 0, lid: 0, lidAside: 1, pour: 0 });
+    CLICKABLE.forEach((c) => (anim.drawnBy[c] = 1));
+    Object.assign(anim.reveal, { show: 0, on: null });
+    Object.assign(anim.cursor, { show: 0, press: 0 });
     onUi({ logo: false, menu: false, open: null, contact: false, read: false, grid: false });
   };
 
   /**
-   * Scenes 3 and 4 (frames 3 and 4), from scene 2's rest: the books and cup
-   * turn from drawings into 3D; the books turn to face out and spread, the
-   * plant and machine make room; the logo and menu arrive; coffee fills the cup.
+   * Scenes 3 and 4 (frames 3 and 4), from scene 2's rest (the user, 16 Nov): the books flip to face you; a cursor
+   * comes in and clicks the Experiment and Work books, which turn 3D; it drags a frame round the About book, and the
+   * book shows in 3D inside it; then a frame round the cup (its lid set down beside it), which shows in 3D. That's
+   * the end of the loading: the menu bar arrives. No logo for now.
    */
   const scenes3and4 = (t: gsap.core.Timeline, at: number) => {
-    t.to(anim, { drawn: 0, duration: 0.9, ease: "power2.inOut" }, at);
-    t.to(anim, { plantX: PLANT_X.home, machineX: MACHINE_X.home, duration: 1.0, ease: "power3.inOut" }, at + 0.95);
-    books(t, Object.fromEntries(BOOKS.map((id) => [id, homePose(id)])) as Record<BookId, BookPose>, at + 1.15, 1.15);
-    t.call(() => onUi({ logo: true }), [], at + 1.5);
-    pourCoffee(t, at + 1.8);
-    t.call(() => onUi({ menu: true }), [], at + 2.1);
+    const homes = homePoses();
+    const px = (id: BookId, fx: number, fy: number, dz = 0) => {
+      const { w, h, t: th } = BOOK_SIZE[id];
+      const p = homes[id];
+      return toScreen(p.x + fx * w, fy * h, p.z + th / 2 + dz);
+    };
+    // Quicker and overlapped (16 Nov): each move sets off while the last click's colour is still coming in,
+    // and the clicks and drags are brisk.
+    const move = (to: { x: number; y: number }, dur: number, pos: gsap.Position = ">") => t.to(anim.cursor, { x: to.x, y: to.y, duration: dur, ease: "power2.inOut" }, pos);
+    const press = (pos: gsap.Position = ">") => {
+      t.to(anim.cursor, { press: 1, duration: 0.05, ease: "power1.out" }, pos);
+      t.to(anim.cursor, { press: 0, duration: 0.1, ease: "power1.out" }, ">0.02");
+    };
+    const toColor = (ch: Clickable, dur = 0.35) => t.to(anim.drawnBy, { [ch]: 0, duration: dur, ease: "power2.out" }, "<0.04");
+
+    // The cursor slides in from the right while the books flip to face you and the plant and machine step aside.
+    const enterFrom = toScreen(view.right - 0.25, 0.7, 0.3);
+    t.set(anim.cursor, { x: enterFrom.x, y: enterFrom.y }, at);
+    t.to(anim.cursor, { show: 1, duration: 0.15 }, at);
+    t.to(anim, { plantX: PLANT_X.home, machineX: MACHINE_X.home, duration: 0.65, ease: "power3.inOut" }, at + 0.02);
+    books(t, Object.fromEntries(BOOKS.map((id) => [id, homePose(id)])) as Record<BookId, BookPose>, at + 0.08, 0.75);
+
+    // Click the Experiment book, then Work: each turns 3D. The cursor is already on its way as the books land.
+    move(px("playground", 0.05, 0.93, 0.0), 0.4, at + 0.5);
+    press();
+    toColor("playground");
+    move(px("work", 0.0, 0.8), 0.3, "<0.1");
+    press();
+    toColor("work");
+
+    // Drag a frame round the About book, from its top right to its bottom left.
+    const a0 = px("about", 0.5, 1.0, 0.0);
+    const a1 = px("about", -0.5, 0.0, 0.0);
+    const m = 14;
+    move({ x: a0.x + m, y: a0.y - m }, 0.3, "<0.1");
+    t.call(() => {
+      Object.assign(anim.reveal, { x0: a0.x + m, y0: a0.y - m, x1: a0.x + m, y1: a0.y - m, on: "about", show: 1 });
+    });
+    t.to(anim.cursor, { press: 1, duration: 0.05 }, ">");
+    t.to(anim.cursor, { x: a1.x - m, y: a1.y + m, duration: 0.55, ease: "power2.inOut" }, ">");
+    t.to(anim.reveal, { x1: a1.x - m, y1: a1.y + m, duration: 0.55, ease: "power2.inOut" }, "<");
+    t.to(anim.cursor, { press: 0, duration: 0.08 }, ">");
+    t.set(anim.drawnBy, { about: 0 }, ">");
+    t.to(anim.reveal, { show: 0, duration: 0.22 }, ">0.05");
+
+    // Then a frame round the cup, from its top left to its bottom right (the lid beside it comes along).
+    const machineX = MACHINE_X.home;
+    const cx = machineX - 0.138;
+    const cz = MACHINE_Z + CUP.z;
+    // Clear air all round the cup (and the lid beside it): the frame's edges and corner squares never touch the glass.
+    const c0 = toScreen(cx - 0.3, CUP.y + 0.52, cz);
+    const c1 = toScreen(cx + 0.64, CUP.y - 0.1, cz);
+    move({ x: c0.x, y: c0.y }, 0.34, "<0.05");
+    t.call(() => {
+      Object.assign(anim.reveal, { x0: c0.x, y0: c0.y, x1: c0.x, y1: c0.y, on: "cup", show: 1 });
+    });
+    t.to(anim.cursor, { press: 1, duration: 0.05 }, ">");
+    t.to(anim.cursor, { x: c1.x, y: c1.y, duration: 0.6, ease: "power2.inOut" }, ">");
+    t.to(anim.reveal, { x1: c1.x, y1: c1.y, duration: 0.6, ease: "power2.inOut" }, "<");
+    t.to(anim.cursor, { press: 0, duration: 0.08 }, ">");
+    t.set(anim.drawnBy, { cup: 0 }, ">");
+    t.to(anim.reveal, { show: 0, duration: 0.22 }, ">0.05");
+    t.call(() => {
+      anim.reveal.on = null;
+    });
+
+    // The cursor leaves as the menu bar arrives, and the opening is over.
+    t.to(anim.cursor, { show: 0, x: c1.x + 90, y: c1.y + 60, duration: 0.3, ease: "power2.in" }, ">0.02");
+    t.call(() => onUi({ menu: true, logo: false }), [], "<0.05");
   };
 
   return {
@@ -280,8 +388,11 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
      * Then it holds there, or plays on into scenes 3 and 4 if
      * PLAY_PAST_SCENE_2 is on.
      */
-    intro() {
+    intro(subtle = false) {
       const t = begin();
+      // A later load in the same tab: the same slide, a gentle wobble.
+      wobble.k = subtle ? 0.3 : 1;
+      t.call(() => (wobble.k = WOBBLE_CALM), [], SCENE_1_HOLD + SCENE_2_LENGTH);
       introTl = t;
       restAtScene2();
       // Everything starts just past the screen's right edge, the same distance out, so they come in as a procession.
@@ -290,7 +401,8 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
       if (import.meta.env.DEV) (window as unknown as { __openingAt: number }).__openingAt = performance.now();
       ENTERING.forEach((k) => t.to(anim.enter, { [k]: 0, ...SLIDE }, SCENE_1_HOLD + ENTRANCE[k]));
       if (PLAY_PAST_SCENE_2) {
-        scenes3and4(t, SCENE_1_HOLD + SCENE_2_LENGTH + 0.4);
+        // Starts as the last things are landing, while their wobble is still dying down.
+        scenes3and4(t, SCENE_1_HOLD + ENTRANCE.hanger + SLIDE.duration + 0.1);
         current = { mode: "home" };
       } else {
         holding = true;
@@ -309,6 +421,49 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
       current = { mode: "home" };
     },
 
+    /**
+     * A book is clicked (frame 5): it hops up over the books in front of it, comes forward to the middle and waits
+     * to be opened (a second click). Meanwhile the other two turn spine-out and step aside, the plant and machine
+     * move out, and the hanging planter is pulled up.
+     */
+    focus(id: BookId) {
+      if (focusing === id) return;
+      const t = begin();
+      onUi({ contact: false, open: null });
+      if (focusing && focusing !== id) toHome(t, 0.6);
+      focusing = id;
+      current = { mode: "home" };
+      const f = focusPoses(id);
+      const homes = homePoses();
+      // Up to just clear of the tallest book standing in front of it (or a small hop if none does).
+      const front = BOOKS.filter((b) => b !== id && homes[b].z > homes[id].z).map((b) => BOOK_SIZE[b].h);
+      const rise = front.length ? Math.max(...front) + 0.06 : 0.14;
+      const mine = f[id];
+      const { cover: _c, ...fp } = mine;
+      const big = waitingPose(id);
+      const { cover: _w, ...bp } = big;
+      const edge = (view.right - view.left) / 2;
+
+      // 1. The book lifts straight up, travels forward and across while high (so it never cuts through the books in
+      //    front of it), and lands at the front.
+      t.to(anim.books[id], { y: rise, duration: 0.3, ease: "power2.out" }, ">");
+      t.to(anim.books[id], { x: fp.x, z: fp.z, ry: fp.ry, rx: 0, s: fp.s, duration: 0.5, ease: "power2.inOut" }, ">-0.02");
+      t.to(anim.books[id], { y: fp.y, duration: 0.28, ease: "power2.in" }, ">-0.08");
+      // 2. The other two swivel spine-out and step out to the book's sides, where you can see them turn.
+      const others = BOOKS.filter((b) => b !== id);
+      others.forEach((b, i) => t.to(anim.books[b], { ry: Math.PI / 2, x: f[b].x, z: f[b].z, duration: 0.45, ease: "power2.inOut" }, i ? "<" : ">-0.1"));
+      // 3. They slide out past the screen's edges, with the plant, the machine and the planter, as the book grows to
+      //    its waiting size (shut, cover to you, the spread's size).
+      others.forEach((b, i) => {
+        const side = f[b].x < 0 ? -1 : 1;
+        t.to(anim.books[b], { x: side * (edge + 0.5), duration: 0.6, ease: "power3.in" }, i ? "<" : ">0.02");
+      });
+      t.to(anim, { plantX: -(edge + 1.0), machineX: edge + 1.2, hangerLift: HANGER_UP, duration: 0.65, ease: "power3.in" }, "<");
+      t.to(anim.books[id], { x: bp.x, y: bp.y, z: bp.z, s: bp.s, ry: bp.ry, duration: 0.7, ease: "power3.inOut" }, "<0.05");
+      // 4. Last, the shelf line and what's left behind fade away to the plain page.
+      t.to(anim, { backdrop: 1, duration: 0.4, ease: "power2.inOut" }, ">-0.25");
+    },
+
     /** Skips whatever is playing to its end. */
     finish() {
       tl?.progress(1);
@@ -316,20 +471,37 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
 
     go(target: Target, { instant = false } = {}) {
       const cur = current;
-      if (cur && JSON.stringify(cur) === JSON.stringify(target)) return;
+      if (cur && JSON.stringify(cur) === JSON.stringify(target) && !focusing) return;
       const sameBook = cur?.mode === "open" && target.mode === "open" && cur.book === target.book;
       // Turning a page while the book is still opening: let it finish opening first.
       if (sameBook && tl?.isActive()) tl.progress(1);
       const t = begin();
+      const waiting = focusing;
+      focusing = null;
       if (holding || anim.drawn > 0) {
         // Leaving scene 2's rest (or a first paint straight to a deep link): the drawings turn 3D on the way.
         holding = false;
-        t.to(anim, { drawn: 0, duration: 0.6, ease: "power2.inOut" }, 0);
-        t.call(() => onUi({ logo: true }), [], 0);
+        t.to(anim.drawnBy, { playground: 0, work: 0, about: 0, cup: 0, duration: 0.6, ease: "power2.inOut" }, 0);
+        t.call(() => {
+          Object.assign(anim.reveal, { show: 0, on: null });
+          anim.cursor.show = 0;
+        }, [], 0);
       }
       if (sameBook && cur?.mode === "open" && target.mode === "open") {
         const from = anim.pages[target.book].right;
-        if (from !== target.page) turn(t, target.book, from, target.page);
+        const pg = anim.pages[target.book];
+        // A page the hand has dragged past the middle and let go: carry it on over from where it was let go. (The drag
+        // has already set the page numbers, so there is nothing for turn() to compare.)
+        if (pg.leaf.on && pg.leaf.drag && (pg.leaf.back === target.page || pg.leaf.front === target.page)) {
+          const fwd = pg.leaf.back === target.page;
+          t.to(pg.leaf, { t: fwd ? 1 : 0, duration: 0.45 * (fwd ? 1 - pg.leaf.t : pg.leaf.t) + 0.12, ease: "power2.out" });
+          t.call(() => {
+            pg.left = target.page;
+            pg.right = target.page;
+            pg.leaf.on = false;
+            pg.leaf.drag = false;
+          });
+        } else if (from !== target.page) turn(t, target.book, from, target.page);
         sub(t, target.book, cur.sub, target.sub);
       } else {
         if (cur?.mode === "open") close(t, cur.book, cur.sub);
@@ -342,14 +514,13 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
           coffee(t);
         } else {
           // Coming from another book or the coffee: back to the shelf first (frames 13, 14, 32, 33).
-          if (cur && cur.mode !== "home") toHome(t, 0.75);
-          open(t, target.book, target.page);
+          if ((cur && cur.mode !== "home") || (waiting && waiting !== target.book)) toHome(t, 0.75);
+          open(t, target.book, target.page, waiting === target.book);
           sub(t, target.book, "spread", target.sub);
         }
       }
       if (!cur) {
         // First paint on a deep link: no sequence, just be there.
-        onUi({ logo: true });
         if (target.mode !== "open") onUi({ menu: true });
       }
       current = target;

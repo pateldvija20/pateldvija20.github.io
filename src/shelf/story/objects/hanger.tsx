@@ -44,10 +44,10 @@ type V3 = [number, number, number];
  * top half, the lip and the cords are above it, out of frame.
  */
 const POT_BOTTOM = -0.46;
-const LIP = 0.125;
-const SOIL = 0.07;
+const LIP = -0.09;
+const SOIL = LIP - 0.055;
 const RIM = 0.272;
-const BAND_Y = -0.2;
+const BAND_Y = LIP - 0.09;
 
 /** Where the scene pins it: the pot's lip, at the top edge of the screen. */
 export const PIN: [number, number, number] = [0, LIP, 0];
@@ -56,8 +56,10 @@ function potProfile() {
   const p: THREE.Vector2[] = [new THREE.Vector2(0, POT_BOTTOM), new THREE.Vector2(0.07, POT_BOTTOM)];
   const v = (x: number, y: number) => new THREE.Vector2(x, y);
   // A deep bowl: a gently curved base rounding up into the belly, widest a little under the lip.
-  const c1 = new THREE.CubicBezierCurve(v(0.07, POT_BOTTOM), v(0.2, POT_BOTTOM), v(0.3, -0.3), v(0.29, -0.05));
-  const c2 = new THREE.CubicBezierCurve(v(0.29, -0.05), v(0.282, 0.04), v(0.276, 0.09), v(RIM, LIP - 0.012));
+  const belly = LIP - 0.06;
+  const c1 = new THREE.CubicBezierCurve(v(0.07, POT_BOTTOM), v(0.2, POT_BOTTOM), v(0.3, -0.3), v(0.29, belly));
+  const top = LIP - 0.012;
+  const c2 = new THREE.CubicBezierCurve(v(0.29, belly), v(0.282, belly + (top - belly) * 0.5), v(0.276, belly + (top - belly) * 0.85), v(RIM, top));
   for (let i = 1; i <= 24; i++) p.push(c1.getPoint(i / 24));
   for (let i = 1; i <= 12; i++) p.push(c2.getPoint(i / 12));
   return p;
@@ -225,15 +227,24 @@ const deg = Math.PI / 180;
  * full from the side. [azimuth, out, bottom, leaves, drift sideways, wobble, give]
  */
 const PLAN: [number, number, number, number, number, number, number][] = [
-  [176, 0.31, -0.92, 8, -0.01, 0.012, 1],
-  [150, 0.335, -0.68, 6, -0.008, 0.01, 0.9],
-  [202, 0.3, -0.56, 4, -0.02, 0.01, 0.6],
-  [118, 0.305, -0.72, 6, 0.006, 0.012, 0.85],
-  [64, 0.305, -0.88, 7, -0.004, 0.013, 1],
-  [24, 0.31, -0.55, 4, 0.01, 0.01, 0.6],
-  [342, 0.3, -0.5, 3, 0.01, 0.008, 0.5],
-  [228, 0.3, -0.6, 4, 0, 0.01, 0.7],
-  [270, 0.3, -0.7, 5, 0, 0.012, 0.8],
+  // Left side: a long cascade and two beside it (the first green area on the sketch, 16 Nov).
+  [176, 0.31, -0.98, 12, -0.01, 0.012, 1],
+  [150, 0.335, -0.78, 9, -0.008, 0.01, 0.9],
+  [202, 0.3, -0.7, 7, -0.02, 0.01, 0.6],
+  // Right side: a long one and a short one (the second green area). The front of the pot is left clear.
+  // (moved round behind the pot, 16 Nov: they hang at its back right, not out to the screen's edge)
+  [305, 0.318, -0.55, 6, 0.006, 0.012, 0.8],
+  [335, 0.31, -0.45, 4, 0.01, 0.01, 0.55],
+  // Short ones tumbling over the rim at the top (the third green area).
+  [36, 0.335, -0.27, 3, 0.004, 0.008, 0.4],
+  [62, 0.34, -0.3, 4, -0.004, 0.008, 0.4],
+  [88, 0.345, -0.26, 3, 0.003, 0.007, 0.4],
+  [114, 0.34, -0.3, 4, 0.004, 0.008, 0.4],
+  [140, 0.335, -0.27, 3, -0.003, 0.008, 0.4],
+  // And down the left side of the pot, under the rim.
+  [162, 0.335, -0.33, 4, -0.004, 0.008, 0.45],
+  [186, 0.34, -0.38, 5, -0.004, 0.008, 0.5],
+  [210, 0.335, -0.32, 4, -0.004, 0.008, 0.45],
 ];
 
 function makeSpec(row: (typeof PLAN)[number], vi: number): VineSpec {
@@ -242,18 +253,19 @@ function makeSpec(row: (typeof PLAN)[number], vi: number): VineSpec {
   const rc = Math.cos(az);
   const rs = Math.sin(az);
   const hang: V3[] = [];
-  const steps = Math.max(3, Math.round((-0.12 - bottom) / 0.11));
+  const y0 = LIP - 0.12;
+  const steps = Math.max(3, Math.round((y0 - bottom) / 0.11));
   for (let i = 0; i <= steps; i++) {
-    const y = -0.12 + ((bottom + 0.12) * i) / steps;
+    const y = y0 + ((bottom - y0) * i) / steps;
     const r = out + wob * Math.sin(i * 1.4 + vi);
     const tg = drift * i * 1.5;
     hang.push([rc * r - rs * tg, y, rs * r + rc * tg]);
   }
   const leaves: VineSpec["leaves"] = [];
   for (let i = 0; i < n; i++) {
-    const t = 0.52 + (0.45 * i) / Math.max(1, n - 1);
+    const t = 0.45 + (0.52 * i) / Math.max(1, n - 1);
     const side: 1 | -1 = i % 2 ? -1 : 1;
-    const L = 0.118 - 0.05 * (i / Math.max(1, n - 1)) - 0.006 * ((i + vi) % 2);
+    const L = 0.13 - 0.05 * (i / Math.max(1, n - 1)) - 0.006 * ((i + vi) % 2);
     // Leaves turn a little from the front, alternately, so they fan rather than stack.
     const yaw = side * (0.25 + 0.3 * ((i * 3 + vi) % 3) / 2);
     leaves.push([t, side, L, yaw, 0.35 + 0.25 * ((i + vi) % 3), 0.1]);
@@ -275,7 +287,7 @@ function vineRest(v: VineSpec, n: number) {
   const len = curve.getLength();
   let free = 0;
   for (let i = 0; i < rest.length; i++)
-    if (rest[i].y < -0.14) {
+    if (rest[i].y < LIP - 0.14) {
       free = (i / (n - 1)) * len;
       break;
     }
@@ -376,7 +388,7 @@ function buildRig() {
       });
     }
   });
-  return { vines, leaves, pend: new Spring(16, 1.4) };
+  return { vines, leaves, pend: new Spring(22, 4.2) };
 }
 
 type Rig = ReturnType<typeof buildRig>;
@@ -448,7 +460,7 @@ function step(rig: Rig, swing: THREE.Group, leafGroups: (THREE.Group | null)[], 
   // The pot: a pendulum from the origin. Accelerating one way, it swings the other.
   const a = clamp(ax, -80, 80);
   const idle = 0.02 * Math.sin(t * 0.85) + 0.009 * Math.sin(t * 1.63 + 1.3);
-  const theta = rig.pend.step(clamp(-a * 0.011, -0.4, 0.4) + idle, dt);
+  const theta = rig.pend.step(clamp(-a * 0.004, -0.12, 0.12) + idle, dt);
   swing.rotation.set(0.012 * Math.sin(t * 0.61 + 0.4), 0, theta);
   const ct = Math.cos(theta);
   const st = Math.sin(theta);

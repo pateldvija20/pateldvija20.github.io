@@ -4,11 +4,13 @@ import gsap from "gsap";
 import * as THREE from "three";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import { anim, heroPose, OPEN_Z } from "./anim";
-import { COIL, Helix, PALETTE, coilLoops, coverAbout, coverPlayground, coverWork, faceMap, pageEdges, slab, spineTex } from "./Bright";
-import { BOOK_SIZE, CAM_D, STROKE, view, type BookId } from "./layout";
+import { slab } from "./Bright";
+import { skin as aboutSkin } from "./objects/about";
+import { COIL as PG_COIL, skin as playgroundSkin } from "./objects/playground";
+import { skin as workSkin } from "./objects/work";
+import { BOOK_CORNER, BOOK_SIZE, CAM_D, view, type BookId } from "./layout";
 import { PAGE_COUNT, pageTexture, type Side } from "./pages";
-import { THEME } from "./theme";
-import { printed, toy } from "./toy";
+import { printed } from "./toy";
 
 /**
  * A book as a soft, chunky board book (the toy references, and the HTWKR
@@ -25,10 +27,45 @@ import { printed, toy } from "./toy";
  * anim.books[id] and anim.pages[id].
  */
 
-const BOARD = { work: 0.05, about: 0.046, playground: 0.03 } as const;
-const COVER_ART = { work: coverWork, about: coverAbout, playground: coverPlayground };
-/** The boards' corner radius, seen front-on; the pages' art is cut to match (pages.ts). */
-const CORNER = 0.06;
+/**
+ * The rig wears the closed books' own skins (objects/<id>.tsx skin()), so a book opens in exactly the look it
+ * stood in (16 Nov: "update the internal skeleton to match the external"): their cover art, inside, edges, spine, page
+ * block and (Playground) wire coil.
+ */
+const SKINS = { work: workSkin, about: aboutSkin, playground: playgroundSkin };
+
+/** One page's width in scene units (the printed art's width), for things that sit on the page. */
+export function pageWidthOf(id: BookId) {
+  const { w } = BOOK_SIZE[id];
+  return id === "playground" ? w - 0.004 : w - SKINS[id]().board / 2;
+}
+
+/**
+ * Work and About print their cover across the board's face as 0 to 1 (u from the spine's outer edge to the fore-edge, v
+ * from the foot to the head); the Playground's print is in scene units about the board's middle (what ExtrudeGeometry
+ * gives). So for the first two the slab's UVs are rescaled, or their art is blown up to a corner of itself.
+ */
+function normaliseUV(g: THREE.BufferGeometry, w: number, h: number, flipU = false) {
+  const uv = g.attributes.uv as THREE.BufferAttribute;
+  for (let i = 0; i < uv.count; i++) {
+    const u = (uv.getX(i) + w / 2) / w;
+    uv.setXY(i, flipU ? 1 - u : u, (uv.getY(i) + h / 2) / h);
+  }
+  uv.needsUpdate = true;
+  return g;
+}
+
+/** The boards' faces as one extruded slab split into its front lid (material 0), its back lid (2) and its sides (1). */
+function splitCaps(g: THREE.ExtrudeGeometry) {
+  const lids = g.groups.find((x) => x.materialIndex === 0)!;
+  const sides = g.groups.find((x) => x.materialIndex === 1)!;
+  const half = lids.count / 2;
+  g.clearGroups();
+  g.addGroup(lids.start, half, 2);
+  g.addGroup(lids.start + half, half, 0);
+  g.addGroup(sides.start, sides.count, 1);
+  return g;
+}
 
 /** Where the pointer is, -1 to 1 across the window, for the open book's tilt. */
 const pointer = { x: 0, y: 0 };
@@ -49,11 +86,13 @@ type Props = {
 export default function ToyBook({ id, onPick, onTurn }: Props) {
   const { w, h, t } = BOOK_SIZE[id];
   const top = id === "playground";
-  const board = BOARD[id];
+  const sk = useMemo(() => SKINS[id](), [id]);
+  const board = sk.board;
   const root = useRef<THREE.Group>(null);
   const hinge = useRef<THREE.Group>(null);
+  const spineMesh = useRef<THREE.Mesh>(null);
+  const foldGroup = useRef<THREE.Group>(null);
   const leaf = useRef<THREE.Group>(null);
-  const ring = useRef<THREE.Mesh>(null);
   const hover = useRef(false);
   const lift = useRef(0);
   const tilt = useRef({ x: 0, y: 0 });
@@ -62,29 +101,23 @@ export default function ToyBook({ id, onPick, onTurn }: Props) {
   const { gl } = useThree();
 
   const k = useMemo(() => {
-    const color = PALETTE[id];
-    const edge = toy(color);
-    const artCanvas = COVER_ART[id]().image as HTMLCanvasElement;
-    const art = faceMap(new THREE.CanvasTexture(artCanvas), w, h);
-    art.colorSpace = THREE.SRGBColorSpace;
-    art.anisotropy = 8;
-    const front = toy("#FFFFFF", { map: art });
-    // Boards: rounded corners front-on, softly bevelled edges.
-    const coverGeo = slab(w, h, board, CORNER, Math.min(0.012, board * 0.3));
-    const pw = top ? w - 0.05 : w - board - 0.022;
-    const ph = top ? h - 0.1 : h - 0.05;
-    const pt = t - board * 2 + 0.006;
-    const edgesDown = toy("#FFFFFF", { map: pageEdges(false), roughness: 0.85, clearcoat: 0, sheen: 0 });
-    const edgesAcross = toy("#FFFFFF", { map: pageEdges(true), roughness: 0.85, clearcoat: 0, sheen: 0 });
-    const paper = toy("#FBF6EA", { roughness: 0.85, clearcoat: 0, sheen: 0 });
-    const blockGeo = new RoundedBoxGeometry(pw, ph, pt, 2, 0.008);
-    const r = board * 0.48;
-    const spine = top ? null : new RoundedBoxGeometry(board * 1.25, h, t, 4, r);
-    const spineMats = top ? null : [edge, toy("#FFFFFF", { map: spineTex(id === "work" ? "WORK" : "ABOUT", color, t, h) }), edge, edge, edge, edge];
-    const wire = top ? new THREE.TubeGeometry(new Helix(coilLoops().x0, coilLoops().pitch, COIL.count, h - COIL.drop, COIL.r), COIL.count * 64, 0.008, 8) : null;
+    const bevel = Math.min(0.003, board * 0.25);
+    const coverGeo = splitCaps(slab(w, h, board, sk.corner, bevel));
+    const backGeo = splitCaps(slab(w, h, board, sk.corner, bevel));
+    if (!top) {
+      normaliseUV(coverGeo, w, h);
+      // Seen from behind, the back board's print runs the other way.
+      normaliseUV(backGeo, w, h, true);
+    }
+    // The pages sit between the boards, a little in from the fore edge (and under the coil, for the top-bound one).
+    const pw = top ? w - 0.05 : w - board - 0.01;
+    const ph = top ? h - 0.012 : h - 0.03;
+    const pt = t - board * 2 - 0.002;
+    const blockGeo = new RoundedBoxGeometry(pw, ph, pt, 2, 0.004);
+    const spine = top ? null : new RoundedBoxGeometry(board * 1.25, h, t, 4, board * 0.45);
     // Pages are printed edge to edge on the boards (the reference's full-bleed spreads).
-    const pageW = top ? w - 0.004 : w - board;
-    const pageH = top ? h - 0.06 : h - 0.004;
+    const pageW = top ? w - 0.004 : w - board / 2;
+    const pageH = top ? h - 0.014 : h - 0.004;
     const pageGeo = new THREE.PlaneGeometry(pageW, pageH);
     const page = () => {
       const m = printed();
@@ -92,21 +125,15 @@ export default function ToyBook({ id, onPick, onTurn }: Props) {
       return m;
     };
     return {
-      art,
-      artCanvas,
       coverGeo,
-      // Extruded boards: material 0 is the faces (front and inside), 1 the edges.
-      coverMats: [front, edge],
-      backMats: [edge, edge],
+      backGeo,
+      // Material 0 the front board's outside, 1 the boards' edges, 2 the inside.
+      coverMats: [sk.coverFront, sk.coverEdge, sk.coverInside],
+      backMats: [sk.coverEdge, sk.coverEdge, sk.backCover],
       blockGeo,
-      blockMats: top ? [edgesDown, edgesDown, edgesAcross, edgesAcross, paper, paper] : [edgesDown, paper, edgesAcross, edgesAcross, paper, paper],
+      blockMats: [sk.pageEdge, sk.pageEdge, sk.pageEdge, sk.pageEdge, sk.pageFace, sk.pageFace],
       spine,
-      spineMats,
-      wire,
-      wireMat: toy(PALETTE.coil, { roughness: 0.3, metalness: 0.5, clearcoat: 0.6 }),
-      // Frame 2: the coil seen end-on as a single drawn loop (inking the whole wire end-on would blot).
-      ringGeo: top ? new THREE.TorusGeometry(COIL.r, STROKE / 2, 8, 96) : null,
-      ringMat: new THREE.MeshBasicMaterial({ color: THEME.chalk, transparent: true, opacity: 0, toneMapped: false }),
+      spineMats: top ? null : [sk.coverEdge, sk.spine ?? sk.coverEdge, sk.coverEdge, sk.coverEdge, sk.coverEdge, sk.coverEdge],
       pw,
       ph,
       pt,
@@ -118,36 +145,24 @@ export default function ToyBook({ id, onPick, onTurn }: Props) {
       leafFront: page(),
       leafBack: page(),
     };
-  }, [id, w, h, t, top, board]);
-
-  // The covers' hand lettering is a web font: redraw once it has loaded.
-  useEffect(() => {
-    let live = true;
-    document.fonts.load('700 100px "Cabin Sketch"').then(() => {
-      if (!live) return;
-      const fresh = COVER_ART[id]().image as HTMLCanvasElement;
-      const g = k.artCanvas.getContext("2d")!;
-      g.clearRect(0, 0, k.artCanvas.width, k.artCanvas.height);
-      g.drawImage(fresh, 0, 0);
-      k.art.needsUpdate = true;
-    });
-    return () => {
-      live = false;
-    };
-  }, [id, k]);
+  }, [sk, w, h, t, top, board]);
 
   const shown = useRef({ left: "", right: "", front: "", back: "" });
   const setMap = (m: THREE.MeshBasicMaterial, slot: keyof typeof shown.current, index: number, side: Side) => {
     const key = `${index}:${side}`;
     if (shown.current[slot] === key) return;
     shown.current[slot] = key;
+    // A material only needs rebuilding the first time it gets a map; swapping one map for another doesn't.
+    const first = !m.map;
     m.map = pageTexture(id, index, side);
-    m.needsUpdate = true;
+    if (first) m.needsUpdate = true;
   };
 
   const q = useMemo(() => ({ quat: new THREE.Quaternion(), euler: new THREE.Euler(), pivot: new THREE.Vector3(), off: new THREE.Vector3() }), []);
   const pageZ = k.pt / 2 + 0.004;
-  const pageX = top ? 0 : -w / 2 + board + k.pageW / 2;
+  // The printed pages run right up to the fold (the hinge, half a board in from the spine's outer edge), so no strip of cover
+  // or page edge shows as a line down the middle of the spread.
+  const pageX = top ? 0 : -w / 2 + board / 2 + k.pageW / 2;
 
   useFrame((_, dt) => {
     const o = root.current;
@@ -182,13 +197,27 @@ export default function ToyBook({ id, onPick, onTurn }: Props) {
       o.quaternion.premultiply(q.quat);
     }
 
-    if (ring.current) {
-      k.ringMat.opacity = anim.drawn;
-      ring.current.visible = anim.drawn > 0.001;
+    // Open, the spine shows as a line down the middle of the spread: it narrows to a hairline as the cover swings open.
+    if (foldGroup.current) foldGroup.current.rotation.y = -Math.PI * p.fold;
+    if (spineMesh.current) {
+      spineMesh.current.scale.x = Math.max(0.02, 1 - THREE.MathUtils.smoothstep(open, 0.15, 0.7));
+      spineMesh.current.visible = open < 0.97;
     }
     if (hinge.current) {
-      if (top) hinge.current.rotation.x = -1.9 * Math.PI * open;
-      else hinge.current.rotation.y = -Math.PI * open;
+      if (top) {
+        // Up and over the coil, then down behind the pad (where a real spiral book's cover lies, out of sight): it swings up
+        // to stand straight, then folds over the top and drops, and ends a little back from the back board so the two never
+        // share a surface.
+        const g = hinge.current;
+        g.rotation.x = -Math.PI * THREE.MathUtils.smoothstep(open, 0, 0.5);
+        g.scale.y = Math.cos(Math.PI * THREE.MathUtils.smoothstep(open, 0.5, 0.85));
+        g.position.z = PG_COIL.z - 0.026 * THREE.MathUtils.smoothstep(open, 0.5, 1);
+      }
+      else {
+        hinge.current.rotation.y = -Math.PI * open;
+        // Open flat, the board's hinge-side edge would stand in the fold as a line: tuck it back behind the pages.
+        hinge.current.position.z = t / 2 - board / 2 - (board + 0.004) * THREE.MathUtils.smoothstep(open, 0.6, 1);
+      }
     }
     // Pages: only drawn once the cover has started to open.
     if (open > 0.001) {
@@ -207,16 +236,30 @@ export default function ToyBook({ id, onPick, onTurn }: Props) {
         const shade = 0.62 + 0.38 * Math.abs(Math.cos(a));
         k.leafFront.color.setScalar(shade);
         k.leafBack.color.setScalar(shade);
+        if (!top && !pages.leaf.drag) {
+          // Under the leaf, the page it will land on is put in place while the leaf still covers it (once it lies nearly flat over
+          // the left page, or nearly flat again over the right), so when the leaf settles nothing underneath changes.
+          if (pages.leaf.fwd) {
+            if (pages.leaf.t > 0.93) pages.left = pages.leaf.back;
+          } else if (pages.leaf.t < 0.07) pages.right = pages.leaf.front;
+        }
         if (top) {
           setMap(k.leafFront, "front", pages.leaf.front, "single");
           setMap(k.leafBack, "back", pages.leaf.back, "blank");
-          l.rotation.x = -1.9 * Math.PI * pages.leaf.t;
+          // The same way over the coil and down behind the pad.
+          l.rotation.x = -Math.PI * THREE.MathUtils.smoothstep(pages.leaf.t, 0, 0.5);
+          l.scale.y = Math.cos(Math.PI * THREE.MathUtils.smoothstep(pages.leaf.t, 0.5, 0.85));
+          l.position.z = pageZ + 0.003 - 0.1 * THREE.MathUtils.smoothstep(pages.leaf.t, 0.5, 1);
         } else {
           setMap(k.leafFront, "front", pages.leaf.front, "right");
           setMap(k.leafBack, "back", pages.leaf.back, "left");
           l.rotation.y = -a;
           // Lifted a touch off the page as it goes over, so it never cuts through the spread.
-          l.position.z = pageZ + 0.004 + Math.sin(a) * 0.01;
+          // And it ends up in front of the left page (which stands out from the block by the boards' thickness), not
+          // behind it, so lying flat over it nothing of the page under it can show.
+          const onLeft = THREE.MathUtils.smoothstep(a / Math.PI, 0.35, 0.95);
+          const leftFront = t / 2 + 0.007;
+          l.position.z = pageZ + 0.004 + (leftFront - (pageZ + 0.004)) * onLeft + Math.sin(a) * 0.01;
         }
       }
     }
@@ -246,7 +289,7 @@ export default function ToyBook({ id, onPick, onTurn }: Props) {
         d.moved = true;
         if (d.dir > 0) pages.right = to;
         else pages.left = to;
-        Object.assign(pages.leaf, { on: true, drag: true, front: d.dir > 0 ? d.from : to, back: d.dir > 0 ? to : d.from, t: d.dir > 0 ? 0 : 1 });
+        Object.assign(pages.leaf, { on: true, drag: true, fwd: d.dir > 0, front: d.dir > 0 ? d.from : to, back: d.dir > 0 ? to : d.from, t: d.dir > 0 ? 0 : 1 });
       }
       const span = pagePx() * (top ? 1.2 : 1.6);
       pages.leaf.t = d.dir > 0 ? Math.min(1, Math.max(0, -dx / span)) : 1 - Math.min(1, Math.max(0, dx / span));
@@ -258,7 +301,8 @@ export default function ToyBook({ id, onPick, onTurn }: Props) {
       justDragged.current = true;
       setTimeout(() => (justDragged.current = false), 0);
       const pages = anim.pages[id];
-      const done = d.dir > 0 ? pages.leaf.t > 0.3 : pages.leaf.t < 0.7;
+      // Past the middle: it carries on over; short of it: it falls back.
+      const done = d.dir > 0 ? pages.leaf.t > 0.5 : pages.leaf.t < 0.5;
       if (done) {
         // The director carries the turn on from here (director.ts turn()).
         onTurn?.(d.dir);
@@ -327,47 +371,51 @@ export default function ToyBook({ id, onPick, onTurn }: Props) {
       }
     : {};
 
-  const ink = { ink: "decor" };
+  // Full colour like the closed book (no drawing lines round it).
+  const ink = { ink: "color" };
 
   return (
     <group ref={root} {...events}>
+      {/* The right-hand stack (back board, pages): it folds over onto the left when the book is closed by its back. */}
+      <group ref={foldGroup} position={top ? [0, 0, 0] : [-w / 2 + board / 2, 0, 0]}>
+        <group position={top ? [0, 0, 0] : [w / 2 - board / 2, 0, 0]}>
       {/* Back board. */}
-      <mesh geometry={k.coverGeo} material={k.backMats} position={[0, h / 2, -t / 2 + board / 2]} castShadow receiveShadow userData={ink} />
+      <mesh geometry={k.backGeo} material={k.backMats} position={[0, h / 2, -t / 2 + board / 2]} castShadow receiveShadow userData={ink} />
       {/* Page block, and the right-hand page printed on it, edge to edge. */}
       <mesh
         geometry={k.blockGeo}
         material={k.blockMats}
-        position={top ? [0, h / 2 - 0.035, 0] : [-w / 2 + board + k.pw / 2, h / 2, 0]}
+        position={top ? [0, (h - 0.006) / 2, 0] : [-w / 2 + board + k.pw / 2, h / 2, 0]}
         castShadow
         receiveShadow
         userData={ink}
       />
-      <mesh geometry={k.pageGeo} material={k.right} position={[pageX, top ? h / 2 - 0.03 : h / 2, pageZ]} userData={{ ink: "skip" }} />
-      {k.spine && <mesh geometry={k.spine} material={k.spineMats!} position={[-w / 2 + board * 0.62, h / 2, 0]} castShadow receiveShadow userData={ink} />}
-      {k.wire && <mesh geometry={k.wire} material={k.wireMat} castShadow userData={{ ink: "skip" }} />}
-      {k.ringGeo && (
-        <mesh ref={ring} geometry={k.ringGeo} material={k.ringMat} position={[-coilLoops().span / 2, h - COIL.drop, 0]} rotation={[0, Math.PI / 2, 0]} userData={{ ink: "skip" }} />
-      )}
+      <mesh geometry={k.pageGeo} material={k.right} position={[pageX, top ? h - 0.01 - k.pageH / 2 : h / 2, pageZ]} userData={{ ink: "skip" }} />
+        </group>
+      </group>
+      {k.spine && <mesh ref={spineMesh} geometry={k.spine} material={k.spineMats!} position={[-w / 2 + board * 0.62, h / 2, 0]} castShadow receiveShadow userData={ink} />}
+      {/* Whatever else the book has: the Playground's wire coil, the About book's staples. */}
+      {sk.extras?.({ drawn: false })}
       {top ? (
         // Top-bound: the cover hangs from the coil and flips up and over it.
-        <group ref={hinge} position={[0, h - COIL.drop, t / 2 - board / 2]}>
-          <mesh geometry={k.coverGeo} material={k.coverMats} position={[0, -(h - COIL.drop) + h / 2, 0]} castShadow receiveShadow userData={ink} />
+        <group ref={hinge} position={[0, PG_COIL.y, PG_COIL.z]}>
+          <mesh geometry={k.coverGeo} material={k.coverMats} position={[0, h / 2 - PG_COIL.y, t / 2 - board / 2 - PG_COIL.z]} castShadow receiveShadow userData={ink} />
         </group>
       ) : (
         // Side-bound: the cover swings open about the spine; its inside carries the left page.
         <group ref={hinge} position={[-w / 2 + board / 2, h / 2, t / 2 - board / 2]}>
           <mesh geometry={k.coverGeo} material={k.coverMats} position={[w / 2 - board / 2, 0, 0]} castShadow receiveShadow userData={ink} />
-          <mesh geometry={k.pageGeo} material={k.left} position={[w / 2, 0, -board / 2 - 0.003]} rotation={[0, Math.PI, 0]} userData={{ ink: "skip" }} />
+          <mesh geometry={k.pageGeo} material={k.left} position={[k.pageW / 2, 0, -board / 2 - 0.003]} rotation={[0, Math.PI, 0]} userData={{ ink: "skip" }} />
         </group>
       )}
       {/* The page that turns. */}
       {top ? (
-        <group ref={leaf} position={[0, h - COIL.drop - 0.03, pageZ + 0.003]} visible={false}>
-          <mesh geometry={k.pageGeo} material={k.leafFront} position={[0, -k.pageH / 2 + 0.005, 0.0015]} userData={{ ink: "skip" }} />
-          <mesh geometry={k.pageGeo} material={k.leafBack} position={[0, -k.pageH / 2 + 0.005, -0.0015]} rotation={[0, Math.PI, 0]} userData={{ ink: "skip" }} />
+        <group ref={leaf} position={[0, h - 0.01, pageZ + 0.003]} visible={false}>
+          <mesh geometry={k.pageGeo} material={k.leafFront} position={[0, -k.pageH / 2, 0.0015]} userData={{ ink: "skip" }} />
+          <mesh geometry={k.pageGeo} material={k.leafBack} position={[0, -k.pageH / 2, -0.0015]} rotation={[0, Math.PI, 0]} userData={{ ink: "skip" }} />
         </group>
       ) : (
-        <group ref={leaf} position={[-w / 2 + board, h / 2, pageZ + 0.004]} visible={false}>
+        <group ref={leaf} position={[-w / 2 + board / 2, h / 2, pageZ + 0.004]} visible={false}>
           <mesh geometry={k.pageGeo} material={k.leafFront} position={[k.pageW / 2, 0, 0.0015]} userData={{ ink: "skip" }} />
           <mesh geometry={k.pageGeo} material={k.leafBack} position={[k.pageW / 2, 0, -0.0015]} rotation={[0, Math.PI, 0]} userData={{ ink: "skip" }} />
         </group>

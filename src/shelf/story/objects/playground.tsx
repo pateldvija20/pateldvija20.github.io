@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import * as THREE from "three";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
+import { inkFill } from "../InkPass";
 import { toy } from "../toy";
 import type { BookSkin, ObjectMeta, ObjectProps } from "./types";
 
@@ -24,8 +25,8 @@ import type { BookSkin, ObjectMeta, ObjectProps } from "./types";
 /** The book: cover size, thickness with the pages, and its layers front to back. */
 export const PG = {
   w: 1.5,
-  h: 1.34,
-  t: 0.17,
+  h: 1.264,
+  t: 0.15,
   /** Kraft cover board, grey back board. */
   board: 0.02,
   back: 0.028,
@@ -55,7 +56,7 @@ export const COIL = {
   /** First and last slot centres in from the side edges. */
   margin: 0.05,
   /** Ring radius (about the axis), wire radius, and the drawn hairline's radius. */
-  r: 0.085,
+  r: 0.065,
   wire: 0.0022,
   thin: 0.0012,
   /** Half the distance between a pair's two rings. */
@@ -67,7 +68,7 @@ const PITCH = (PG.w - COIL.margin * 2) / (COIL.pairs - 1);
 const slotX = (k: number) => -PG.w / 2 + COIL.margin + k * PITCH;
 
 /** The punched slots (in cover, pages and back board): size, centre height, corner. */
-export const SLOT = { w: 0.02, h: 0.02, y: 1.285, r: 0.01 };
+export const SLOT = { w: 0.02, h: 0.02, y: PG.h - 0.055, r: 0.01 };
 
 export const meta: ObjectMeta = {
   name: "playground",
@@ -346,6 +347,7 @@ function buildKit() {
     holesGeo: holes(blockT),
     wire: wire(COIL.wire, 6, 0.008),
     wireThin: wire(COIL.thin, 4, 0, true),
+    wireCap: cap(),
   };
 }
 
@@ -442,19 +444,62 @@ function wire(radius: number, radial: number, deep: number, single = false) {
   return mergeGeometries(parts)!;
 }
 
+/**
+ * The line drawing's coil (the storyboard draws the Playground's top, seen spine-on, as one clean arch):
+ * only the end ring nearest the viewer, as a tube thick enough to outline as two arcs, so the other 29 rings
+ * don't pile up behind it as hatching.
+ */
+function cap() {
+  const a0 = Math.asin(Math.min(1, (Z.blockFront - COIL.z) / COIL.r));
+  const a1 = Math.PI * 2 - Math.asin(Math.min(1, (COIL.z - Z.backFront) / COIL.r));
+  return new THREE.TubeGeometry(new Ring(slotX(0), a0, a1), 64, 0.0065, 10, false);
+}
+
 /* ---------- The book ---------- */
 
 /** The coil, in book space (origin at the foot's middle, cover facing +Z). */
-export function Coil({ drawn = false }: ObjectProps) {
+export function Coil({ drawn = false, spine = true }: ObjectProps) {
   const k = kit();
-  return <mesh geometry={drawn ? k.wireThin : k.wire} material={k.mats.wire} castShadow receiveShadow userData={{ ink: drawn ? "decor" : "color" }} />;
+  // The single end ring is the drawing of the coil seen spine-on; seen cover-on (the home pose) the real loops are what show.
+  return <mesh geometry={drawn && spine ? k.wireCap : k.wire} material={k.mats.wire} castShadow receiveShadow userData={{ ink: drawn ? "decor" : "color" }} />;
 }
 
 /** The cover's hang: in colour it swings a touch off the pages from the coil; drawn, it lies flat on them. */
 const HANG = -0.011;
 
-export default function Playground({ drawn = false }: ObjectProps) {
+/**
+ * The line drawing (frame 2): the book as a spiral notebook seen from its side edge. One outline; a line where the
+ * pages end under the coil; two inside lines for the covers' thickness (the end face is a frame of cover strips and
+ * a top band standing a little proud of the page block, so the ink pass draws each boundary once); and one arch for
+ * the coil. All filled with the page colour, so nothing but those lines shows.
+ */
+const PROUD = 0.04;
+const BAND = 0.03;
+// Flat plates facing the viewer (no sides to show as slanted slivers): the whole end face, the two cover strips and
+// the top band standing proud of it, and half a disc for the coil.
+const FACE = new THREE.PlaneGeometry(PG.t, PG.h);
+const FRONT_STRIP = new THREE.PlaneGeometry(PG.board, PG.h);
+const BACK_STRIP = new THREE.PlaneGeometry(PG.back, PG.h);
+const TOP_BAND = new THREE.PlaneGeometry(PG.t - PG.board - PG.back, BAND);
+const HALF_DISC = new THREE.CircleGeometry(COIL.r, 48, 0, Math.PI);
+function Drawing() {
+  const x = -PG.w / 2;
+  const tag = { ink: "decor" };
+  const r: [number, number, number] = [0, -Math.PI / 2, 0];
+  return (
+    <group>
+      <mesh geometry={FACE} material={inkFill} position={[x, PG.h / 2, 0]} rotation={r} userData={tag} />
+      <mesh geometry={FRONT_STRIP} material={inkFill} position={[x - PROUD, PG.h / 2, PG.t / 2 - PG.board / 2]} rotation={r} userData={tag} />
+      <mesh geometry={BACK_STRIP} material={inkFill} position={[x - PROUD, PG.h / 2, -PG.t / 2 + PG.back / 2]} rotation={r} userData={tag} />
+      <mesh geometry={TOP_BAND} material={inkFill} position={[x - PROUD, PG.h - BAND / 2, (PG.back - PG.board) / 2]} rotation={r} userData={tag} />
+      <mesh geometry={HALF_DISC} material={inkFill} position={[x - PROUD - 0.0008, COIL.y, 0]} rotation={r} userData={tag} />
+    </group>
+  );
+}
+
+export default function Playground({ drawn = false, spine = true }: ObjectProps) {
   const k = kit();
+  if (drawn && spine) return <Drawing />;
   const m = k.mats;
   const tag = { ink: drawn ? "decor" : "color" };
   const coverMats = useMemo(() => [m.coverFront, m.coverEdge, m.coverInside], [m]);
@@ -482,7 +527,7 @@ export default function Playground({ drawn = false }: ObjectProps) {
       <group position={[0, COIL.y, COIL.z]} rotation-x={drawn ? 0 : HANG}>
         <mesh geometry={k.coverGeo} material={coverMats} position={[0, PG.h / 2 - COIL.y, coverZ - COIL.z]} castShadow receiveShadow userData={tag} />
       </group>
-      <Coil drawn={drawn} />
+      <Coil drawn={drawn} spine={spine} />
     </group>
   );
 }

@@ -42,6 +42,8 @@ export type ObjectMeta = {
 export type ObjectProps = {
   /** Frame 2: a line drawing, before it turns 3D (toys only; decor always is). */
   drawn?: boolean;
+  /** Standing spine-out, the end face to the viewer (the Playground's line drawing is just that face). */
+  spine?: boolean;
 };
 
 /**

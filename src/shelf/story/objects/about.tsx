@@ -20,14 +20,14 @@ export const meta: ObjectMeta = {
   kind: "toy",
   refs: ["docs/storyboard/refs/about-lilac-orange-notebooks.webp"],
   width: 0.6,
-  height: 0.95,
+  height: 0.81,
   depth: 0.072,
 };
 
 /* ---------- Measurements (scene units) ---------- */
 
 const W = 0.6;
-const H = 0.95;
+const H = 0.81;
 /** Thickness at the spine's fold, and at the fore-edge: a stitched booklet is a slight wedge. */
 const T = 0.072;
 const TF = 0.066;

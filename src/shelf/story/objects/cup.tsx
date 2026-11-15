@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { toCreasedNormals } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { anim } from "../anim";
 import { DRAWN, toy } from "../toy";
 import type { ObjectMeta, ObjectProps } from "./types";
@@ -52,6 +53,8 @@ const FLUTES = 300;
 /** The lid's hinge for the lift: its back edge, on top of the bead. */
 const HINGE = { y: 0.356, z: -0.152 };
 /** The lid fully lifted (anim.lid = 1): tipped back on its hinge, hopped up and back a touch. */
+/** Where the lid rests beside the cup, flat on the tray (relative to the cup's foot): the lid's skirt (y = 0.333) set down on the tray. */
+const ASIDE = { x: 0.31, y: -0.332, z: 0.03 };
 const LID_OPEN = { tip: THREE.MathUtils.degToRad(72), lift: 0.025, back: 0.02 };
 
 const SEG = 128;
@@ -72,7 +75,11 @@ function lathe(points: P[], segments = SEG) {
     if (p[2] === "crease") v.push(new THREE.Vector2(p[0], p[1]));
   }
   // Start at the back, so u = 0.5 faces the front.
-  return new THREE.LatheGeometry(v, segments, -Math.PI, Math.PI * 2);
+  // Hard edges where the profile turns sharply (the lid's rim, the sleeve's edges), so they draw as one unbroken line.
+  const g = new THREE.LatheGeometry(v, segments, -Math.PI, Math.PI * 2);
+  const creased = toCreasedNormals(g, 0.45);
+  g.dispose();
+  return creased;
 }
 
 /** A circle arc of profile points, angles in degrees, counter-clockwise. */
@@ -409,6 +416,7 @@ function shadowMap() {
 
 export default function Cup({ drawn = false }: ObjectProps) {
   const lid = useRef<THREE.Group>(null);
+  const aside = useRef<THREE.Group>(null);
   const coffee = useRef<THREE.Mesh>(null);
   const k = useMemo(() => {
     const sleeveMat = toy("#FFFFFF", {
@@ -457,7 +465,10 @@ export default function Cup({ drawn = false }: ObjectProps) {
       l.rotation.x = -LID_OPEN.tip * a;
       l.position.set(0, HINGE.y + LID_OPEN.lift * Math.sin(Math.min(1, a) * Math.PI * 0.5), HINGE.z - LID_OPEN.back * a);
     }
-    if (coffee.current) coffee.current.visible = a > 0.01;
+    // The lid rests on the tray beside the cup (anim.lidAside = 1) until the coffee view lifts it back on.
+    const side = THREE.MathUtils.clamp(anim.lidAside, 0, 1);
+    aside.current?.position.set(ASIDE.x * side, ASIDE.y * side, ASIDE.z * side);
+    if (coffee.current) coffee.current.visible = a > 0.01 || side > 0.5;
     // The shadow belongs to the 3D cup, not the drawing.
     k.shadowMat.opacity = 1 - DRAWN.value;
   });
@@ -470,6 +481,7 @@ export default function Cup({ drawn = false }: ObjectProps) {
       <mesh geometry={k.cup} material={k.paper} castShadow receiveShadow userData={ink} />
       <mesh geometry={k.sleeve} material={k.sleeveMat} castShadow receiveShadow userData={ink} />
       <mesh ref={coffee} geometry={k.coffeeGeo} material={k.coffeeMat} position={[0, COFFEE_Y, 0]} visible={false} userData={ink} />
+      <group ref={aside}>
       <group ref={lid} position={[0, HINGE.y, HINGE.z]}>
         <group position={[0, -HINGE.y, -HINGE.z]}>
           <mesh geometry={k.lid} material={k.plastic} castShadow receiveShadow userData={ink} />
@@ -481,6 +493,7 @@ export default function Cup({ drawn = false }: ObjectProps) {
             <mesh geometry={k.vent} material={k.hole} position={[0, LID_DISH_Y - 0.0004, 0.104]} userData={ink} />
           </group>
         </group>
+      </group>
       </group>
       {/* Not part of the drawing: hidden from the ink pass. */}
       <mesh geometry={k.shadowGeo} material={k.shadowMat} position={[0, 0.0008, 0]} renderOrder={-1} userData={{ ink: "skip" }} />

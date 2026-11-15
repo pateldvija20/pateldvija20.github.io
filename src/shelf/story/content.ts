@@ -47,12 +47,39 @@ export const CASE_SECTIONS = ["Overview", "Problem", "Research", "Design", "Outc
 export const PLAYGROUND_PAGES = [
   { title: "Illustration", note: "Drawings and visual play", tint: "#2F6B4F" },
   { title: "Experiments", note: "Small projects, still in progress", tint: "#C8553D" },
-  { title: "Thought pieces", note: "Short writing", tint: "#3D52B8" },
-  { title: "Process sketches", note: "From the case studies", tint: "#C9962E" },
+  { title: "Notes", note: "Thought bits and short writing", tint: "#3D52B8" },
 ];
 
 /** Tiles for the Playground grid (frame 19). */
-export const PLAYGROUND_PIECES = Array.from({ length: 9 }, (_, i) => ({ title: `Piece ${i + 1}` }));
+export type Piece = { id: string; title: string; kind: "Illustration" | "Experiments" | "Notes"; tags: string[]; /** Width over height of the tile. */ ratio: number; tint: string; /** An interactive piece (shipped as something you can use): shown with a badge, and usable once expanded. */ interactive?: boolean };
+const T = ["#F2D6C9", "#D7E3D2", "#D9DCF0", "#F4E3B8", "#E6D3EA", "#CFE4EA", "#F0CFD4", "#DDE5C4"];
+const mk = (kind: Piece["kind"], list: [string, string[], number, boolean?][]): Piece[] =>
+  list.map(([title, tags, ratio, interactive], i) => ({ id: `${kind}-${i}`.toLowerCase(), title, kind, tags, ratio, tint: T[(i + kind.length) % T.length], interactive }));
+/** Placeholder pieces for the masonry (frame 19) until the real ones arrive. */
+export const PLAYGROUND_PIECES: Piece[] = [
+  ...mk("Illustration", [
+    ["Piece one", ["portrait", "bold"], 0.78],
+    ["Piece two", ["linework"], 1],
+    ["Piece three", ["cover", "colour"], 0.72],
+    ["Piece four", ["scene"], 1.3],
+    ["Piece five", ["character"], 0.85],
+    ["Piece six", ["pattern", "bold"], 1],
+  ]),
+  ...mk("Experiments", [
+    ["Experiment one", ["motion", "play"], 1.15, true],
+    ["Experiment two", ["type"], 0.8],
+    ["Experiment three", ["3d", "play"], 1, true],
+    ["Experiment four", ["interaction"], 0.7, true],
+    ["Experiment five", ["shader"], 1.25],
+  ]),
+  ...mk("Notes", [
+    ["Note one", ["thinking"], 0.9],
+    ["Note two", ["process", "writing"], 1.1],
+    ["Note three", ["craft"], 0.75],
+    ["Note four", ["thinking", "design"], 1],
+    ["Note five", ["sketch"], 1.2],
+  ]),
+];
 
 /** About spreads (frame 26): the About content and the résumé. */
 export const ABOUT_SPREADS: { title: string; note: string; tint: string; link?: { label: string; href: string } }[] = [

@@ -4,7 +4,7 @@ import type { BookId } from "./story/layout";
 import { ABOUT_SPREADS, PLAYGROUND_PAGES } from "./story/content";
 import { anim, framing } from "./story/anim";
 import { createDirector, type Target, type Ui } from "./story/director";
-import { BookControls, CaseStudyPage, ContactLinks, LogoTab, MenuBar, PlaygroundGrid, ThemeToggle } from "./story/StoryUI";
+import { BookControls, CaseStudyPage, ContactLinks, MenuBar, OpeningOverlay, PlaygroundGrid, ThemeToggle } from "./story/StoryUI";
 import "./shelf.css";
 import "./story/story.css";
 
@@ -79,14 +79,15 @@ function useLinger(on: boolean, ms: number) {
   return on || held;
 }
 
-function introDue() {
+/** Whether the opening plays: "full" on the first load in this tab, "subtle" (a gentle wobble) on later ones, "no" for reduced motion. */
+function introDue(): "full" | "subtle" | "no" {
   try {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
-    if (sessionStorage.getItem(INTRO_KEY)) return false;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return "no";
+    if (sessionStorage.getItem(INTRO_KEY)) return "subtle";
     sessionStorage.setItem(INTRO_KEY, "1");
-    return true;
+    return "full";
   } catch {
-    return true;
+    return "full";
   }
 }
 
@@ -116,6 +117,10 @@ export default function ShelfApp() {
   const route = useRoute();
   const [ui, setUi] = useState<Ui>({ logo: false, menu: false, open: null, contact: false, read: false, grid: false });
   const director = useMemo(() => createDirector((u) => setUi((p) => ({ ...p, ...u }))), []);
+  /** A book that's been clicked and stands forward, waiting to be opened by a second click. */
+  const [focus, setFocus] = useState<BookId | null>(null);
+  const focusRef = useRef<BookId | null>(null);
+  focusRef.current = focus;
   const [ready, setReady] = useState(false);
   const [sceneReady, setSceneReady] = useState(false);
   const [minHeld, setMinHeld] = useState(false);
@@ -145,14 +150,16 @@ export default function ShelfApp() {
   const key = routePath(route);
   useEffect(() => {
     document.documentElement.dataset.route = key;
+    setFocus(null);
     document.body.style.cursor = "";
     if (!ready) return;
     const target = targetOf(route);
     if (!started.current) {
       started.current = true;
       if (target.mode === "home") {
-        if (introDue()) {
-          director.intro();
+        const due = introDue();
+        if (due !== "no") {
+          director.intro(due === "subtle");
           setIntro(true);
         } else director.rest();
       } else director.go(target, { instant: true });
@@ -202,8 +209,19 @@ export default function ShelfApp() {
         <StoryScene
           onReady={() => setSceneReady(true)}
           onPickBook={(id) => {
+            // Home: the first click brings the book forward; the second opens it.
+            if (route.kind === "home" && focus !== id) {
+              setFocus(id);
+              director.focus(id);
+              return;
+            }
             if (id === "work") navigate({ kind: "work", case: CASES[0], read: false });
             else navigate({ kind: id, page: 0 });
+          }}
+          onMiss={() => {
+            if (!focusRef.current || route.kind !== "home") return;
+            setFocus(null);
+            director.go({ mode: "home" });
           }}
           onPickCup={() => navigate({ kind: "contact" })}
           onTurn={(book, dir) => {
@@ -217,8 +235,23 @@ export default function ShelfApp() {
       <ContactLinks shown={ui.contact && route.kind === "contact"} />
       {readMounted && <CaseStudyPage c={lastRead.current} shown={readOn && ui.read} />}
       {gridMounted && <PlaygroundGrid shown={gridOn && ui.grid} />}
-      <MenuBar route={route} hidden={!ui.menu || openBook !== null} />
-      <LogoTab hidden={!ui.logo} />
+      <MenuBar
+        focus={focus}
+        onPick={(id) => {
+          // On the shelf, a book's name brings it forward and waits, like clicking the book; naming the one already waiting opens it.
+          if (route.kind !== "home" || id === "contact" || focus === id) return false;
+          setFocus(id);
+          director.focus(id);
+          return true;
+        }}
+        onHome={() => {
+          // With a book brought forward and waiting, there's no route to leave: put it back on the shelf.
+          if (focusRef.current) {
+            setFocus(null);
+            director.go({ mode: "home" });
+          } else navigate({ kind: "home" });
+        }} route={route} hidden={!ui.menu || (openBook !== null && openBook !== "about")} />
+      <OpeningOverlay />
       <ThemeToggle />
     </main>
   );

@@ -15,16 +15,33 @@ import { BG_SRGB } from "./theme";
 export const DRAWN = { value: 0 };
 /** The page colour the drawings fade to (sRGB, as written to the screen); follows light and dark. */
 export const DRAWN_TO = { value: BG_SRGB };
+/** The selection frame, in drawing-buffer pixels (x0, y0 bottom-left, x1, y1 top-right): inside it, a thing being revealed shows in colour. */
+export const REVEAL_RECT = { value: new THREE.Vector4() };
+
+/** Per-material fade, so each book and the cup can turn 3D on its own; `channel` is which one it belongs to (set by the scene). */
+export type Tracked = { drawn: { value: number }; rectOn: { value: number }; channel?: string };
+export const tracked = new Set<Tracked>();
 
 export function whiten<M extends THREE.Material>(m: M): M {
+  const t: Tracked = { drawn: { value: DRAWN.value }, rectOn: { value: 0 } };
+  tracked.add(t);
+  m.userData.tracked = t;
   m.onBeforeCompile = (shader) => {
-    shader.uniforms.uDrawn = DRAWN;
+    shader.uniforms.uDrawn = t.drawn;
+    shader.uniforms.uRectOn = t.rectOn;
+    shader.uniforms.uRect = REVEAL_RECT;
     shader.uniforms.uDrawnTo = DRAWN_TO;
     shader.fragmentShader = shader.fragmentShader
-      .replace("void main() {", "uniform float uDrawn;\nuniform vec3 uDrawnTo;\nvoid main() {")
-      .replace("#include <colorspace_fragment>", "#include <colorspace_fragment>\ngl_FragColor.rgb = mix(gl_FragColor.rgb, uDrawnTo, uDrawn);");
+      .replace("void main() {", "uniform float uDrawn;\nuniform float uRectOn;\nuniform vec4 uRect;\nuniform vec3 uDrawnTo;\nvoid main() {")
+      .replace(
+        "#include <colorspace_fragment>",
+        `#include <colorspace_fragment>
+float fade = uDrawn;
+if (uRectOn > 0.5 && gl_FragCoord.x > uRect.x && gl_FragCoord.x < uRect.z && gl_FragCoord.y > uRect.y && gl_FragCoord.y < uRect.w) fade = 0.0;
+gl_FragColor.rgb = mix(gl_FragColor.rgb, uDrawnTo, fade);`,
+      );
   };
-  m.customProgramCacheKey = () => "whiten";
+  m.customProgramCacheKey = () => "whiten2";
   return m;
 }
 

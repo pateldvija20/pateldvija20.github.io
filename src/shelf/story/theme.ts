@@ -17,6 +17,9 @@ export const PALETTE = {
   dark: { bg: "#010407", ink: "#F9FCFF" },
 } as const;
 
+/** The drawn outlines' colour (16 Nov): a dark grey on the dark page, a light grey on the light page; the interface keeps the full ink. */
+export const LINE_GREY = { light: "#A9AEB4", dark: "#8A9097" } as const;
+
 /** The ink outlines' weight, in CSS pixels (the user: a 1px hairline). */
 export const INK_PX = 1;
 
@@ -36,7 +39,7 @@ export function applyMode(m: Mode, remember = false) {
   BG.set(PALETTE[m].bg);
   INK.set(PALETTE[m].ink);
   BG_SRGB.copy(BG).convertLinearToSRGB();
-  INK_SRGB.copy(INK).convertLinearToSRGB();
+  INK_SRGB.set(LINE_GREY[m]);
   if (typeof document !== "undefined") {
     const r = document.documentElement;
     r.dataset.theme = m;

@@ -49,7 +49,9 @@ const memo = (k: string, f: () => THREE.BufferGeometry) => {
 };
 
 /** A box with flat chamfered edges (c), centred on the origin. */
-function cbox(w: number, h: number, d: number, c = 0.01) {
+function cbox(w: number, h: number, d: number, c0 = 0.01) {
+  // Edges stay crisp: a big chamfer draws as two close lines, which reads as one heavy one.
+  const c = Math.min(c0, 0.0012);
   return memo(`cb${w},${h},${d},${c}`, () => {
     const s = new THREE.Shape();
     s.moveTo(-w / 2 + c, -h / 2 + c);
@@ -228,22 +230,6 @@ function Gauge({ p }: { p: V3 }) {
     <group position={p}>
       {/* bezel ring (stands well proud) and a recessed face */}
       <Part g={cyl(0.1, 0.03, 56)} p={[0, 0, 0.015]} r={[Math.PI / 2, 0, 0]} />
-      {/* scale ticks */}
-      {ticks.map((a, i) => (
-        <Part key={i} g={tickG} p={[Math.sin(a) * 0.068, Math.cos(a) * 0.068, 0.037]} r={[0, 0, -a]} />
-      ))}
-      {/* the espresso range arc */}
-      <group rotation={[0, 0, -Math.PI * 0.1]}>
-        <Part g={ringShape(0.046, 0.036, 0.014, Math.PI * 0.1, Math.PI * 0.55)} p={[0, 0, 0.03]} />
-      </group>
-      {/* needle (up and to the right), tail, hub */}
-      <group position={[0, 0, 0.03]} rotation={[0, 0, -0.75]}>
-        <Part g={memo("needle", () => new THREE.BoxGeometry(0.008, 0.07, 0.016))} p={[0, 0.02, 0.008]} />
-      </group>
-      <Part g={cyl(0.016, 0.02, 20)} p={[0, 0, 0.038]} r={[Math.PI / 2, 0, 0]} />
-      {/* small lights under the gauge */}
-      <Light p={[-0.03, -0.075, 0]} />
-      <Light p={[0.03, -0.075, 0]} />
     </group>
   );
 }
@@ -257,11 +243,7 @@ function GrindDial({ p }: { p: V3 }) {
   const tickG = memo("dtick", () => new THREE.BoxGeometry(0.005, 0.012, 0.014));
   return (
     <group position={p}>
-      {ticks.map((a, i) => (
-        <Part key={i} g={tickG} p={[Math.sin(a) * 0.066, Math.cos(a) * 0.066, 0.0]} r={[0, 0, -a]} />
-      ))}
       <Knob p={[0, 0, 0]} />
-      <Part g={memo("dptr", () => new THREE.BoxGeometry(0.007, 0.022, 0.012))} p={[0, 0.02, 0.034]} />
     </group>
   );
 }
@@ -292,25 +274,16 @@ function beanPile() {
 }
 
 function Hopper() {
-  const ribs = 10;
   return (
     <group>
       {/* collar and base cup of the bowl */}
       <Part g={lathe("hbase", [[0, 1.138], [0.165, 1.138], [0.165, 1.17], [0.185, 1.175], [0.195, 1.2], [0, 1.2]], 48)} />
       <Part g={lathe("hrim", [[0.185, 1.138], [0.19, 1.138], [0.19, 1.146], [0.185, 1.146]], 48)} />
       {/* clear walls: ribs between the base cup and the lid skirt */}
-      {Array.from({ length: ribs }, (_, i) => {
-        const a = (i / ribs) * Math.PI * 2;
-        return (
-          <Rod
-            key={i}
-            a={[Math.cos(a) * 0.196, 1.2, Math.sin(a) * 0.196]}
-            b={[Math.cos(a) * 0.222, 1.292, Math.sin(a) * 0.222]}
-            r={0.0055}
-            seg={8}
-          />
-        );
-      })}
+      {/* only the two side edges of the clear wall: no ribs across the middle */}
+      {[0, Math.PI].map((a, i) => (
+        <Rod key={i} a={[Math.cos(a) * 0.196, 1.2, 0]} b={[Math.cos(a) * 0.222, 1.292, 0]} r={0.0055} seg={8} />
+      ))}
       {/* lid skirt band and lid */}
       <Part g={lathe("hband", [[0.222, 1.285], [0.236, 1.292], [0.236, 1.312], [0.222, 1.312]], 48)} />
       <Part
@@ -373,51 +346,28 @@ export default function Machine(_props: ObjectProps) {
         )}
 
         {/* base housing with chamfers, and its front insert */}
-        <Part g={cbox(1.08, 0.17, 0.96, 0.025)} p={[0, 0.115, -0.02]} />
-        <Part g={cbox(0.94, 0.085, 0.04, 0.01)} p={[0, 0.115, 0.47]} />
-        <Part g={cbox(0.5, 0.035, 0.04, 0.01)} p={[0, 0.125, 0.5]} />
-        <Part g={cbox(0.36, 0.012, 0.02, 0.004)} p={[0, 0.09, 0.505]} />
+        <Part g={cbox(1.08, 0.17, 0.96, 0.003)} p={[0, 0.115, -0.02]} />
         {/* drip tray: rim, slotted grille, float */}
-        <Part g={cbox(1.0, 0.03, 0.48, 0.008)} p={[0, 0.215, 0.22]} />
-        <Part g={grille} p={[0, 0.23, 0.22]} />
-        <Part g={cyl(0.016, 0.04, 16)} p={[0.34, 0.265, 0.08]} />
-        <Part g={cyl(0.034, 0.012, 20)} p={[0.34, 0.288, 0.08]} />
+        <Part g={cbox(1.0, 0.03, 0.48, 0.003)} p={[0, 0.215, 0.22]} />
 
         {/* the two side columns and back wall */}
         <Part g={column()} p={[0.0, 0.21, 0]} />
         <Part g={column()} p={[0.0, 0.21, 0]} s={[-1, 1, 1]} />
-        <Part g={cbox(0.014, 0.65, 0.8, 0.004)} p={[-0.466, 0.535, -0.08]} />
-        <Part g={cbox(0.014, 0.65, 0.8, 0.004)} p={[0.466, 0.535, -0.08]} />
         <Part g={cbox(0.92, 0.6, 0.03, 0.006)} p={[0, 0.54, -0.12]} />
 
         {/* the head */}
         <Part g={headGeometry()} p={[0, 0.84, -0.03]} />
         <Part g={cbox(0.9, 0.012, 0.7, 0.004)} p={[0, 1.145, -0.03]} />
-        {/* top slots (cup warmer) */}
-        {[-0.1, 0, 0.1].map((z) => (
-          <Part key={z} g={cbox(0.56, 0.012, 0.03, 0.003)} p={[0.1, 1.15, z - 0.03]} />
-        ))}
         {/* arches over the grinder and the group head */}
         <Part g={archGeometry(0.34, 0.075, 0.36)} p={[-0.19, 0.77, 0.2]} />
         <Part g={archGeometry(0.34, 0.075, 0.36)} p={[0.138, 0.77, 0.2]} />
-        {/* side panel lines on the head, column and base */}
-        {[-1, 1].map((sx) => (
-          <group key={sx}>
-            <Part g={cbox(0.02, 0.19, 0.6, 0.005)} p={[sx * 0.523, 0.985, -0.1]} />
-            <Part g={cbox(0.02, 0.4, 0.5, 0.005)} p={[sx * 0.477, 0.52, -0.08]} />
-            <Part g={cbox(0.02, 0.09, 0.66, 0.005)} p={[sx * 0.545, 0.115, -0.04]} />
-          </group>
-        ))}
         {/* end caps, proud of the panel */}
-        <Part g={cbox(0.075, 0.26, 0.09, 0.015)} p={[-0.5, 0.96, 0.42]} />
-        <Part g={cbox(0.075, 0.26, 0.09, 0.015)} p={[0.5, 0.96, 0.42]} />
+        <Part g={cbox(0.075, 0.26, 0.09, 0.003)} p={[-0.5, 0.96, 0.42]} />
+        <Part g={cbox(0.075, 0.26, 0.09, 0.003)} p={[0.5, 0.96, 0.42]} />
         {/* the control band with its curved lower edge */}
         <Part g={panelGeometry()} p={[0, 0, PANEL_Z]} />
-        {/* logo plate */}
-        <Part g={cbox(0.1, 0.02, 0.012, 0.003)} p={[-0.025, 1.052, PANEL_Z + PANEL_D + 0.004]} />
         {/* right side lever / lamp block */}
-        <Part g={cbox(0.04, 0.08, 0.09, 0.01)} p={[0.545, 1.0, 0.36]} />
-        <Part g={cbox(0.02, 0.05, 0.03, 0.004)} p={[-0.535, 0.95, 0.33]} />
+        <Part g={cbox(0.04, 0.08, 0.09, 0.003)} p={[0.545, 1.0, 0.36]} />
 
         {/* controls on the band */}
         <group position={[0, 0, PANEL_Z + PANEL_D]}>
@@ -428,10 +378,6 @@ export default function Machine(_props: ObjectProps) {
           <Knob p={[0.236, 0.995, 0]} />
           <Knob p={[0.341, 0.995, 0]} />
           <Gauge p={[-0.024, 0.929, 0]} />
-          <Light p={[-0.21, 0.888, 0]} />
-          <Light p={[-0.155, 0.888, 0]} />
-          <Light p={[0.091, 0.888, 0]} />
-          <Light p={[0.162, 0.888, 0]} />
         </group>
 
         {/* hopper */}
@@ -458,15 +404,10 @@ export default function Machine(_props: ObjectProps) {
           })}
           p={[-0.19, 0.682, 0.2]}
         />
-        <Part g={cbox(0.1, 0.014, 0.012, 0.003)} p={[-0.19, 0.6, 0.31]} />
-        <Part g={cbox(0.2, 0.012, 0.14, 0.004)} p={[-0.19, 0.525, 0.2]} />
         {/* tamper rest on the far left */}
-        <Part g={cbox(0.16, 0.04, 0.12, 0.012)} p={[-0.45, 0.775, 0.3]} />
-        <Part g={cyl(0.026, 0.05, 20)} p={[-0.47, 0.73, 0.3]} />
-        <Part g={cyl(0.024, 0.016, 20)} p={[-0.47, 0.697, 0.3]} />
+        <Part g={cbox(0.16, 0.04, 0.12, 0.003)} p={[-0.45, 0.775, 0.3]} />
 
         {/* label plaques on the two housings */}
-        <Part g={cbox(0.14, 0.035, 0.012, 0.003)} p={[-0.19, 0.735, 0.325]} />
         {/* group head and portafilter, raised so a cup fits under the spouts */}
         <group position={[0, 0.15, 0]}>
         <Part g={cyl(0.135, 0.09, 40)} p={[0.138, 0.73, 0.19]} />
@@ -476,27 +417,24 @@ export default function Machine(_props: ObjectProps) {
         <Part g={cyl(0.012, 0.045, 12)} p={[0.108, 0.575, 0.19]} />
         <Part g={cyl(0.012, 0.045, 12)} p={[0.168, 0.575, 0.19]} />
         {/* handle: toward the viewer, ending in a round cap */}
-        <Part g={cbox(0.07, 0.07, 0.11, 0.015)} p={[0.138, 0.64, 0.3]} />
+        <Part g={cbox(0.07, 0.07, 0.11, 0.003)} p={[0.138, 0.64, 0.3]} />
         <Part g={cyl(0.058, 0.3, 28, 0.052)} p={[0.138, 0.635, 0.4]} r={[Math.PI / 2, 0, 0]} />
-        <Part g={cyl(0.066, 0.05, 28)} p={[0.138, 0.635, 0.5]} r={[Math.PI / 2, 0, 0]} />
-        <Part g={cyl(0.048, 0.02, 28)} p={[0.138, 0.635, 0.535]} r={[Math.PI / 2, 0, 0]} />
         </group>
 
         {/* hot water outlet */}
         <group position={[0, 0.06, 0]}>
-          <Part g={cbox(0.05, 0.08, 0.05, 0.01)} p={[0.3, 0.77, 0.3]} />
+          <Part g={cbox(0.05, 0.08, 0.05, 0.003)} p={[0.3, 0.77, 0.3]} />
           <Part g={cyl(0.012, 0.045, 12)} p={[0.3, 0.715, 0.3]} />
           <Part g={cyl(0.017, 0.01, 12)} p={[0.3, 0.688, 0.3]} />
         </group>
 
         {/* steam wand: pivot, black arm, black loop knob, steel tube */}
-        <Part g={cbox(0.05, 0.06, 0.05, 0.01)} p={[0.4, 0.79, 0.31]} />
+        <Part g={cbox(0.05, 0.06, 0.05, 0.003)} p={[0.4, 0.79, 0.31]} />
         <Rod a={[0.4, 0.755, 0.31]} b={[0.4, 0.72, 0.33]} r={0.012} seg={12} />
         <Rod a={[0.4, 0.72, 0.33]} b={[0.5, 0.685, 0.33]} r={0.013} seg={14} />
         <Part g={ringShape(0.036, 0.024, 0.026)} p={[0.525, 0.7, 0.314]} />
-        <Part g={cbox(0.036, 0.05, 0.026, 0.008)} p={[0.538, 0.64, 0.33]} r={[0, 0, -0.2]} />
+        <Part g={cbox(0.036, 0.05, 0.026, 0.003)} p={[0.538, 0.64, 0.33]} r={[0, 0, -0.2]} />
         <Rod a={[0.548, 0.62, 0.33]} b={wand.b} r={0.0062} seg={12} />
-        <Part g={cyl(0.008, 0.02, 12)} p={[0.575, 0.37, 0.33]} r={[0, 0, 0.1]} />
       </group>
     </Inked>
   );

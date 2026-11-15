@@ -1,5 +1,8 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { anim, heroRect } from "./anim";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { anim, heroRect, toScreen } from "./anim";
+import { BOOK_SIZE, CAM_D, view } from "./layout";
+import { ACTION, actionLabel, actionWidth } from "./pages";
+import { pageWidthOf } from "./ToyBook";
 import { CASES, navigate, type Case, type Route } from "../routes";
 import { toggleMode, useMode } from "./theme";
 import { ABOUT_SPREADS, CASE_INFO, CASE_SECTIONS, CONTACT_LINKS, PLAYGROUND_PAGES, PLAYGROUND_PIECES } from "./content";
@@ -39,8 +42,8 @@ export function LogoTab({ hidden }: { hidden: boolean }) {
   );
 }
 
-function SectionLinks({ route, onPicked }: { route: Route; onPicked?: () => void }) {
-  const active = sectionOf(route);
+function SectionLinks({ route, onPicked, onPick, focus }: { route: Route; onPicked?: () => void; onPick?: (id: Section) => boolean; focus?: Section | null }) {
+  const active = sectionOf(route) ?? focus ?? null;
   return (
     <>
       {SECTIONS.map((s) => (
@@ -48,10 +51,12 @@ function SectionLinks({ route, onPicked }: { route: Route; onPicked?: () => void
           key={s.id}
           type="button"
           className="story-pill"
+          data-section={s.id}
           data-on={active === s.id || undefined}
           aria-current={active === s.id ? "page" : undefined}
           onClick={() => {
-            navigate(s.to);
+            // From home a book's name brings that book forward first (its scene), a second click opens it.
+            if (!onPick?.(s.id)) navigate(s.to);
             onPicked?.();
           }}
         >
@@ -62,41 +67,189 @@ function SectionLinks({ route, onPicked }: { route: Route; onPicked?: () => void
   );
 }
 
-/** Frame 4: the menu bar, centred in the shelf's front. */
-export function MenuBar({ route, hidden }: { route: Route; hidden: boolean }) {
-  return (
-    <nav className="story-menu" aria-label="Sections" data-hidden={hidden || undefined}>
-      <SectionLinks route={route} />
-    </nav>
-  );
+const GLOSS_REST = 215;
+
+/**
+ * The glass pills' small interaction: while the pointer is over one, the glint on its rim follows the pointer
+ * round the edge, and the pill tips a few degrees so the corner nearest the pointer is pushed back. It eases back
+ * to rest when the pointer leaves. (CSS reads --gloss for the glint's angle.)
+ */
+function useGlass(ref: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const st = { a: GLOSS_REST, ta: GLOSS_REST, rx: 0, ry: 0, trx: 0, tr: 0, raf: 0 };
+    const tick = () => {
+      st.a += (((st.ta - st.a + 540) % 360) - 180) * 0.2;
+      st.rx += (st.trx - st.rx) * 0.2;
+      st.ry += (st.tr - st.ry) * 0.2;
+      el.style.setProperty("--gloss", `${st.a}deg`);
+      el.style.transform = `perspective(520px) rotateX(${st.rx.toFixed(3)}deg) rotateY(${st.ry.toFixed(3)}deg)`;
+      const settled = Math.abs(((st.ta - st.a + 540) % 360) - 180) < 0.2 && Math.abs(st.trx - st.rx) < 0.01 && Math.abs(st.tr - st.ry) < 0.01;
+      if (settled && st.trx === 0 && st.tr === 0) {
+        st.raf = 0;
+        el.style.transform = "";
+        return;
+      }
+      st.raf = requestAnimationFrame(tick);
+    };
+    const go = () => {
+      if (!st.raf) st.raf = requestAnimationFrame(tick);
+    };
+    const move = (e: PointerEvent) => {
+      if (e.pointerType === "touch") return;
+      const r = el.getBoundingClientRect();
+      const nx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
+      const ny = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
+      // The glint sits where the pointer is round the pill's rim (clockwise from the top).
+      st.ta = (Math.atan2(nx * r.width, -ny * r.height) * 180) / Math.PI - 14;
+      // The corner under the pointer goes back.
+      st.trx = -ny * 3.2;
+      st.tr = nx * 4.5;
+      go();
+    };
+    const leave = () => {
+      st.ta = GLOSS_REST;
+      st.trx = 0;
+      st.tr = 0;
+      go();
+    };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerenter", move);
+    el.addEventListener("pointerleave", leave);
+    return () => {
+      el.removeEventListener("pointermove", move);
+      el.removeEventListener("pointerenter", move);
+      el.removeEventListener("pointerleave", leave);
+      cancelAnimationFrame(st.raf);
+    };
+  }, [ref]);
 }
 
 /**
- * Frames 7, 17, 26: the pager under an open book. Dots for the pages; the
- * pill on the left closes the book, the one on the right (marked "M" in the
- * sketches) opens the sections, so you can jump to another book (frame 12).
+ * Frame 4: the menu bar, centred in the shelf's front: the name on its own pill (it goes home), and the sections
+ * on another, with a light pill that slides in behind whichever section you're on. At home nothing is selected.
  */
-function Pager({ count, index, onGo, onClose, route }: { count: number; index: number; onGo: (i: number) => void; onClose: () => void; route: Route }) {
-  const [menu, setMenu] = useState(false);
+export function MenuBar({ route, hidden, onHome, onPick, focus }: { route: Route; hidden: boolean; onHome?: () => void; onPick?: (id: Section) => boolean; focus?: Section | null }) {
+  const active = sectionOf(route) ?? focus ?? null;
+  const nav = useRef<HTMLElement>(null);
+  const name = useRef<HTMLAnchorElement>(null);
+  useGlass(nav);
+  useGlass(name);
+  const [slider, setSlider] = useState({ left: 0, width: 0, show: false });
+  const wasShown = useRef(false);
+  useLayoutEffect(() => {
+    const place = () => {
+      const el = nav.current?.querySelector<HTMLElement>(`[data-section="${active}"]`);
+      if (!active || !el) {
+        wasShown.current = false;
+        setSlider((s) => ({ ...s, show: false }));
+        return;
+      }
+      const left = el.offsetLeft;
+      const width = el.offsetWidth;
+      if (wasShown.current) setSlider({ left, width, show: true });
+      else {
+        // Arriving from home: put it behind the section first, then let it in, so it fades up in place rather than sliding in from wherever it was.
+        setSlider({ left, width, show: false });
+        requestAnimationFrame(() => requestAnimationFrame(() => setSlider({ left, width, show: true })));
+      }
+      wasShown.current = true;
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    if (nav.current) ro.observe(nav.current);
+    return () => ro.disconnect();
+  }, [active]);
   return (
-    <div className="story-pager">
-      <button type="button" className="story-pill" onClick={onClose}>
-        ← Shelf
-      </button>
-      <div className="story-dots" role="tablist" aria-label="Pages">
-        {Array.from({ length: count }, (_, i) => (
-          <button key={i} type="button" role="tab" aria-selected={i === index} aria-label={`Page ${i + 1}`} className="story-dot" data-on={i === index || undefined} onClick={() => onGo(i)} />
+    <div className="story-dock" data-hidden={hidden || undefined}>
+      <a
+        ref={name}
+        className="story-name"
+        href="/"
+        onClick={(e) => {
+          e.preventDefault();
+          if (onHome) onHome();
+          else navigate(home);
+        }}
+        aria-label="Dvija Patel, home"
+      >
+        Dvija Patel
+      </a>
+      <nav ref={nav} className="story-menu" aria-label="Sections">
+        <span className="story-slider" data-show={slider.show || undefined} style={{ left: slider.left, width: slider.width }} aria-hidden="true" />
+        <SectionLinks route={route} onPick={onPick} focus={focus} />
+      </nav>
+    </div>
+  );
+}
+
+/** One page's circle: a small glass pill of its own, with its own rim; the page you're on stretches out to show its name. */
+function Circle({ label, on, disabled, onClick }: { label: string; on?: boolean; disabled?: boolean; onClick?: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  useGlass(ref);
+  return (
+    <button ref={ref} type="button" role="tab" aria-selected={!!on} aria-label={label} className="story-circle" data-on={on || undefined} disabled={disabled} onClick={onClick}>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+const SECTION_TITLE: Record<string, string> = { work: "Work", playground: "Playground", about: "About" };
+
+/**
+ * Frames 7 and 17: the bar under an open Work or Playground book (16 Nov). The same glass pills as the home bar: the
+ * name (home), the section's title, a pill of circles (one per page; the page you're on stretches into a pill with its
+ * title and the rest stay circles), and a Menu pill that slides out into the other sections. About has no circles, so it
+ * keeps the home bar as it is.
+ */
+function BookNav({ route, labels, index, onGo, soon = 0 }: { route: Route; labels: string[]; index: number; onGo: (i: number) => void; soon?: number }) {
+  const [open, setOpen] = useState(false);
+  const name = useRef<HTMLAnchorElement>(null);
+  const sec = useRef<HTMLDivElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
+  useGlass(name);
+  useGlass(sec);
+  useGlass(menu);
+  const active = sectionOf(route);
+  useEffect(() => setOpen(false), [active]);
+  const rest = SECTIONS.filter((x) => x.id !== active);
+  return (
+    <div className="story-booknav">
+      <a
+        ref={name}
+        className="story-name"
+        href="/"
+        onClick={(e) => {
+          e.preventDefault();
+          navigate(home);
+        }}
+        aria-label="Dvija Patel, home"
+      >
+        Dvija Patel
+      </a>
+      <div ref={sec} className="story-name story-sec">
+        {active ? SECTION_TITLE[active] : ""}
+      </div>
+      <div className="story-circles" role="tablist" aria-label="Pages">
+        {labels.map((l, i) => (
+          <Circle key={l} label={l} on={i === index} onClick={() => onGo(i)} />
+        ))}
+        {Array.from({ length: soon }, (_, i) => (
+          <Circle key={`soon${i}`} label="Coming soon" disabled />
         ))}
       </div>
-      <div className="story-menu-pop">
-        <button type="button" className="story-pill" aria-expanded={menu} onClick={() => setMenu(!menu)}>
+      <div ref={menu} className="story-name story-menuexp" data-open={open || undefined}>
+        <button type="button" className="story-menubtn" aria-expanded={open} onClick={() => setOpen(!open)}>
           Menu
         </button>
-        {menu && (
-          <div className="story-pop">
-            <SectionLinks route={route} onPicked={() => setMenu(false)} />
-          </div>
-        )}
+        <div className="story-menulist" aria-hidden={!open}>
+          {rest.map((x) => (
+            <button key={x.id} type="button" tabIndex={open ? 0 : -1} className="story-menuitem" data-section={x.id} onClick={() => navigate(x.to)}>
+              {x.label}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -111,43 +264,78 @@ function Pager({ count, index, onGo, onClose, route }: { count: number; index: n
 export function BookControls({ route, shown }: { route: Route; shown: boolean }) {
   if (route.kind !== "work" && route.kind !== "playground" && route.kind !== "about") return null;
   let count = 0;
+  let labels: string[] = [];
+  let soon = 0;
   let index = 0;
   let go = (_i: number) => {};
-  let action: ReactNode = null;
+  let action: { onClick?: () => void; href?: string } | null = null;
   if (route.kind === "work") {
     count = CASES.length;
+    labels = CASES.map((c) => CASE_INFO[c].name);
+    soon = 1;
     index = CASES.indexOf(route.case);
     go = (i) => navigate({ kind: "work", case: CASES[i], read: false });
-    action = (
-      <button type="button" className="story-pill story-action" onClick={() => navigate({ kind: "work", case: route.case, read: true })}>
-        Read the case study ↗
-      </button>
-    );
+    action = { onClick: () => navigate({ kind: "work", case: route.case, read: true }) };
   } else if (route.kind === "playground") {
     count = PLAYGROUND_PAGES.length;
+    labels = PLAYGROUND_PAGES.map((p) => p.title);
     index = route.page === "all" ? 0 : route.page;
     go = (i) => navigate({ kind: "playground", page: i });
-    action = (
-      <button type="button" className="story-pill story-action" onClick={() => navigate({ kind: "playground", page: "all" })}>
-        See everything ↗
-      </button>
-    );
+    action = { onClick: () => navigate({ kind: "playground", page: "all" }) };
   } else {
     count = ABOUT_SPREADS.length;
     index = Math.min(route.page, count - 1);
     go = (i) => navigate({ kind: "about", page: i });
     const link = ABOUT_SPREADS[index].link;
     if (link)
-      action = (
-        <a className="story-pill story-action" href={link.href} target="_blank" rel="noreferrer">
-          {link.label}
-        </a>
-      );
+      action = { href: link.href };
   }
   return (
-    <div className="story-controls" data-shown={shown || undefined} aria-hidden={!shown}>
-      {action}
-      <Pager count={count} index={index} onGo={go} onClose={() => navigate(home)} route={route} />
+    <>
+      <OnPage book={route.kind} index={index} shown={shown} action={action} />
+      <div className="story-controls" data-shown={shown || undefined} aria-hidden={!shown}>
+        {route.kind !== "about" && <BookNav route={route} labels={labels.slice(0, count)} index={index} onGo={go} soon={soon} />}
+      </div>
+    </>
+  );
+}
+
+/**
+ * The open book's action (Read the case study, See everything, the résumé) sits on the spread itself, in the lower
+ * right of the right-hand page, and follows the book as it settles and tilts.
+ */
+function OnPage({ book, index, shown, action }: { book: "work" | "playground" | "about"; index: number; shown: boolean; action: { onClick?: () => void; href?: string } | null }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const label = actionLabel(book, book === "playground" ? 0 : index);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const el = ref.current;
+      const p = anim.books[book];
+      if (el) {
+        const { w } = BOOK_SIZE[book];
+        const near = CAM_D / (CAM_D - p.z);
+        // The printed pill's place on screen: the page's lower right, scaled from page-canvas pixels.
+        const k = (pageWidthOf(book) * p.s * near * view.pxPerUnit) / 1024;
+        const c = toScreen(p.x + (w / 2) * p.s, p.y, p.z);
+        const bw = label ? actionWidth(label) : 0;
+        el.style.right = `${window.innerWidth - c.x + ACTION.right * k}px`;
+        el.style.bottom = `${window.innerHeight - c.y + ACTION.bottom * k}px`;
+        el.style.width = `${bw * k}px`;
+        el.style.height = `${ACTION.h * k}px`;
+        // Only while the page is at rest: during a turn the printed button is on the turning page.
+        el.style.pointerEvents = shown && !anim.pages[book].leaf.on ? "auto" : "none";
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => cancelAnimationFrame(raf);
+  }, [book, label, shown]);
+  if (!action || !label) return null;
+  const common = { className: "story-hit", "aria-label": label.replace(" \u2197", "") };
+  return (
+    <div ref={ref} className="story-onpage" aria-hidden={!shown}>
+      {action.href ? <a {...common} href={action.href} target="_blank" rel="noreferrer" /> : <button type="button" {...common} onClick={action.onClick} />}
     </div>
   );
 }
@@ -223,23 +411,71 @@ export function CaseStudyPage({ c, shown }: { c: Case; shown: boolean }) {
   );
 }
 
-/** Frame 19: the Playground as a grid. */
+const FILTERS = ["All", "Illustration", "Experiments", "Notes"] as const;
+
+/** Frame 19: the Playground as a masonry of small tiles (the Explore page of danieltriendl.com), filtered by category; a tile expands in place. */
 export function PlaygroundGrid({ shown }: { shown: boolean }) {
+  const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const shownPieces = PLAYGROUND_PIECES.filter((p) => filter === "All" || p.kind === filter);
+  const open = PLAYGROUND_PIECES.find((p) => p.id === openId) ?? null;
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setOpenId(null);
+      }
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [open]);
+  useEffect(() => {
+    if (!shown) setOpenId(null);
+  }, [shown]);
   return (
     <div className="story-read story-grid-page" role="main" data-shown={shown || undefined}>
       <div className="story-grid-head">
         <button type="button" className="story-pill" onClick={() => navigate({ kind: "playground", page: anim.pages.playground.right })}>
           ← Back
         </button>
-        <p className="story-kicker">Playground · everything</p>
+        <div className="story-filters" role="tablist" aria-label="Category">
+          {FILTERS.map((f) => (
+            <button key={f} type="button" role="tab" aria-selected={f === filter} className="story-pill story-filter" data-on={f === filter || undefined} onClick={() => setFilter(f)}>
+              {f}
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="story-grid">
-        {PLAYGROUND_PIECES.map((p) => (
-          <div key={p.title} className="story-tile">
-            {p.title}
-          </div>
+      <div className="story-masonry">
+        {shownPieces.map((p) => (
+          <button key={p.id} type="button" className="story-piece" onClick={() => setOpenId(p.id)} aria-label={`Open ${p.title}`}>
+            <span className="story-piece-art" style={{ aspectRatio: String(p.ratio), background: p.tint }}>
+              {p.interactive && <span className="story-badge">Interactive</span>}
+            </span>
+            <span className="story-piece-title">{p.title}</span>
+            <span className="story-piece-tags">{p.tags.map((t) => `#${t}`).join(" ")}</span>
+          </button>
         ))}
       </div>
+      {open && (
+        <div className="story-piece-scrim" onClick={() => setOpenId(null)}>
+          <article className="story-piece-open" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={open.title}>
+            <div className="story-piece-stage" style={{ background: open.tint, aspectRatio: String(Math.min(1.4, Math.max(0.8, open.ratio))) }}>
+              {open.interactive ? <p className="story-piece-note">An interactive piece lives here, ready to use once shipped.</p> : null}
+            </div>
+            <div className="story-piece-meta">
+              <div>
+                <h2>{open.title}</h2>
+                <p>{open.tags.map((t) => `#${t}`).join(" ")}</p>
+              </div>
+              <button type="button" className="story-pill" onClick={() => setOpenId(null)}>
+                Close
+              </button>
+            </div>
+          </article>
+        </div>
+      )}
     </div>
   );
 }
@@ -275,5 +511,51 @@ export function ThemeToggle() {
         <path d="M8 1.5a6.5 6.5 0 0 1 0 13z" fill="currentColor" />
       </svg>
     </button>
+  );
+}
+
+/**
+ * The pointer and the selection frame of the opening (frames 3 and 4): the cursor clicks the books and drags a
+ * frame round the About book and the cup, and the thing inside the frame shows in 3D. Both are driven from
+ * anim.cursor and anim.reveal by the director, every animation frame.
+ */
+export function OpeningOverlay() {
+  const cur = useRef<HTMLDivElement>(null);
+  const frame = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const c = anim.cursor;
+      if (cur.current) {
+        cur.current.style.opacity = String(c.show);
+        cur.current.style.transform = `translate(${c.x}px, ${c.y}px) scale(${1 - 0.14 * c.press})`;
+      }
+      const r = anim.reveal;
+      if (frame.current) {
+        const f = frame.current.style;
+        f.opacity = String(Math.min(1, r.show * 4));
+        f.transform = `translate(${Math.min(r.x0, r.x1)}px, ${Math.min(r.y0, r.y1)}px)`;
+        f.width = `${Math.abs(r.x1 - r.x0)}px`;
+        f.height = `${Math.abs(r.y1 - r.y0)}px`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return (
+    <>
+      <div ref={frame} className="story-reveal" aria-hidden="true">
+        <i data-c="tl" />
+        <i data-c="tr" />
+        <i data-c="bl" />
+        <i data-c="br" />
+      </div>
+      <div ref={cur} className="story-cursor" aria-hidden="true">
+        <svg width="22" height="26" viewBox="0 0 22 26">
+          <path d="M2 1.5 L2 20 L7 15.6 L10.4 23.4 L13.6 22 L10.3 14.4 L17 14 Z" fill="var(--ink)" stroke="var(--paper)" strokeWidth="1.6" strokeLinejoin="round" />
+        </svg>
+      </div>
+    </>
   );
 }

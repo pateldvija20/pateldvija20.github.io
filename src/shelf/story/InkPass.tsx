@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
+import { anim } from "./anim";
 import { BG, INK_PX, INK_SRGB } from "./theme";
 
 /**
@@ -62,11 +63,13 @@ const normalVert = /* glsl */ `
 `;
 const normalFrag = /* glsl */ `
   uniform float uDecor;
+  uniform float uReveal;
   varying vec3 vN;
   void main() {
     vec3 n = normalize(vN);
     if (!gl_FrontFacing) n = -n;
-    gl_FragColor = vec4(n.xy * 0.5 + 0.5, 1.0 - uDecor, uDecor);
+    // Blue: 1 for the bright objects, 0 for decor, and a quarter for the decor that is being revealed in 3D (the cursor's frame).
+    gl_FragColor = vec4(n.xy * 0.5 + 0.5, 1.0 - uDecor + uReveal * 0.25, uDecor);
   }
 `;
 
@@ -87,6 +90,8 @@ const inkFrag = /* glsl */ `
   uniform float cameraFar;
   uniform vec3 uInk;
   uniform float uFade;
+  uniform vec4 uRect;
+  uniform float uRectOn;
   varying vec2 vUv;
 
   float viewZ(vec2 uv) {
@@ -111,10 +116,10 @@ const inkFrag = /* glsl */ `
     float jump = step - max(back, 0.0);
     // Empty neighbours (background) always count as a silhouette.
     if (a.a < 0.01 && a.b < 0.5) jump = step;
-    float e = smoothstep(0.012, 0.03, jump);
+    float e = smoothstep(0.003, 0.008, jump);
     if (fold && a.a > 0.99 && c.a > 0.99 && abs(step) < 0.03) {
       float nd = 1.0 - dot(nrm(a), nc);
-      e = max(e, smoothstep(0.08, 0.2, nd));
+      e = max(e, smoothstep(0.17, 0.3, nd));
     }
     return e;
   }
@@ -122,6 +127,8 @@ const inkFrag = /* glsl */ `
     vec4 c = texture2D(tN, vUv);
     // Only decor pixels draw lines (and only onto themselves).
     if (c.a < 0.5) { gl_FragColor = vec4(0.0); return; }
+    // Inside the selection frame the thing is shown in colour: no drawing lines there.
+    if (uRectOn > 0.5 && c.b > 0.1 && c.b < 0.4 && vUv.x > uRect.x && vUv.x < uRect.z && vUv.y > uRect.y && vUv.y < uRect.w) { gl_FragColor = vec4(0.0); return; }
     float zc = viewZ(vUv);
     vec3 nc = nrm(c);
     vec2 t = uTexel * uWidth;
@@ -130,7 +137,8 @@ const inkFrag = /* glsl */ `
     e = max(e, edge(vec2(0.0, t.y), c, zc, nc, true));
     e = max(e, edge(vec2(-t.x, 0.0), c, zc, nc, false));
     e = max(e, edge(vec2(0.0, -t.y), c, zc, nc, false));
-    gl_FragColor = vec4(uInk, e * c.a * uFade);
+    float a = e * c.a * uFade;
+    gl_FragColor = vec4(uInk * a, a);
   }
 `;
 
@@ -144,19 +152,27 @@ export default function InkPass({ fade, width = INK_PX }: { fade?: () => number;
   const dpr = useThree((s) => s.viewport.dpr);
 
   const mats = useMemo(() => {
-    const make = (decor: number) =>
-      new THREE.ShaderMaterial({ vertexShader: normalVert, fragmentShader: normalFrag, uniforms: { uDecor: { value: decor } }, side: THREE.DoubleSide });
-    return { decor: make(1), color: make(0) };
+    const make = (decor: number, reveal = 0) =>
+      new THREE.ShaderMaterial({ vertexShader: normalVert, fragmentShader: normalFrag, uniforms: { uDecor: { value: decor }, uReveal: { value: reveal } }, side: THREE.DoubleSide });
+    return { decor: make(1), color: make(0), reveal: make(1, 1) };
   }, []);
 
+  // The line buffer is drawn bigger than the screen and shrunk back with smoothing, so a line that falls between
+  // pixels (or crosses one as something moves) fades across them instead of blinking on and off.
+  const ss = useMemo(() => THREE.MathUtils.clamp(Math.sqrt(9e6 / Math.max(1, size.width * dpr * size.height * dpr)), 1, 2), [size.width, size.height, dpr]);
   const target = useMemo(() => {
-    const w = Math.max(1, Math.round(size.width * dpr));
-    const h = Math.max(1, Math.round(size.height * dpr));
+    const w = Math.max(1, Math.round(size.width * dpr * ss));
+    const h = Math.max(1, Math.round(size.height * dpr * ss));
     const depthTexture = new THREE.DepthTexture(w, h);
     depthTexture.type = THREE.UnsignedIntType;
-    return new THREE.WebGLRenderTarget(w, h, { samples: 4, depthTexture });
-  }, [size.width, size.height, dpr]);
+    // No multisampling: a resolved MSAA buffer blends the normals and coverage along every edge (and its depth is one sample), which is what broke and doubled the lines.
+    return new THREE.WebGLRenderTarget(w, h, { samples: 0, depthTexture, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter });
+  }, [size.width, size.height, dpr, ss]);
   useEffect(() => () => target.dispose(), [target]);
+
+  // The lines themselves, at the same bigger size, then laid over the screen with linear smoothing.
+  const lineRT = useMemo(() => new THREE.WebGLRenderTarget(target.width, target.height, { minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter, depthBuffer: false }), [target]);
+  useEffect(() => () => lineRT.dispose(), [lineRT]);
 
   const overlay = useMemo(() => {
     const material = new THREE.ShaderMaterial({
@@ -171,8 +187,11 @@ export default function InkPass({ fade, width = INK_PX }: { fade?: () => number;
         cameraFar: { value: 100 },
         uInk: { value: new THREE.Color() },
         uFade: { value: 1 },
+        uRect: { value: new THREE.Vector4() },
+        uRectOn: { value: 0 },
       },
-      transparent: true,
+      // Premultiplied colour straight into the line buffer.
+      blending: THREE.NoBlending,
       depthTest: false,
       depthWrite: false,
     });
@@ -180,7 +199,29 @@ export default function InkPass({ fade, width = INK_PX }: { fade?: () => number;
     quad.frustumCulled = false;
     const s = new THREE.Scene();
     s.add(quad);
-    return { scene: s, camera: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), material };
+    // Shows the line buffer on screen.
+    const show = new THREE.ShaderMaterial({
+      vertexShader: quadVert,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D tL;
+        varying vec2 vUv;
+        void main() { gl_FragColor = texture2D(tL, vUv); }
+      `,
+      uniforms: { tL: { value: null } },
+      transparent: true,
+      blending: THREE.CustomBlending,
+      blendSrc: THREE.OneFactor,
+      blendDst: THREE.OneMinusSrcAlphaFactor,
+      blendSrcAlpha: THREE.OneFactor,
+      blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
+      depthTest: false,
+      depthWrite: false,
+    });
+    const quad2 = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), show);
+    quad2.frustumCulled = false;
+    const s2 = new THREE.Scene();
+    s2.add(quad2);
+    return { scene: s, camera: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), material, show, showScene: s2 };
   }, []);
 
   useFrame(() => {
@@ -203,7 +244,12 @@ export default function InkPass({ fade, width = INK_PX }: { fade?: () => number;
       const tag = m.userData.ink;
       if (tag === "decor" || tag === "color") {
         swapped.push([m, m.material]);
-        m.material = tag === "decor" ? mats.decor : mats.color;
+        let use = tag === "decor" ? mats.decor : mats.color;
+        if (tag === "decor" && anim.reveal.on && anim.reveal.show > 0.01) {
+          const mat = Array.isArray(m.material) ? m.material[0] : m.material;
+          if (mat?.userData?.tracked?.channel === anim.reveal.on) use = mats.reveal;
+        }
+        m.material = use;
       } else if (m.visible) {
         m.visible = false;
         hidden.push(m);
@@ -231,14 +277,26 @@ export default function InkPass({ fade, width = INK_PX }: { fade?: () => number;
     u.tN.value = target.texture;
     u.tD.value = target.depthTexture;
     u.uTexel.value.set(1 / target.width, 1 / target.height);
-    u.uWidth.value = width * dpr;
+    u.uWidth.value = width * dpr * ss;
     u.cameraNear.value = cam.near;
     u.cameraFar.value = cam.far;
     u.uInk.value.copy(INK_SRGB);
     u.uFade.value = f;
+    const rv = anim.reveal;
+    u.uRectOn.value = rv.on && rv.show > 0.01 ? 1 : 0;
+    u.uRect.value.set(Math.min(rv.x0, rv.x1) / size.width, 1 - Math.max(rv.y0, rv.y1) / size.height, Math.max(rv.x0, rv.x1) / size.width, 1 - Math.min(rv.y0, rv.y1) / size.height);
     const auto = gl.autoClear;
+    // Lines into their own buffer (transparent where there are none)...
+    gl.setRenderTarget(lineRT);
+    gl.setClearColor(0x000000, 0);
+    gl.clear();
     gl.autoClear = false;
     gl.render(overlay.scene, overlay.camera);
+    // ...then shrunk onto the screen.
+    gl.setRenderTarget(null);
+    gl.setClearColor(clear, alpha);
+    overlay.show.uniforms.tL.value = lineRT.texture;
+    gl.render(overlay.showScene, overlay.camera);
     gl.autoClear = auto;
   }, 1);
 

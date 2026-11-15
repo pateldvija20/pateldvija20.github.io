@@ -570,3 +570,609 @@
   outline: 1px solid var(--ink);
   outline-offset: 3px;
 }
+
+/* ---------- The opening's pointer and selection frame (frames 3 and 4) ---------- */
+
+.story-cursor {
+  position: absolute;
+  z-index: 45;
+  top: 0;
+  left: 0;
+  width: 22px;
+  height: 26px;
+  opacity: 0;
+  pointer-events: none;
+  transform-origin: 2px 2px;
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.25));
+}
+.story-reveal {
+  position: absolute;
+  z-index: 44;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  border: 1px solid var(--ink);
+}
+.story-reveal i {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background: var(--paper);
+  border: 1px solid var(--ink);
+  box-sizing: border-box;
+}
+.story-reveal i[data-c="tl"] { left: -4px; top: -4px; }
+.story-reveal i[data-c="tr"] { right: -4px; top: -4px; }
+.story-reveal i[data-c="bl"] { left: -4px; bottom: -4px; }
+.story-reveal i[data-c="br"] { right: -4px; bottom: -4px; }
+
+/* ---------- The menu bar as a dark pill (16 Nov) ---------- */
+
+.story-menu {
+  gap: 4px;
+  padding: 6px;
+  border: none;
+  background: var(--ink);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+}
+.story-menu .story-pill {
+  height: 40px;
+  padding: 0 20px;
+  color: var(--paper);
+  background: transparent;
+  border-color: transparent;
+}
+.story-menu .story-pill:hover {
+  background: transparent;
+  color: var(--paper);
+  opacity: 0.7;
+}
+.story-menu .story-pill[data-on] {
+  background: transparent;
+  color: var(--paper);
+  text-decoration: underline;
+  text-underline-offset: 6px;
+}
+.story-menu .story-pill[data-section="contact"] {
+  margin-left: 10px;
+  padding: 0 26px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.story-menu .story-pill[data-section="contact"]:hover {
+  background: var(--paper);
+  color: var(--ink);
+  opacity: 0.85;
+}
+
+/* ---------- Menu pill, take two (16 Nov): dark grey glass, a white light-catching rim ---------- */
+
+.story-menu {
+  --glass: #23272c;
+  background: linear-gradient(180deg, #2b3036 0%, #1d2126 100%);
+  color: #f4f8fb;
+  border: none;
+  isolation: isolate;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -8px 14px rgba(0, 0, 0, 0.28);
+}
+/* The rim: a thin ring that is bright where the light hits it and fades to almost nothing round the far side. */
+.story-menu::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(from var(--gloss, 215deg), rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.12) 18%, rgba(255, 255, 255, 0.05) 38%, rgba(255, 255, 255, 0.5) 55%, rgba(255, 255, 255, 0.08) 75%, rgba(255, 255, 255, 0.95));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+.story-menu .story-pill {
+  color: #f4f8fb;
+}
+.story-menu .story-pill:hover,
+.story-menu .story-pill[data-on] {
+  color: #ffffff;
+}
+.story-menu .story-pill[data-section="contact"] {
+  background: #f4f8fb;
+  color: #0c0f12;
+  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.12);
+}
+.story-menu .story-pill[data-section="contact"]:hover {
+  background: #ffffff;
+  color: #0c0f12;
+}
+
+/* ---------- Dock: the name pill and the section pill, with a light pill sliding behind the current section ---------- */
+
+.story-dock {
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  bottom: calc(var(--band, 80px) / 2);
+  transform: translate(-50%, 50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: opacity 0.3s, transform 0.3s;
+}
+.story-dock[data-hidden] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 80%);
+}
+.story-menu {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  transform: none;
+}
+.story-menu[data-hidden] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: none;
+}
+.story-menu .story-pill {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  background: transparent;
+  transition: color 0.25s;
+}
+.story-menu .story-pill[data-section="contact"] {
+  margin: 0;
+  padding: 0 20px;
+  background: transparent;
+  color: #f4f8fb;
+  box-shadow: none;
+}
+.story-menu .story-pill[data-section="contact"]:hover {
+  background: transparent;
+  color: #f4f8fb;
+  opacity: 0.7;
+}
+.story-menu .story-pill[data-on],
+.story-menu .story-pill[data-section="contact"][data-on] {
+  background: transparent;
+  color: #0c0f12;
+  text-decoration: none;
+  opacity: 1;
+}
+.story-slider {
+  position: absolute;
+  z-index: 0;
+  top: 6px;
+  bottom: 6px;
+  border-radius: 999px;
+  background: #f4f8fb;
+  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transition: left 0.45s cubic-bezier(0.34, 1.3, 0.5, 1), width 0.45s cubic-bezier(0.34, 1.3, 0.5, 1), opacity 0.2s;
+}
+.story-slider[data-show] {
+  opacity: 1;
+}
+/* Arriving from home it appears in place; only a move between sections slides. */
+.story-slider:not([data-show]) {
+  transition: opacity 0.2s;
+}
+
+.story-name {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  height: 52px;
+  padding: 0 26px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #2b3036 0%, #1d2126 100%);
+  color: #f4f8fb;
+  font-family: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -8px 14px rgba(0, 0, 0, 0.28);
+  transition: opacity 0.2s;
+}
+.story-name:hover {
+  opacity: 0.8;
+}
+.story-name::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(from var(--gloss, 215deg), rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.12) 18%, rgba(255, 255, 255, 0.05) 38%, rgba(255, 255, 255, 0.5) 55%, rgba(255, 255, 255, 0.08) 75%, rgba(255, 255, 255, 0.95));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+@media (max-width: 720px) {
+  .story-name {
+    padding: 0 16px;
+    font-size: 13px;
+  }
+}
+.story-menu .story-pill[data-on]:hover,
+.story-menu .story-pill[data-section="contact"][data-on]:hover {
+  color: #0c0f12;
+  opacity: 1;
+}
+
+/* The glass pills tip a little under the pointer (StoryUI useGlass), so no easing of their own on transform. */
+.story-menu {
+  transition: none;
+  transform-origin: 50% 50%;
+}
+.story-name {
+  transition: opacity 0.2s;
+  transform-origin: 50% 50%;
+}
+
+/* ---------- The bar under an open Work or Playground book (16 Nov) ---------- */
+
+.story-controls {
+  bottom: calc(var(--band, 80px) / 2 - 26px);
+}
+.story-booknav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.story-booknav .story-name:not(a):hover {
+  opacity: 1;
+}
+.story-sec {
+  font-weight: 600;
+}
+.story-circles {
+  gap: 8px;
+  padding: 0 16px;
+}
+.story-circle {
+  display: flex;
+  align-items: center;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  border-radius: 999px;
+  background: transparent;
+  color: #0c0f12;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.3s, border-color 0.3s;
+}
+.story-circle span {
+  display: inline-block;
+  max-width: 0;
+  margin: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-width 0.45s cubic-bezier(0.3, 1.1, 0.4, 1), margin 0.45s cubic-bezier(0.3, 1.1, 0.4, 1), opacity 0.25s;
+}
+.story-circle[data-on] {
+  background: #f4f8fb;
+  border-color: #f4f8fb;
+}
+.story-circle[data-on] span {
+  max-width: 170px;
+  margin: 0 12px;
+  opacity: 1;
+}
+.story-circle:hover:not([data-on]):not(:disabled) {
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.22);
+}
+.story-circle:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+.story-menuexp {
+  gap: 0;
+  padding: 0 6px 0 0;
+}
+.story-menubtn,
+.story-menuitem {
+  height: 40px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #f4f8fb;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.2s, background 0.25s;
+}
+.story-menubtn {
+  margin-left: 6px;
+}
+.story-menuexp[data-open] .story-menubtn {
+  background: #f4f8fb;
+  color: #0c0f12;
+}
+.story-menuitem:hover {
+  opacity: 0.7;
+}
+.story-menulist {
+  display: flex;
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-width 0.5s cubic-bezier(0.3, 1.1, 0.4, 1), opacity 0.3s;
+}
+.story-menuexp[data-open] .story-menulist {
+  max-width: 420px;
+  opacity: 1;
+}
+
+/* The action pill (Read the case study, See everything) sits above the bar, not over its Menu pill. */
+.story-controls .story-action {
+  bottom: 74px;
+}
+@media (max-width: 720px) {
+  .story-controls .story-action {
+    position: static;
+  }
+}
+
+/* ---------- Page circles, each its own glass pill with its own rim (16 Nov) ---------- */
+
+.story-circles {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.story-circle {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  min-width: 40px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #2b3036 0%, #1d2126 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -6px 10px rgba(0, 0, 0, 0.28);
+  color: #f4f8fb;
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.story-circle::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(from var(--gloss, 215deg), rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.12) 18%, rgba(255, 255, 255, 0.05) 38%, rgba(255, 255, 255, 0.5) 55%, rgba(255, 255, 255, 0.08) 75%, rgba(255, 255, 255, 0.95));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+  pointer-events: none;
+}
+.story-circle span {
+  display: inline-block;
+  max-width: 0;
+  margin: 0;
+  overflow: hidden;
+  opacity: 0;
+  color: #f4f8fb;
+  transition: max-width 0.45s cubic-bezier(0.3, 1.1, 0.4, 1), margin 0.45s cubic-bezier(0.3, 1.1, 0.4, 1), opacity 0.25s;
+}
+.story-circle[data-on] span {
+  max-width: 170px;
+  margin: 0 22px;
+  opacity: 1;
+}
+.story-circle[data-on] {
+  background: linear-gradient(180deg, #353b42 0%, #252a30 100%);
+}
+.story-circle:hover:not([data-on]):not(:disabled) {
+  opacity: 0.8;
+}
+.story-circle:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* The action sits on the page (16 Nov): a dark pill on the paper, lower right of the right-hand page. */
+.story-onpage {
+  position: absolute;
+  z-index: 16;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s;
+}
+.story-onpage[data-shown] {
+  opacity: 1;
+  pointer-events: auto;
+}
+.story-onpage .story-action {
+  position: static;
+  background: #0c0f12;
+  color: #f4f8fb;
+  border-color: #0c0f12;
+}
+.story-onpage .story-action:hover {
+  background: #1d2126;
+  color: #ffffff;
+}
+
+/* The page prints its own button now; this is only the invisible target over it. */
+.story-onpage {
+  background: transparent;
+  opacity: 1;
+  pointer-events: none;
+}
+.story-onpage[data-shown] {
+  pointer-events: none;
+}
+.story-hit {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  cursor: pointer;
+}
+.story-hit:focus-visible {
+  outline: 2px solid #2f55f0;
+  outline-offset: 3px;
+}
+
+/* ---------- Playground masonry (16 Nov), after danieltriendl.com's Explore page ---------- */
+
+.story-grid-head {
+  max-width: 1180px;
+  flex-wrap: wrap;
+}
+.story-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.story-filter[data-on] {
+  background: var(--ink);
+  color: var(--paper);
+}
+.story-masonry {
+  max-width: 1180px;
+  margin: 0 auto;
+  column-count: 5;
+  column-gap: 16px;
+}
+.story-piece {
+  display: block;
+  width: 100%;
+  margin: 0 0 22px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  break-inside: avoid;
+}
+.story-piece-art {
+  position: relative;
+  display: block;
+  width: 100%;
+  border-radius: 12px;
+  transition: transform 0.35s cubic-bezier(0.3, 1.2, 0.4, 1);
+}
+.story-piece:hover .story-piece-art {
+  transform: scale(1.02);
+}
+.story-piece-title {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.story-piece-tags {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+}
+.story-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(1, 4, 7, 0.78);
+  color: #f9fcff;
+  font-size: 11px;
+  font-weight: 600;
+}
+.story-piece-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(1, 4, 7, 0.55);
+  animation: pieceFade 0.25s ease;
+}
+.story-piece-open {
+  width: min(560px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  border-radius: 20px;
+  background: var(--paper);
+  color: var(--ink);
+  animation: pieceGrow 0.4s cubic-bezier(0.3, 1.2, 0.4, 1);
+}
+.story-piece-stage {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  border-radius: 20px 20px 0 0;
+}
+.story-piece-note {
+  max-width: 260px;
+  text-align: center;
+  font-size: 13px;
+  color: #0c0f12;
+}
+.story-piece-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px 20px;
+}
+.story-piece-meta h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.story-piece-meta p {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+@keyframes pieceFade {
+  from { opacity: 0; }
+}
+@keyframes pieceGrow {
+  from { opacity: 0; transform: translateY(14px) scale(0.94); }
+}
+@media (max-width: 980px) {
+  .story-masonry { column-count: 4; }
+}
+@media (max-width: 720px) {
+  .story-masonry { column-count: 2; }
+}
