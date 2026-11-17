@@ -187,9 +187,10 @@ function archGeometry(w: number, h: number, d: number) {
 function column() {
   return memo("column", () => {
     const s = new THREE.Shape(); // x, then -z (as y)
+    // A thin plate on the outer edge: the inner face used to lean in to x = 0.3 and drew a long vertical line either side of the cup.
     s.moveTo(0.466, -0.3);
-    s.lineTo(0.395, -0.3);
-    s.lineTo(0.3, 0.12);
+    s.lineTo(0.458, -0.3);
+    s.lineTo(0.458, 0.12);
     s.lineTo(0.466, 0.12);
     s.closePath();
     const g = new THREE.ExtrudeGeometry(s, { depth: 0.65, bevelEnabled: false });

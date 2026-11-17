@@ -150,12 +150,16 @@ export default function ToyBook({ id, onPick, onTurn }: Props) {
   const shown = useRef({ left: "", right: "", front: "", back: "" });
   const setMap = (m: THREE.MeshBasicMaterial, slot: keyof typeof shown.current, index: number, side: Side) => {
     const key = `${index}:${side}`;
-    if (shown.current[slot] === key) return;
+    // Remembered on the material itself, not on the component: if the materials are rebuilt (a hot reload, a new skin) the
+    // new ones start empty and must be given their page again, or they stay white.
+    if (shown.current[slot] === key && m.map && m.userData.pageKey === key) return;
     shown.current[slot] = key;
-    // A material only needs rebuilding the first time it gets a map; swapping one map for another doesn't.
-    const first = !m.map;
-    m.map = pageTexture(id, index, side);
-    if (first) m.needsUpdate = true;
+    m.userData.pageKey = key;
+    const tex = pageTexture(id, index, side);
+    m.map = tex;
+    // Rebuild the material and re-upload the page, so a turning leaf never shows a stale or empty page (it flashed white).
+    m.needsUpdate = true;
+    tex.needsUpdate = true;
   };
 
   const q = useMemo(() => ({ quat: new THREE.Quaternion(), euler: new THREE.Euler(), pivot: new THREE.Vector3(), off: new THREE.Vector3() }), []);

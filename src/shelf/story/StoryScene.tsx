@@ -13,6 +13,7 @@ import { BG, INK } from "./theme";
 import { DRAWN, REVEAL_RECT, tracked } from "./toy";
 import ToyBook from "./ToyBook";
 import ToyCup from "./ToyCup";
+import { Spill } from "./spill";
 
 /**
  * The storyboard shelf: one front-on shelf, drawn as clean line art. The
@@ -279,12 +280,14 @@ function Book({ id, onPick, onTurn }: { id: BookId; onPick: (id: BookId) => void
     const enter = anim.enter[id];
     const following = anim.follow.book === id && anim.follow.mix > 0.001;
     const closed = !!mod && p.cover < 0.001 && !following;
+    // In the case study only its own book is on the page: the others go (they would peek in beside the spread).
+    const away = anim.follow.mix > 0.02 && anim.follow.book !== id;
     closedNow.current = closed;
     hover.current = anim.hover.id === id;
     const target = hover.current && closed ? 0.04 : 0;
     lift.current += (target - lift.current) * (1 - Math.exp(-dt * 12));
     if (own.current) {
-      own.current.visible = closed;
+      own.current.visible = closed && !away;
       // Hovering swells the book a touch from its foot, so it never leaves the shelf.
       own.current.position.set(p.x + enter, p.y, p.z);
     }
@@ -304,7 +307,7 @@ function Book({ id, onPick, onTurn }: { id: BookId; onPick: (id: BookId) => void
       pivot.current?.rotation.set(ti.rx, ti.ry, 0, "YXZ");
     }
     if (rig.current) {
-      rig.current.visible = !closed;
+      rig.current.visible = !closed && !away;
       rig.current.position.x = enter;
     }
   });
@@ -350,7 +353,49 @@ function Cup({ at, onPick }: { at: [number, number, number]; onPick: () => void 
   useChannel(group, "cup");
   const toy = useRef<THREE.Group>(null);
   useStandInInk(toy);
+  const sp = useMemo(() => new Spill(), []);
+  useEffect(() => () => sp.dispose(), [sp]);
+  // After the form is sent the cup comes to the middle of the screen and grows (anim.cupFocus 0 to 1); if sending fails it is
+  // knocked over on the tray and the coffee spills (anim.tip 0 to 1).
+  useFrame((_, delta) => {
+    const g = group.current;
+    if (!g) return;
+    const f = anim.cupFocus;
+    const sc = 1 + 1.3 * f;
+    const machineX = anim.machineX + anim.enter.machine;
+    const cx = (view.left + view.right) / 2;
+    const cy = (view.top + view.bottom) / 2;
+    const tp = anim.tip;
+    // Knocked over: it tips about the bottom-left edge of its base and falls onto its side, mouth to the left.
+    const ang = tp * 1.25;
+    const pvx = -0.1 + 0.1 * Math.cos(ang);
+    const pvy = 0.1 * Math.sin(ang);
+    g.position.set(
+      // Knocked over, it also skids a little to the right, so its mouth hangs over the tray and not past its end.
+      at[0] + (cx - machineX - at[0]) * f + pvx + 0.09 * tp,
+      at[1] + (cy - 0.21 * sc - at[1]) * f + pvy,
+      // Knocked over, it slides forward out of the machine's columns (their lines would cut across it).
+      at[2] + (1.2 - MACHINE_Z - at[2]) * f + 0.3 * Math.min(1, tp * 2),
+    );
+    g.rotation.z = ang;
+    g.scale.setScalar(sc);
+    anim.cupXf.dx = g.position.x - at[0];
+    anim.cupXf.dy = g.position.y - at[1];
+    anim.cupXf.dz = g.position.z - at[2];
+    anim.cupXf.sc = sc;
+    anim.cupXf.rz = ang;
+    // The spill (spill.ts): it sits still at the cup's final place; the cup's lower lip feeds it as it swings over.
+    const ca = Math.cos(ang);
+    const sa = Math.sin(ang);
+    const mx = g.position.x - 0.344 * sa - 0.02;
+    const my = g.position.y + 0.344 * ca - 0.005;
+    const sx = at[0] - 0.415;
+    sp.root.position.set(sx, at[1], at[2] + 0.02);
+    sp.update(Math.min(delta, 1 / 20), tp, mx - 0.138 * ca - sx, my - 0.138 * sa - at[1], -(at[1] - 0.005) + 0.006);
+  });
   return (
+    <>
+    <primitive object={sp.root} />
     <group
       ref={group}
       position={at}
@@ -378,6 +423,7 @@ function Cup({ at, onPick }: { at: [number, number, number]; onPick: () => void 
         />
       </Jelly>
     </group>
+    </>
   );
 }
 
@@ -408,9 +454,7 @@ function SpoutPin({ at }: { at: [number, number, number] }) {
 /** The coffee machine, with the cup on its drip tray (where the machine's file says: CUP_SPOT) and the outlet's pin (OUTLET). */
 function Machine({ onPickCup }: { onPickCup: () => void }) {
   const mod = useObjectModule("machine");
-  const n = MACHINE.nozzle;
   const cup: [number, number, number] = mod?.CUP_SPOT ? toVec(mod.CUP_SPOT) : [CUP.x, CUP.y, CUP.z];
-  const outlet: [number, number, number] = mod?.OUTLET ? toVec(mod.OUTLET) : [(n.x0 + n.x1) / 2, n.y0 - 0.02, 0.2];
   return (
     <Placed x={() => anim.machineX + anim.enter.machine} z={MACHINE_Z}>
       <Jelly {...JELLY.machine}>
@@ -419,7 +463,8 @@ function Machine({ onPickCup }: { onPickCup: () => void }) {
           <SceneObject name="machine" />
         </group>
         <Cup at={[-cup[0], cup[1], cup[2]]} onPick={onPickCup} />
-        <SpoutPin at={[-outlet[0], outlet[1], outlet[2]]} />
+        {/* The links' place (the sketch's red box, under the group head, to its right), in the machine's own screen directions. */}
+        <SpoutPin at={[0.205, 0.42, 0.3]} />
       </Jelly>
     </Placed>
   );
@@ -470,7 +515,7 @@ function Hanger() {
     }
     // Pinned to the scene's right edge (CONTENT), not the screen's, so it stays beside the machine on wide screens; behind the machine, so the machine's drawing covers it.
     const far = (CAM_D - HANG_Z) / CAM_D;
-    g.position.set((CONTENT.halfW - HANG.fromRight + anim.enter.hanger) * far, (view.top + HANG.aboveTop + anim.hangerLift) * far, HANG_Z);
+    g.position.set((CONTENT.halfW - HANG.fromRight + anim.enter.hanger) * far, (view.baseTop + HANG.aboveTop + anim.hangerLift) * far, HANG_Z);
     g.scale.setScalar(far);
   });
   return (

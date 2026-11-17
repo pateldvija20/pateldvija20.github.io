@@ -58,7 +58,8 @@ export default async function handler(req: Request): Promise<Response> {
   const timeline = String(body.timeline ?? "").trim();
   const source = String(body.source ?? "").trim();
 
-  if (!firstName || !lastName || !email || !project || !timeline || !source) {
+  // The shelf's short form sends a first name, an email and a message; the desk site's longer form also sends the rest.
+  if (!firstName || !email || !project) {
     return new Response(JSON.stringify({ error: "Missing required fields" }), {
       status: 400,
       headers: { "Content-Type": "application/json" },
@@ -77,11 +78,11 @@ export default async function handler(req: Request): Promise<Response> {
   const fromEmail = process.env.CONTACT_FROM_EMAIL || "Portfolio Reachout <onboarding@resend.dev>";
 
   const fields = [
-    ["Name", `${firstName} ${lastName}`],
+    ["Name", `${firstName} ${lastName}`.trim()],
     ["Email", email],
     ["Business / project", project],
-    ["Preferred timeline", timeline],
-    ["Found via", source],
+    ["Preferred timeline", timeline || "-"],
+    ["Found via", source || "-"],
   ] as const;
 
   const html = `
@@ -106,7 +107,7 @@ export default async function handler(req: Request): Promise<Response> {
       from: fromEmail,
       to: [toEmail],
       reply_to: email,
-      subject: `[Portfolio Reachout] ${firstName} ${lastName}`,
+      subject: `[Portfolio Reachout] ${`${firstName} ${lastName}`.trim()}`,
       html,
     }),
   });

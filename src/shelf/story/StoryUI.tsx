@@ -1,11 +1,14 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { anim, heroRect, toScreen } from "./anim";
-import { BOOK_SIZE, CAM_D, view } from "./layout";
+import { CaseStudy } from "../../desk/pieces/CaseStudy";
+import { PROJECTS } from "../../desk/pieces/projects";
+import { sectionsFor } from "../../desk/pieces/caseStudySections";
+import { BOOK_SIZE, CAM_D, view, type BookId } from "./layout";
 import { ACTION, actionLabel, actionWidth } from "./pages";
 import { pageWidthOf } from "./ToyBook";
 import { CASES, navigate, type Case, type Route } from "../routes";
 import { toggleMode, useMode } from "./theme";
-import { ABOUT_SPREADS, CASE_INFO, CASE_SECTIONS, CONTACT_LINKS, PLAYGROUND_PAGES, PLAYGROUND_PIECES } from "./content";
+import { ABOUT_SPREADS, CASE_INFO, CASE_SECTIONS, CALENDLY_URL, CONTACT_LINKS, MAIL_TO, PLAYGROUND_PAGES, PLAYGROUND_PIECES } from "./content";
 
 /**
  * The phase 1 interface over the shelf: logo tab, menu bar, the open books'
@@ -272,7 +275,6 @@ export function BookControls({ route, shown }: { route: Route; shown: boolean })
   if (route.kind === "work") {
     count = CASES.length;
     labels = CASES.map((c) => CASE_INFO[c].name);
-    soon = 1;
     index = CASES.indexOf(route.case);
     go = (i) => navigate({ kind: "work", case: CASES[i], read: false });
     action = { onClick: () => navigate({ kind: "work", case: route.case, read: true }) };
@@ -340,73 +342,77 @@ function OnPage({ book, index, shown, action }: { book: "work" | "playground" | 
   );
 }
 
-/** Frames 8 to 10: a case study expanded into a page. */
-export function CaseStudyPage({ c, shown }: { c: Case; shown: boolean }) {
-  const info = CASE_INFO[c];
-  const i = CASES.indexOf(c);
-  const others = [CASES[(i + 1) % CASES.length], CASES[(i + 2) % CASES.length]];
-  const scroller = useRef<HTMLDivElement>(null);
-  const slot = useRef<HTMLButtonElement>(null);
-  // The 3D book sits in the header slot (frame 8): tell it where the slot is, as the page lays out and scrolls.
+/**
+ * Frames 8 to 10, with the site's real case studies (16 Nov): the layout and content of the deployed pages, unchanged (src/desk/pieces:
+ * CaseStudy's section rail and body, and each project's own sections), inside the shelf. The 3D book still shrinks into the page's hero
+ * while the page arrives around it. Back is a plain text button over the page; the rail's section titles are centred in the window.
+ */
+export function CaseStudyPage({ c, shown, onSwitch }: { c: Case; shown: boolean; onSwitch: (to: Case) => void }) {
+  const mode = useMode();
+  const project = PROJECTS.find((p) => p.slug === c);
+  const sections = sectionsFor(c);
+  const wrap = useRef<HTMLDivElement>(null);
+  // Tell the 3D book where the hero is, as the page lays out and scrolls.
   useLayoutEffect(() => {
+    const root = wrap.current;
+    if (!root) return;
     const measure = () => {
-      const r = slot.current?.getBoundingClientRect();
+      const hero = root.querySelector<HTMLElement>('[data-ui="Hero"]');
+      const r = hero?.getBoundingClientRect();
       if (r) Object.assign(heroRect, { x: r.left, y: r.top, w: r.width, h: r.height });
     };
     measure();
-    const el = scroller.current;
-    el?.addEventListener("scroll", measure, { passive: true });
+    const sc = root.querySelector<HTMLElement>("[data-cs-scroller]");
+    sc?.addEventListener("scroll", measure, { passive: true });
     window.addEventListener("resize", measure);
+    const ro = new ResizeObserver(measure);
+    if (sc) ro.observe(sc);
+    // The hero's own box changes as the page lays out and the images load, without the scroller resizing.
+    const heroEl = root.querySelector<HTMLElement>('[data-ui="Hero"]');
+    if (heroEl) ro.observe(heroEl);
     return () => {
-      el?.removeEventListener("scroll", measure);
+      sc?.removeEventListener("scroll", measure);
       window.removeEventListener("resize", measure);
+      ro.disconnect();
     };
-  }, []);
-  useLayoutEffect(() => {
-    scroller.current?.scrollTo(0, 0);
-    const r = slot.current?.getBoundingClientRect();
-    if (r) Object.assign(heroRect, { x: r.left, y: r.top, w: r.width, h: r.height });
   }, [c]);
+  /** Scrolls the page back to the top (smoothly), and resolves once it's there. */
+  const toTop = () =>
+    new Promise<void>((done) => {
+      const sc = wrap.current?.querySelector<HTMLElement>("[data-cs-scroller]");
+      if (!sc || sc.scrollTop < 2) return done();
+      sc.scrollTo({ top: 0, behavior: "smooth" });
+      const t0 = performance.now();
+      const tick = () => (sc.scrollTop < 2 || performance.now() - t0 > 1400 ? done() : requestAnimationFrame(tick));
+      tick();
+    });
+  if (!project) return null;
   return (
-    <div ref={scroller} className="story-read" role="main" data-shown={shown || undefined}>
-      <div className="story-read-inner">
-        <aside className="story-rail">
-          <button type="button" className="story-pill" onClick={() => navigate({ kind: "work", case: c, read: false })}>
-            ← Back
-          </button>
-          <ol>
-            {CASE_SECTIONS.map((s) => (
-              <li key={s}>
-                <a href={`#${s.toLowerCase()}`}>{s}</a>
-              </li>
-            ))}
-          </ol>
-        </aside>
-        <article>
-          {/* The 3D book itself shows through here; clicking it grows it back into the full spread (frame 11). */}
-          <button ref={slot} type="button" className="story-hero-slot" aria-label={`Back to the book: ${info.name}`} onClick={() => navigate({ kind: "work", case: c, read: false })} />
-          <p className="story-kicker story-read-kicker">{[info.kind, info.year].filter(Boolean).join(" · ")}</p>
-          <h2 className="story-title">{info.name}</h2>
-          {info.line && <p className="story-lede">{info.line}</p>}
-          {CASE_SECTIONS.map((s) => (
-            <section key={s} id={s.toLowerCase()} className="story-section">
-              <h3>{s}</h3>
-              <p className="story-placeholder">This section of the case study comes in phase 3, from the existing case-study content.</p>
-            </section>
-          ))}
-          <div className="story-end">
-            <p className="story-kicker">More case studies</p>
-            <div className="story-cards">
-              {others.map((o) => (
-                <button key={o} type="button" className="story-card" onClick={() => navigate({ kind: "work", case: o, read: true })}>
-                  <img src={CASE_INFO[o].image} alt="" />
-                  <span>{CASE_INFO[o].name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </article>
-      </div>
+    <div
+      ref={wrap}
+      className="story-read story-cs"
+      role="main"
+      data-shown={shown || undefined}
+      onClickCapture={(e) => {
+        // Another project's card (the page's own links go to /projects/<slug>, which would leave the shelf): scroll up, back to the
+        // book, flip to that case's spread, then open it.
+        const a = (e.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="/projects/"]');
+        const slug = a?.getAttribute("href")?.split("/")[2] as Case | undefined;
+        if (a && slug && (CASES as readonly string[]).includes(slug)) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (slug !== c) void toTop().then(() => onSwitch(slug));
+        }
+      }}
+      onClick={(e) => {
+        // The book fills the hero area: clicking it grows it back into the full spread (frame 11).
+        if ((e.target as HTMLElement).closest('[data-ui="Hero"]')) navigate({ kind: "work", case: c, read: false });
+      }}
+    >
+      <button type="button" className="story-cs-back" onClick={() => void toTop().then(() => navigate({ kind: "work", case: c, read: false }))}>
+        ← Back
+      </button>
+      <CaseStudy key={c} project={project} sections={sections} theme={mode} />
     </div>
   );
 }
@@ -439,6 +445,16 @@ export function PlaygroundGrid({ shown }: { shown: boolean }) {
         <button type="button" className="story-pill" onClick={() => navigate({ kind: "playground", page: anim.pages.playground.right })}>
           ← Back
         </button>
+        <a
+          className="story-grid-home"
+          href="/"
+          onClick={(e) => {
+            e.preventDefault();
+            navigate(home);
+          }}
+        >
+          Dvija Patel
+        </a>
         <div className="story-filters" role="tablist" aria-label="Category">
           {FILTERS.map((f) => (
             <button key={f} type="button" role="tab" aria-selected={f === filter} className="story-pill story-filter" data-on={f === filter || undefined} onClick={() => setFilter(f)}>
@@ -480,22 +496,170 @@ export function PlaygroundGrid({ shown }: { shown: boolean }) {
   );
 }
 
-/** Frame 31: the contact links, hanging from the machine's outlet (the pin is set by the scene). */
-export function ContactLinks({ shown }: { shown: boolean }) {
+/**
+ * Frame 31, as reworked (16 Nov): plain text links where the sketch's red box is (under the group head, to its right), no
+ * card or box. Email opens the form.
+ */
+export function ContactLinks({ shown, onEmail }: { shown: boolean; onEmail: () => void }) {
   return (
-    <div className="story-contact" data-shown={shown || undefined} aria-hidden={!shown}>
-      <p className="story-kicker">Say hello</p>
+    <nav className="story-contact" data-shown={shown || undefined} aria-label="Contact" aria-hidden={!shown}>
       {CONTACT_LINKS.map((l) =>
         l.href ? (
-          <a key={l.label} href={l.href} target="_blank" rel="noreferrer">
+          <a key={l.label} href={l.href} target="_blank" rel="noreferrer" tabIndex={shown ? 0 : -1}>
             {l.label}
           </a>
         ) : (
-          <span key={l.label} title="Address to add">
-            {l.label} (to add)
-          </span>
+          <button key={l.label} type="button" tabIndex={shown ? 0 : -1} onClick={onEmail}>
+            {l.label}
+          </button>
         ),
       )}
+    </nav>
+  );
+}
+
+/** Dev only: ?demo (or ?demo=fail) on the first page load skips the network and pretends it sent (or failed), so the pour, the writing and the spill can be tried without the email service. */
+const DEMO: "ok" | "fail" | null = import.meta.env.DEV && typeof window !== "undefined" && new URLSearchParams(window.location.search).has("demo") ? (new URLSearchParams(window.location.search).get("demo") === "fail" ? "fail" : "ok") : null;
+
+/**
+ * The reach-out form, redesigned (16 Nov): plain text on the page beside the machine, no box: underlined fields and a text
+ * button. It sends to /api/contact; only a message that really sent brings the coffee (onSent). If sending fails, a short
+ * note and a link to open the mail app. In dev, ?demo skips the network so the animation can be tried.
+ */
+export function ContactForm({ shown, name: given, onSent, onFail, onClose }: { shown: boolean; name: string; onSent: (name: string) => void; onFail: () => void; onClose: () => void }) {
+  const [name, setName] = useState(given);
+  useEffect(() => {
+    if (given) setName((n) => n || given);
+  }, [given]);
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [state, setState] = useState<"idle" | "sending">("idle");
+  const ok = name.trim() && /.+@.+\..+/.test(email.trim()) && message.trim();
+  const mail = `mailto:${MAIL_TO}?subject=${encodeURIComponent("Hello from your portfolio")}&body=${encodeURIComponent(message)}`;
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ok || state === "sending") return;
+    setState("sending");
+    try {
+      if (DEMO === "fail") throw new Error("demo");
+      if (!DEMO) {
+        const res = await fetch("/api/contact", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ firstName: name.trim(), email: email.trim(), project: message.trim() }) });
+        if (!res.ok) throw new Error(String(res.status));
+      }
+      onSent(name.trim());
+    } catch {
+      setState("idle");
+      onFail();
+    }
+  };
+  return (
+    <form className="story-form" data-shown={shown || undefined} aria-hidden={!shown} onSubmit={submit} noValidate>
+      <p className="story-form-title">Say hello</p>
+      <label>
+        <span>Your first name</span>
+        <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="given-name" tabIndex={shown ? 0 : -1} maxLength={40} />
+      </label>
+      <label>
+        <span>Your email</span>
+        <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" tabIndex={shown ? 0 : -1} maxLength={120} />
+      </label>
+      <label>
+        <span>What's on your mind</span>
+        <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} tabIndex={shown ? 0 : -1} maxLength={2000} />
+      </label>
+      <div className="story-form-row">
+        <button type="submit" className="story-form-send" disabled={!ok || state === "sending"} tabIndex={shown ? 0 : -1}>
+          {state === "sending" ? "Sending…" : "Send"}
+        </button>
+        <button type="button" onClick={onClose} tabIndex={shown ? 0 : -1}>
+          Cancel
+        </button>
+      </div>
+      <p className="story-form-alt">
+        <a href={mail} tabIndex={shown ? 0 : -1}>
+          Open my mail app instead
+        </a>
+      </p>
+    </form>
+  );
+}
+
+/**
+ * The cup was clicked in the coffee view (16 Nov): it comes to the middle and asks the guest's name; once it's written on the
+ * sleeve it asks whether they're up for a coffee chat, with the booking link (not set up yet) and the other ways to reach out.
+ */
+export function ContactChat({ shown, name, ready, onName, onEmail, onBack }: { shown: boolean; name: string; ready: boolean; onName: (n: string) => void; onEmail: () => void; onBack: () => void }) {
+  const [draft, setDraft] = useState("");
+  const asking = !name;
+  return (
+    <div className="story-thanks story-chat" data-shown={shown || undefined} aria-hidden={!shown}>
+      {asking ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (draft.trim()) onName(draft.trim());
+          }}
+        >
+          <p>Hi! What's your first name?</p>
+          <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={14} autoComplete="given-name" tabIndex={shown ? 0 : -1} aria-label="Your first name" />
+          <button type="submit" disabled={!draft.trim()} tabIndex={shown ? 0 : -1}>
+            Pour me a coffee
+          </button>
+        </form>
+      ) : (
+        <div data-ready={ready || undefined} className="story-chat-ask">
+          <p>Nice to meet you, {name.split(" ")[0]}.</p>
+          <p>Would you be up for a coffee chat?</p>
+          {CALENDLY_URL ? (
+            <a href={CALENDLY_URL} target="_blank" rel="noreferrer" tabIndex={ready ? 0 : -1}>
+              Book a time
+            </a>
+          ) : null}
+          <button type="button" onClick={onEmail} tabIndex={ready ? 0 : -1}>
+            Write me instead
+          </button>
+          <span className="story-chat-links">
+            {CONTACT_LINKS.filter((l) => l.href).map((l) => (
+              <a key={l.label} href={l.href!} target="_blank" rel="noreferrer" tabIndex={ready ? 0 : -1}>
+                {l.label}
+              </a>
+            ))}
+          </span>
+        </div>
+      )}
+      <button type="button" className="story-back-link" onClick={onBack} tabIndex={shown ? 0 : -1}>
+        Back to the machine
+      </button>
+    </div>
+  );
+}
+
+/** Sending failed (the cup has been knocked over and the coffee spilt): say so, and offer a retry or the mail app. */
+export function ContactFailed({ shown, mail, onRetry }: { shown: boolean; mail: string; onRetry: () => void }) {
+  return (
+    <div className="story-failed" role="alertdialog" aria-label="The message didn't send" data-shown={shown || undefined} aria-hidden={!shown}>
+      <p className="story-failed-title">Oops, that didn't send.</p>
+      <p>Spilt the coffee, too. Try again, or open your mail app and write to me there.</p>
+      <div>
+        <button type="button" onClick={onRetry} tabIndex={shown ? 0 : -1}>
+          Try again
+        </button>
+        <a href={mail} tabIndex={shown ? 0 : -1}>
+          Open my mail app
+        </a>
+      </div>
+    </div>
+  );
+}
+
+/** After the coffee is made and the name written: a line of thanks and a way back to the machine. */
+export function ContactThanks({ shown, onBack }: { shown: boolean; onBack: () => void }) {
+  return (
+    <div className="story-thanks" data-shown={shown || undefined} aria-hidden={!shown}>
+      <p>Thanks, I'll write back soon.</p>
+      <button type="button" onClick={onBack} tabIndex={shown ? 0 : -1}>
+        Back to the machine
+      </button>
     </div>
   );
 }
@@ -557,5 +721,46 @@ export function OpeningOverlay() {
         </svg>
       </div>
     </>
+  );
+}
+
+/**
+ * Keyboard access to the 3D things (audit F6): an invisible button over each book and the cup, in reading order, that
+ * takes focus with a visible ring and does what a click does. Positions follow the scene every frame.
+ */
+export function ObjectFocus({ active, onBook, onCup }: { active: boolean; onBook: (id: BookId) => void; onCup: () => void }) {
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  useEffect(() => {
+    let raf = 0;
+    const place = (el: HTMLElement | null, a: { x: number; y: number }, b: { x: number; y: number }) => {
+      if (!el) return;
+      el.style.left = `${Math.min(a.x, b.x)}px`;
+      el.style.top = `${Math.min(a.y, b.y)}px`;
+      el.style.width = `${Math.abs(b.x - a.x)}px`;
+      el.style.height = `${Math.abs(b.y - a.y)}px`;
+    };
+    const tick = () => {
+      for (const id of ["playground", "work", "about"] as BookId[]) {
+        const p = anim.books[id];
+        const { w, h } = BOOK_SIZE[id];
+        place(refs.current[id], toScreen(p.x - (w / 2) * p.s, p.y + h * p.s, p.z), toScreen(p.x + (w / 2) * p.s, p.y, p.z));
+      }
+      const cx = anim.machineX - 0.138;
+      place(refs.current.cup, toScreen(cx - 0.12, 0.62, -0.15), toScreen(cx + 0.12, 0.2, -0.15));
+      raf = requestAnimationFrame(tick);
+    };
+    tick();
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  const set = (k: string) => (el: HTMLButtonElement | null) => {
+    refs.current[k] = el;
+  };
+  return (
+    <div className="story-objfocus" aria-label="Things on the shelf">
+      <button ref={set("playground")} type="button" tabIndex={active ? 0 : -1} aria-label="Playground: experiments and illustration" onClick={() => onBook("playground")} />
+      <button ref={set("work")} type="button" tabIndex={active ? 0 : -1} aria-label="Work: case studies" onClick={() => onBook("work")} />
+      <button ref={set("about")} type="button" tabIndex={active ? 0 : -1} aria-label="About and résumé" onClick={() => onBook("about")} />
+      <button ref={set("cup")} type="button" tabIndex={active ? 0 : -1} aria-label="Coffee cup: say hello" onClick={onCup} />
+    </div>
   );
 }

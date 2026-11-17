@@ -33,11 +33,6 @@ export const CASE_INFO: Record<Case, { name: string; kind?: string; year?: strin
     image: "/assets/projects/greenera.jpg",
     tint: "#1E9EAD",
   },
-  "the-family-table": {
-    name: "The Family Table",
-    image: "/assets/projects/the-family-table/hero.png",
-    tint: "#3E6B45",
-  },
 };
 
 /** The case-study page's sections (the left rail in frame 8). */
@@ -84,8 +79,7 @@ export const PLAYGROUND_PIECES: Piece[] = [
 /** About spreads (frame 26): the About content and the résumé. */
 export const ABOUT_SPREADS: { title: string; note: string; tint: string; link?: { label: string; href: string } }[] = [
   { title: "About", note: "Who I am and how I work", tint: "#2F55F0" },
-  { title: "Experience", note: "Work history", tint: "#E0644F" },
-  { title: "Résumé", note: "Education, skills, and the PDF", tint: "#D9A23A", link: { label: "Download the résumé (PDF)", href: "/Dvija_Patel_Resume.pdf" } },
+  { title: "Résumé", note: "Work, education, and the PDF", tint: "#D9A23A", link: { label: "Download the résumé (PDF)", href: "/Dvija_Patel_Resume.pdf" } },
 ];
 
 /**
@@ -94,6 +88,14 @@ export const ABOUT_SPREADS: { title: string; note: string; tint: string; link?: 
  * sent mail server-side), so it's left for Dvija to fill in.
  */
 export const CONTACT_LINKS: { label: string; href: string | null }[] = [
-  { label: "Email", href: null },
+  { label: "GitHub", href: "https://github.com/pateldvija20" },
+  { label: "X", href: "https://x.com/pateldvija20" },
   { label: "LinkedIn", href: "https://www.linkedin.com/in/pateldvija/" },
+  // Email opens the form (see ContactLinks); its own address is MAIL_TO.
+  { label: "Email", href: null },
+  { label: "R\u00e9sum\u00e9", href: "/Dvija_Patel_Resume.pdf" },
 ];
+/** Where "open my mail app" goes (the address the contact API already delivers to). */
+/** The coffee-chat booking link (Calendly): not set up yet, so the chat panel shows it as coming soon. */
+export const CALENDLY_URL: string | null = null;
+export const MAIL_TO = "pateldvija20@gmail.com";

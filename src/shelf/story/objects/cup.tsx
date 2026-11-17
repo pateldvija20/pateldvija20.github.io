@@ -59,6 +59,174 @@ const LID_OPEN = { tip: THREE.MathUtils.degToRad(72), lift: 0.025, back: 0.02 };
 
 const SEG = 128;
 
+/** Coffee falling: a stream that wobbles and narrows as it drops, with moving bands and a bright edge, so it reads as liquid and not a rod. */
+function streamMaterial() {
+  const m = new THREE.ShaderMaterial({
+    uniforms: { uT: { value: 0 } },
+    vertexShader: /* glsl */ `
+      uniform float uT;
+      varying float vY;
+      varying vec3 vN;
+      void main() {
+        vY = position.y;
+        vec3 p = position;
+        // A smooth, steady stream: a little thicker where it leaves the spout, drawing in as it falls (gravity stretches it), with
+        // only the faintest shiver.
+        float neck = 1.0 + 0.32 * p.y;
+        p.xz *= neck * (1.0 + 0.025 * sin(p.y * 9.0 - uT * 11.0));
+        vN = normalize(normalMatrix * normal);
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      uniform float uT;
+      varying float vY;
+      varying vec3 vN;
+      void main() {
+        // Dark espresso with a warm golden edge (the crema) and one soft glossy highlight along it.
+        float edge = pow(1.0 - abs(vN.z), 1.6);
+        vec3 core = vec3(0.12, 0.06, 0.03);
+        vec3 rim = vec3(0.50, 0.30, 0.12);
+        vec3 c = mix(core, rim, edge * 0.8);
+        float gloss = smoothstep(0.55, 0.9, vN.x * 0.8 + 0.35) * (0.5 + 0.1 * sin(vY * 14.0 - uT * 6.0));
+        c += vec3(1.0, 0.88, 0.7) * gloss * 0.45;
+        gl_FragColor = vec4(c, 1.0);
+      }
+    `,
+    side: THREE.DoubleSide,
+  });
+  return m;
+}
+
+// ----- The guest's name as pen strokes -----
+
+type InkPlan = { key: string; glyph: HTMLCanvasElement; w: number; h: number; path: [number, number][]; stroke: number };
+const inkPlans = new Map<string, InkPlan>();
+
+/** Zhang-Suen thinning: the glyph's one-pixel centre line. */
+function thin(a: Uint8Array, w: number, h: number) {
+  const at = (x: number, y: number) => (x < 0 || y < 0 || x >= w || y >= h ? 0 : a[y * w + x]);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let step = 0; step < 2; step++) {
+      const kill: number[] = [];
+      for (let y = 1; y < h - 1; y++)
+        for (let x = 1; x < w - 1; x++) {
+          if (!a[y * w + x]) continue;
+          const p2 = at(x, y - 1), p3 = at(x + 1, y - 1), p4 = at(x + 1, y), p5 = at(x + 1, y + 1), p6 = at(x, y + 1), p7 = at(x - 1, y + 1), p8 = at(x - 1, y), p9 = at(x - 1, y - 1);
+          const B = p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9;
+          if (B < 2 || B > 6) continue;
+          const seq = [p2, p3, p4, p5, p6, p7, p8, p9, p2];
+          let A = 0;
+          for (let i = 0; i < 8; i++) if (!seq[i] && seq[i + 1]) A++;
+          if (A !== 1) continue;
+          if (step === 0 ? p2 * p4 * p6 === 0 && p4 * p6 * p8 === 0 : p2 * p4 * p8 === 0 && p2 * p6 * p8 === 0) kill.push(y * w + x);
+        }
+      if (kill.length) {
+        changed = true;
+        for (const i of kill) a[i] = 0;
+      }
+    }
+  }
+}
+
+/** The order a pen would lay the name down in: from the left, along each stroke, lifting and jumping to the next unwritten bit on the left. */
+function inkPlan(name: string): InkPlan {
+  const key = `${name}|${document.fonts?.check(`700 64px ${HANDWRITING}`) ? 1 : 0}`;
+  const hit = inkPlans.get(key);
+  if (hit) return hit;
+  const size = 220;
+  const [gc, gg] = canvas(1, 1);
+  gg.font = `700 ${size}px ${HANDWRITING}`;
+  const w = Math.ceil(gg.measureText(name).width + 80);
+  const h = Math.ceil(size * 1.5);
+  gc.width = w;
+  gc.height = h;
+  gg.font = `700 ${size}px ${HANDWRITING}`;
+  gg.textAlign = "center";
+  gg.textBaseline = "middle";
+  gg.fillStyle = "#16120F";
+  gg.fillText(name, w / 2, h / 2);
+  const data = gg.getImageData(0, 0, w, h).data;
+  const a = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) a[i] = data[i * 4 + 3] > 128 ? 1 : 0;
+  // The stroke width: twice the typical distance to the edge; approximated from the glyph's area over its skeleton length.
+  let area = 0;
+  for (let i = 0; i < a.length; i++) area += a[i];
+  thin(a, w, h);
+  const pts: number[] = [];
+  for (let i = 0; i < a.length; i++) if (a[i]) pts.push(i);
+  const stroke = Math.max(10, area / Math.max(1, pts.length));
+  // Written as a person writes: letter by letter from the left; within a letter, each stroke starts at its top-left end and runs
+  // one way, following its direction of travel, then the pen lifts to the next stroke (top to bottom, left to right).
+  const nb = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+  const total = gg.measureText(name).width;
+  const x0 = w / 2 - total / 2;
+  const cuts: number[] = [];
+  for (let i = 0; i <= name.length; i++) cuts.push(x0 + gg.measureText(name.slice(0, i)).width);
+  const order: [number, number][] = [];
+  const has = new Set(pts);
+  const neighbours = (i: number) => {
+    const x = i % w, y = Math.floor(i / w);
+    let n = 0;
+    for (const [dx, dy] of nb) if (has.has((y + dy) * w + (x + dx))) n++;
+    return n;
+  };
+  for (let L = 0; L < name.length; L++) {
+    const band = pts.filter((i) => {
+      const x = i % w;
+      return x >= cuts[L] && (x < cuts[L + 1] || L === name.length - 1);
+    });
+    const left = new Set(band);
+    while (left.size) {
+      // Where the next stroke begins: an open end if there is one (top-left first), otherwise the top of a loop.
+      let start = -1;
+      let best = Infinity;
+      for (const i of left) {
+        const x = i % w, y = Math.floor(i / w);
+        const open = neighbours(i) <= 1;
+        const score = y + 0.35 * x + (open ? 0 : 400);
+        if (score < best) {
+          best = score;
+          start = i;
+        }
+      }
+      let cur = start;
+      let dir: [number, number] = [-0.4, 1];
+      while (cur >= 0) {
+        left.delete(cur);
+        const x = cur % w, y = Math.floor(cur / w);
+        order.push([x, y]);
+        let next = -1;
+        let top = -Infinity;
+        for (const [dx, dy] of nb) {
+          const q = (y + dy) * w + (x + dx);
+          if (!left.has(q)) continue;
+          const sc = dx * dir[0] + dy * dir[1];
+          if (sc > top) {
+            top = sc;
+            next = q;
+          }
+        }
+        if (next >= 0) {
+          const nx = next % w, ny = Math.floor(next / w);
+          dir = [dir[0] * 0.6 + (nx - x) * 0.4, dir[1] * 0.6 + (ny - y) * 0.4];
+        }
+        cur = next;
+      }
+    }
+  }
+  const plan = { key, glyph: gc, w, h, path: order, stroke };
+  inkPlans.set(key, plan);
+  return plan;
+}
+
+
+/** The group head's spouts, above the cup (cup-local), and how far either side of the middle. */
+const SPOUT_Y = 0.452;
+const SPOUT_DX = 0.03;
+
 /** In the object lab only: /?objlab=cup&lid=1 shows the lid lifted (the coffee under it). */
 if (import.meta.env.DEV && typeof window !== "undefined") {
   const q = new URLSearchParams(window.location.search);
@@ -262,6 +430,8 @@ function canvas(w: number, h: number) {
 }
 
 /** The sleeve's print: the orange board, its flutes' faint grooves and cross lines, the cut edges, and the wordmark at the front. */
+const HANDWRITING = '"Caveat", "Segoe Script", cursive';
+
 function sleeveMap() {
   const W = 2048;
   const H = 560;
@@ -315,6 +485,58 @@ function sleeveMap() {
     g.textBaseline = "alphabetic";
     g.fillStyle = "#FBF7F2";
     g.fillText(WORDMARK, size * 0.1, 0);
+    g.restore();
+    tex.needsUpdate = true;
+  };
+  // The guest's name, laid down as pen strokes: a brush follows the letters' centre line in writing order (left to right, along
+  // each stroke), and only the ink under the brush shows.
+  const [mc, mg] = canvas(1, 1);
+  const [cc, cg] = canvas(1, 1);
+  let drawn = 0;
+  let maskKey = "";
+  tex.userData.writeInk = (name: string, p: number) => {
+    draw();
+    if (!name || p <= 0) return;
+    const plan = inkPlan(name);
+    const pxY = H / h;
+    const rText = rc(0.09) + t;
+    const pxX = W / (Math.PI * 2 * rText);
+    const sx = (pxX / pxY) * 0.82;
+    const scale = (0.085 * pxY) / 220;
+    if (maskKey !== plan.key + "|" + plan.w) {
+      mc.width = cc.width = plan.w;
+      mc.height = cc.height = plan.h;
+      maskKey = plan.key + "|" + plan.w;
+      drawn = 0;
+      mg.clearRect(0, 0, plan.w, plan.h);
+    }
+    const target = Math.floor(plan.path.length * Math.min(1, p));
+    if (target < drawn) {
+      mg.clearRect(0, 0, plan.w, plan.h);
+      drawn = 0;
+    }
+    mg.fillStyle = "#000";
+    const r = plan.stroke * 0.8;
+    for (let i = drawn; i < target; i++) {
+      const [x, y] = plan.path[i];
+      mg.beginPath();
+      mg.arc(x, y, r, 0, Math.PI * 2);
+      mg.fill();
+    }
+    drawn = target;
+    cg.clearRect(0, 0, plan.w, plan.h);
+    cg.globalCompositeOperation = "source-over";
+    cg.drawImage(plan.glyph, 0, 0);
+    if (p < 1) {
+      cg.globalCompositeOperation = "destination-in";
+      cg.drawImage(mc, 0, 0);
+    }
+    cg.globalCompositeOperation = "source-over";
+    g.save();
+    g.translate(W / 2, H * 0.47);
+    g.scale(sx, 1);
+    g.rotate(-0.03);
+    g.drawImage(cc, (-plan.w / 2) * scale, (-plan.h / 2) * scale, plan.w * scale, plan.h * scale);
     g.restore();
     tex.needsUpdate = true;
   };
@@ -416,6 +638,9 @@ function shadowMap() {
 
 export default function Cup({ drawn = false }: ObjectProps) {
   const lid = useRef<THREE.Group>(null);
+  const streams = useRef<THREE.Group>(null);
+  const rippleRef = useRef<THREE.Mesh>(null);
+  const lastInk = useRef({ name: "", p: -1 });
   const aside = useRef<THREE.Group>(null);
   const coffee = useRef<THREE.Mesh>(null);
   const k = useMemo(() => {
@@ -439,7 +664,14 @@ export default function Cup({ drawn = false }: ObjectProps) {
     const slot = new THREE.CapsuleGeometry(0.0024, 0.02, 4, 16);
     slot.rotateZ(Math.PI / 2);
     const vent = new THREE.CylinderGeometry(0.0028, 0.0028, 0.002, 20);
+    // A coffee stream: unit tall, hanging down from its top, scaled to the gap between the spout and the surface.
+    const stream = new THREE.CylinderGeometry(0.0058, 0.0058, 1, 18, 24, true);
+    stream.translate(0, -0.5, 0);
     return {
+      stream,
+      streamMat: streamMaterial(),
+      ripple: new THREE.CircleGeometry(1, 40),
+      rippleMat: new THREE.MeshBasicMaterial({ color: "#6B4426", transparent: true, opacity: 0.6, depthWrite: false, toneMapped: false }),
       cup: cupGeometry(),
       lid: lidGeometry(),
       sleeve: sleeveGeometry(drawn),
@@ -467,8 +699,50 @@ export default function Cup({ drawn = false }: ObjectProps) {
     }
     // The lid rests on the tray beside the cup (anim.lidAside = 1) until the coffee view lifts it back on.
     const side = THREE.MathUtils.clamp(anim.lidAside, 0, 1);
-    aside.current?.position.set(ASIDE.x * side, ASIDE.y * side, ASIDE.z * side);
-    if (coffee.current) coffee.current.visible = a > 0.01 || side > 0.5;
+    // Only the cup comes forward and grows: its lid stays on the tray where it was put (undo the cup's move, turn and growth).
+    const xf = anim.cupXf;
+    const ax = ASIDE.x * side - xf.dx;
+    const ay = ASIDE.y * side - xf.dy;
+    const c = Math.cos(-xf.rz);
+    const sn = Math.sin(-xf.rz);
+    aside.current?.position.set((ax * c - ay * sn) / xf.sc, (ax * sn + ay * c) / xf.sc, (ASIDE.z * side - xf.dz) / xf.sc);
+    aside.current?.scale.setScalar(1 / xf.sc);
+    aside.current?.rotation.set(0, 0, -xf.rz);
+    // The coffee: fills from the bottom as anim.fill goes 0 to 1 (the surface is a disc, narrower lower down the cone).
+    const level = THREE.MathUtils.clamp(anim.fill * (1 - 0.8 * anim.spillOut), 0, 1);
+    if (coffee.current) {
+      const y = THREE.MathUtils.lerp(COFFEE_Y - 0.1, COFFEE_Y, level);
+      coffee.current.visible = level > 0.01 && anim.tip < 0.35;
+      coffee.current.position.y = y;
+      const r = rc(y) / rc(COFFEE_Y);
+      coffee.current.scale.set(r, 1, r);
+    }
+    // Two streams from the group head's spouts to the surface while pouring.
+    if (streams.current) {
+      const pour = THREE.MathUtils.clamp(anim.pour, 0, 1);
+      streams.current.visible = pour > 0.01;
+      const surface = THREE.MathUtils.lerp(COFFEE_Y - 0.1, COFFEE_Y, level);
+      streams.current.scale.y = Math.max(0.001, (SPOUT_Y - surface) * Math.min(1, pour * 1.6));
+      (k.streamMat as THREE.ShaderMaterial).uniforms.uT.value = performance.now() / 1000;
+      // Where the stream lands, the surface ripples.
+      const rp = rippleRef.current;
+      if (rp) {
+        rp.visible = pour > 0.3 && level > 0.01;
+        const ph = (performance.now() / 1000) % 0.5;
+        const rr = rc(surface) * 0.8;
+        rp.position.set(0, surface + 0.001, 0);
+        rp.scale.set(rr, rr, rr);
+        (k.rippleMat as THREE.MeshBasicMaterial).opacity = 0.45 + 0.2 * Math.sin(ph * 12.6);
+      }
+    }
+    // The name on the sleeve, written as anim.ink goes 0 to 1.
+    const li = lastInk.current;
+    if (li.p !== anim.ink || li.name !== anim.inkName) {
+      li.p = anim.ink;
+      li.name = anim.inkName;
+      // The function lives on the texture itself, so it always repaints the texture this cup is wearing.
+      (k.sleeveMat.map?.userData.writeInk as ((n: string, p: number) => void) | undefined)?.(anim.inkName, anim.ink);
+    }
     // The shadow belongs to the 3D cup, not the drawing.
     k.shadowMat.opacity = 1 - DRAWN.value;
   });
@@ -481,6 +755,12 @@ export default function Cup({ drawn = false }: ObjectProps) {
       <mesh geometry={k.cup} material={k.paper} castShadow receiveShadow userData={ink} />
       <mesh geometry={k.sleeve} material={k.sleeveMat} castShadow receiveShadow userData={ink} />
       <mesh ref={coffee} geometry={k.coffeeGeo} material={k.coffeeMat} position={[0, COFFEE_Y, 0]} visible={false} userData={ink} />
+      <mesh ref={rippleRef} geometry={k.ripple} material={k.rippleMat} rotation={[-Math.PI / 2, 0, 0]} visible={false} userData={{ ink: "skip" }} />
+      <group ref={streams} position={[0, SPOUT_Y, 0]} visible={false}>
+        {[-SPOUT_DX, SPOUT_DX].map((x) => (
+          <mesh key={x} geometry={k.stream} material={k.streamMat} position={[x, 0, 0]} userData={{ ink: "skip" }} />
+        ))}
+      </group>
       <group ref={aside}>
       <group ref={lid} position={[0, HINGE.y, HINGE.z]}>
         <group position={[0, -HINGE.y, -HINGE.z]}>

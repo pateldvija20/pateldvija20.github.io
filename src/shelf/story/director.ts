@@ -61,7 +61,7 @@ const SCENE_2_LENGTH = ENTRANCE.hanger + SLIDE.duration + 1.4;
 /** Inside an open book: the spread itself, the case study it expands into (Work), or the grid (Playground). */
 export type Sub = "spread" | "read" | "grid";
 export type Target = { mode: "home" } | { mode: "open"; book: BookId; page: number; sub: Sub } | { mode: "coffee" };
-export type Ui = { logo: boolean; menu: boolean; open: BookId | null; contact: boolean; read: boolean; grid: boolean };
+export type Ui = { logo: boolean; menu: boolean; open: BookId | null; contact: boolean; read: boolean; grid: boolean; thanks?: boolean };
 
 const CLICKABLE: Clickable[] = ["playground", "work", "about", "cup"];
 
@@ -100,8 +100,11 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
 
   /** Frames 14, 23, 29, 33: everything back in its place, covers out. */
   const toHome = (t: gsap.core.Timeline, duration = 0.9) => {
+    // Anything a cut-short move left open or folded shuts again on the way.
+    BOOKS.forEach((id) => t.to(anim.books[id], { cover: 0, fold: 0, rx: 0, duration: duration * 0.7, ease: "power2.inOut" }, ">"));
+    t.to(anim.follow, { mix: 0, duration: duration * 0.5, ease: "power2.inOut" }, "<");
     // The plant and machine step aside a beat before the books turn out, so no cover swings across a drawing.
-    t.to(anim, { plantX: PLANT_X.home, machineX: MACHINE_X.home, camX: 0, hangerLift: 0, backdrop: 0, duration: duration * 0.85, ease: "power3.inOut" }, ">");
+    t.to(anim, { plantX: PLANT_X.home, machineX: MACHINE_X.home, camX: 0, camZoom: 1, hangerLift: 0, backdrop: 0, duration: duration * 0.85, ease: "power3.inOut" }, ">");
     books(t, Object.fromEntries(BOOKS.map((id) => [id, homePose(id)])) as Record<BookId, BookPose>, "<0.18", duration);
     t.call(() => onUi({ menu: true }));
   };
@@ -133,17 +136,16 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
       t.to(bk, { fold: 1, duration: 0.75, ease: "power2.inOut" }, ">");
       t.to(anim, { backdrop: 0, duration: 0.5, ease: "power2.inOut" }, ">0.05");
       t.to(bk, { x: f.x + w * f.s, y: f.y, z: f.z, s: f.s, duration: 0.6, ease: "power3.inOut" }, "<");
-      const turn = { u: 0 };
-      t.to(turn, {
-        u: Math.PI,
-        duration: 0.55,
-        ease: "power2.inOut",
-        onUpdate: () => {
-          bk.ry = f.ry + turn.u;
-          bk.x = f.x + w * f.s * Math.cos(turn.u);
-          bk.z = f.z - w * f.s * Math.sin(turn.u);
-        },
-      }, ">0.02");
+      // The shut book is now the plain closed model (showing its back, as the folded stack did), so the flip can't show any open-book
+      // face (the old rig flashed the right-hand page, with its button, as it turned).
+      t.call(() => {
+        bk.fold = 0;
+        bk.cover = 0;
+        bk.x = f.x;
+        bk.z = f.z;
+        bk.ry = f.ry + Math.PI;
+      });
+      t.to(bk, { ry: f.ry + Math.PI * 2, duration: 0.55, ease: "power2.inOut" }, ">0.02");
       t.call(() => {
         bk.fold = 0;
         bk.cover = 0;
@@ -255,14 +257,20 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
     }
   };
 
-  /** Frames 30 and 31. */
+  /**
+   * Frames 30 and 31, as reworked (16 Nov): the cup is clicked and the scene slides so the machine is centred and zoomed in;
+   * everything else stays put. The lid stays off beside the cup; nothing pours until the message is sent (celebrate).
+   */
   const coffee = (t: gsap.core.Timeline) => {
-    t.call(() => onUi({ menu: true, contact: false }));
-    t.to(anim, { lidAside: 0, duration: 0.45, ease: "power2.inOut" }, ">");
-    books(t, Object.fromEntries(BOOKS.map((id) => [id, spinePose(id)])) as Record<BookId, BookPose>, ">", 1.0);
-    t.to(anim, { plantX: PLANT_X.intro, machineX: MACHINE_X.intro, camX: COFFEE_PAN, duration: 1.0, ease: "power3.inOut" }, "<");
-    pourCoffee(t, ">-0.1");
-    t.call(() => onUi({ contact: true }), [], "<1.0");
+    t.call(() => onUi({ menu: true, contact: false, thanks: false }));
+    // Only the camera moves (16 Nov): it slides across and zooms in on the machine, centred; everything else stays where it
+    // is, so the plant, the books and the planter are cut off by the frame.
+    // (Reached from anywhere else, e.g. a deep link, everything first settles at its home place.)
+    books(t, Object.fromEntries(BOOKS.map((id) => [id, homePose(id)])) as Record<BookId, BookPose>, ">", 0.4);
+    t.to(anim, { plantX: PLANT_X.home, machineX: MACHINE_X.home, hangerLift: 0, backdrop: 0, duration: 0.4, ease: "power2.inOut" }, "<");
+    BOOKS.forEach((id) => t.to(anim.books[id], { cover: 0, fold: 0, rx: 0, duration: 0.4, ease: "power2.inOut" }, "<"));
+    t.to(anim, { camX: MACHINE_X.home, camZoom: 1.7, duration: 1.1, ease: "power3.inOut" }, "<");
+    t.call(() => onUi({ contact: true }), [], ">-0.15");
   };
 
   /** The lid lifts, coffee pours from the group head, the lid drops back on (frames 4 and 31). */
@@ -294,7 +302,7 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
     ENTERING.forEach((k) => (anim.enter[k] = 0));
     anim.enter.books = 0;
     BOOKS.forEach((id) => Object.assign(anim.books[id], spinePose(id)));
-    Object.assign(anim, { plantX: PLANT_X.intro, machineX: MACHINE_X.intro, camX: 0, drawn: 1, backdrop: 0, lid: 0, lidAside: 1, pour: 0 });
+    Object.assign(anim, { plantX: PLANT_X.intro, machineX: MACHINE_X.intro, camX: 0, camZoom: 1, drawn: 1, backdrop: 0, lid: 0, lidAside: 1, pour: 0, fill: 0, tip: 0, spillRun: 0, cupFocus: 0, ink: 0, inkName: "", hangerLift: 0 });
     CLICKABLE.forEach((c) => (anim.drawnBy[c] = 1));
     Object.assign(anim.reveal, { show: 0, on: null });
     Object.assign(anim.cursor, { show: 0, press: 0 });
@@ -376,7 +384,10 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
 
     // The cursor leaves as the menu bar arrives, and the opening is over.
     t.to(anim.cursor, { show: 0, x: c1.x + 90, y: c1.y + 60, duration: 0.3, ease: "power2.in" }, ">0.02");
-    t.call(() => onUi({ menu: true, logo: false }), [], "<0.05");
+    t.call(() => {
+      onUi({ menu: true, logo: false });
+      anim.par.on = true;
+    }, [], "<0.05");
   };
 
   return {
@@ -395,6 +406,8 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
       t.call(() => (wobble.k = WOBBLE_CALM), [], SCENE_1_HOLD + SCENE_2_LENGTH);
       introTl = t;
       restAtScene2();
+      // The camera holds still while the opening plays (its cursor and frames are placed on the unleaned view).
+      anim.par.on = false;
       // Everything starts just past the screen's right edge, the same distance out, so they come in as a procession.
       const far = view.right - view.left + 0.4;
       ENTERING.forEach((k) => (anim.enter[k] = far));
@@ -408,6 +421,27 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
         holding = true;
         current = { mode: "home" };
       }
+    },
+
+    /**
+     * Later loads in a tab (16 Nov): no opening. Everything is already home and in colour, and slides in from the right one after
+     * another, as the objects do when a book goes back to its place.
+     */
+    slideIn() {
+      const t = begin();
+      ENTERING.forEach((k) => (anim.enter[k] = 0));
+      anim.enter.books = 0;
+      BOOKS.forEach((id) => Object.assign(anim.books[id], homePose(id)));
+      Object.assign(anim, { plantX: PLANT_X.home, machineX: MACHINE_X.home, camX: 0, camZoom: 1, drawn: 0, backdrop: 0, lid: 0, lidAside: 1, pour: 0, fill: 0, tip: 0, spillRun: 0, cupFocus: 0, ink: 0, inkName: "", hangerLift: 0 });
+      CLICKABLE.forEach((c) => (anim.drawnBy[c] = 0));
+      Object.assign(anim.reveal, { show: 0, on: null });
+      Object.assign(anim.cursor, { show: 0, press: 0 });
+      const far = view.right - view.left + 0.4;
+      ENTERING.forEach((k) => (anim.enter[k] = far));
+      wobble.k = WOBBLE_CALM;
+      ENTERING.forEach((k) => t.to(anim.enter, { [k]: 0, ...SLIDE }, ENTRANCE[k]));
+      t.call(() => onUi({ menu: true }), [], ENTRANCE.hanger + SLIDE.duration * 0.6);
+      current = { mode: "home" };
     },
 
     /** Straight to the end of the opening, no motion: later visits, and reduced motion. */
@@ -437,7 +471,9 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
       const homes = homePoses();
       // Up to just clear of the tallest book standing in front of it (or a small hop if none does).
       const front = BOOKS.filter((b) => b !== id && homes[b].z > homes[id].z).map((b) => BOOK_SIZE[b].h);
-      const rise = front.length ? Math.max(...front) + 0.06 : 0.14;
+      // Never so high that the book's top leaves the screen (audit F7): its top stays a little under the screen's top edge.
+      const room = Math.max(0.1, view.top - 0.08 - BOOK_SIZE[id].h * Math.max(anim.books[id].s, f[id].s));
+      const rise = Math.min(front.length ? Math.max(...front) + 0.06 : 0.14, room);
       const mine = f[id];
       const { cover: _c, ...fp } = mine;
       const big = waitingPose(id);
@@ -458,10 +494,92 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
         const side = f[b].x < 0 ? -1 : 1;
         t.to(anim.books[b], { x: side * (edge + 0.5), duration: 0.6, ease: "power3.in" }, i ? "<" : ">0.02");
       });
-      t.to(anim, { plantX: -(edge + 1.0), machineX: edge + 1.2, hangerLift: HANGER_UP, duration: 0.65, ease: "power3.in" }, "<");
+      t.to(anim, { plantX: -(edge + 1.2), machineX: edge + 1.4, hangerLift: HANGER_UP, duration: 0.65, ease: "power3.in" }, "<");
       t.to(anim.books[id], { x: bp.x, y: bp.y, z: bp.z, s: bp.s, ry: bp.ry, duration: 0.7, ease: "power3.inOut" }, "<0.05");
       // 4. Last, the shelf line and what's left behind fade away to the plain page.
       t.to(anim, { backdrop: 1, duration: 0.4, ease: "power2.inOut" }, ">-0.25");
+    },
+
+    /**
+     * The message has been sent (16 Nov): the coffee pours and fills the cup; the cup comes to the middle of the screen and
+     * grows over the scene; the guest's first name is written on the orange sleeve in marker, the ink flowing on as if
+     * being written (no marker shown); then the thank-you appears.
+     */
+    celebrate(name: string) {
+      if (current?.mode !== "coffee") return;
+      const t = begin();
+      current = { mode: "coffee" };
+      onUi({ contact: false, thanks: false });
+      const who = name.trim().split(/\s+/)[0].slice(0, 14);
+      t.to(anim, { tip: 0, duration: 0.01 }, ">");
+      // The cup goes back to the machine first (if it's at the middle), is filled there, and comes forward again.
+      if (anim.cupFocus > 0.01) t.to(anim, { cupFocus: 0, duration: 0.8, ease: "power3.inOut" }, ">");
+      if (anim.fill < 0.99) {
+        t.call(() => {
+          anim.ink = 0;
+          anim.inkName = "";
+        });
+        t.to(anim, { pour: 1, duration: 0.4, ease: "power1.in" }, ">0.1");
+        t.to(anim, { fill: 1, duration: 2.0, ease: "power1.inOut" }, "<0.25");
+        t.to(anim, { pour: 0, duration: 0.5, ease: "power1.out" }, ">-0.4");
+      }
+      // The cup comes to the middle and grows.
+      t.to(anim, { cupFocus: 1, duration: 1.0, ease: "power3.inOut" }, ">0.15");
+      // The name, written as pen strokes (the handwriting face is loaded first): slow at the start, quicker as it goes.
+      t.call(() => {
+        void document.fonts?.load('700 64px "Caveat"');
+        anim.inkName = who;
+      }, [], ">0.1");
+      t.to(anim, { ink: 1, duration: 0.9 + who.length * 0.55, ease: (x: number) => 0.3 * x + 0.7 * x * x }, ">");
+      t.call(() => onUi({ thanks: true }), [], ">0.2");
+    },
+
+    /** The cup is clicked in the coffee view: it comes to the middle and grows, to ask the guest's name. */
+    chat() {
+      if (current?.mode !== "coffee") return;
+      const t = begin();
+      current = { mode: "coffee" };
+      onUi({ contact: false, thanks: false });
+      t.to(anim, { cupFocus: 1, duration: 1.0, ease: "power3.inOut" }, ">");
+    },
+
+    /** Sending failed: the cup fills a little, is knocked over on the tray and the coffee spills. */
+    spill() {
+      if (current?.mode !== "coffee") return;
+      const t = begin();
+      current = { mode: "coffee" };
+      onUi({ contact: false, thanks: false });
+      t.to(anim, { cupFocus: 0, duration: 0.5, ease: "power2.inOut" }, ">");
+      t.to(anim, { fill: 0.8, duration: 0.5, ease: "power1.out" }, "<");
+      t.to(anim, { tip: 1, duration: 0.7, ease: "back.in(1.2)" }, ">0.1");
+      // The coffee keeps coming: over the tray's edge and down the machine.
+      t.to(anim, { spillRun: 1, duration: 2.6, ease: "power1.inOut" }, ">-0.2");
+    },
+
+    /** Try again: the cup is stood up and the spill is gone. */
+    unspill() {
+      if (current?.mode !== "coffee") return;
+      const t = begin();
+      current = { mode: "coffee" };
+      t.to(anim, { tip: 0, spillRun: 0, duration: 0.6, ease: "power2.inOut" }, ">");
+      t.to(anim, { fill: 0, duration: 0.2 }, "<0.3");
+      t.call(() => onUi({ contact: true }), [], ">-0.1");
+    },
+
+    /** Back from the enlarged cup to the machine (the coffee stays poured and the name stays written). */
+    uncelebrate() {
+      if (current?.mode !== "coffee") return;
+      const t = begin();
+      current = { mode: "coffee" };
+      onUi({ thanks: false });
+      t.to(anim, { cupFocus: 0, duration: 0.9, ease: "power3.inOut" }, ">");
+      t.call(() => onUi({ contact: true }), [], ">-0.2");
+    },
+
+    /** Runs `cb` when whatever is playing has finished (at once if nothing is). */
+    afterMove(cb: () => void) {
+      if (tl && tl.totalDuration() > 0 && tl.progress() < 1) tl.call(cb, [], ">");
+      else cb();
     },
 
     /** Skips whatever is playing to its end. */
@@ -488,6 +606,8 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
         }, [], 0);
       }
       if (sameBook && cur?.mode === "open" && target.mode === "open") {
+        // Out of the case study onto a spread: the book grows back out of the page first, then (for another case) flips to its spread.
+        if (cur.sub === "read" && target.sub !== "read") sub(t, target.book, cur.sub, target.sub);
         const from = anim.pages[target.book].right;
         const pg = anim.pages[target.book];
         // A page the hand has dragged past the middle and let go: carry it on over from where it was let go. (The drag
@@ -502,19 +622,38 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
             pg.leaf.drag = false;
           });
         } else if (from !== target.page) turn(t, target.book, from, target.page);
-        sub(t, target.book, cur.sub, target.sub);
+        if (!(cur.sub === "read" && target.sub !== "read")) sub(t, target.book, cur.sub, target.sub);
       } else {
-        if (cur?.mode === "open") close(t, cur.book, cur.sub);
+        // A move that has to put one thing away before showing the next plays the putting-away part faster: it is only the
+        // way out, so the visitor isn't made to sit through two full sequences back to back.
+        const chained = target.mode === "open" && ((cur && cur.mode !== "home") || (waiting && waiting !== target.book));
+        const homeFromBook = target.mode === "home" && cur?.mode === "open";
+        const pre = chained || homeFromBook ? gsap.timeline() : t;
+        if (cur?.mode === "open") close(pre, cur.book, cur.sub);
         if (cur?.mode === "coffee") {
-          t.call(() => onUi({ contact: false }));
-          t.to(anim, { lid: 0, pour: 0, duration: 0.2 }, ">");
+          pre.call(() => onUi({ contact: false, thanks: false }));
+          pre.to(anim, { pour: 0, cupFocus: 0, tip: 0, spillRun: 0, duration: 0.3, ease: "power2.inOut" }, ">");
+          pre.call(() => {
+            anim.fill = 0;
+            anim.ink = 0;
+            anim.inkName = "";
+          });
         }
-        if (target.mode === "home") toHome(t);
-        else if (target.mode === "coffee") {
+        if (target.mode === "home") {
+          toHome(pre);
+          if (pre !== t) {
+            pre.timeScale(1.4);
+            t.add(pre, ">");
+          }
+        } else if (target.mode === "coffee") {
           coffee(t);
         } else {
           // Coming from another book or the coffee: back to the shelf first (frames 13, 14, 32, 33).
-          if ((cur && cur.mode !== "home") || (waiting && waiting !== target.book)) toHome(t, 0.75);
+          if (chained) {
+            toHome(pre, 0.75);
+            pre.timeScale(1.8);
+            t.add(pre, ">");
+          }
           open(t, target.book, target.page, waiting === target.book);
           sub(t, target.book, "spread", target.sub);
         }
@@ -524,6 +663,7 @@ export function createDirector(onUi: (ui: Partial<Ui>) => void) {
         if (target.mode !== "open") onUi({ menu: true });
       }
       current = target;
+      if (import.meta.env.DEV) (window as unknown as { __lastMove?: unknown }).__lastMove = { from: JSON.stringify(cur), to: JSON.stringify(target), seconds: +t.totalDuration().toFixed(2) };
       if (instant) t.progress(1);
     },
   };

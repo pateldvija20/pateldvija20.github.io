@@ -2,6 +2,7 @@ import * as THREE from "three";
 import { CASES } from "../routes";
 import { ABOUT_SPREADS, CASE_INFO, PLAYGROUND_PAGES } from "./content";
 import { BOOK_CORNER, BOOK_SIZE, type BookId } from "./layout";
+import { ABOUT, CV, EDUCATION, EXPERIENCE } from "../../desk/organized/content";
 
 /**
  * The open books' pages, after the HTWKR picture book (14 Nov): each spread
@@ -49,6 +50,181 @@ function holes(g: CanvasRenderingContext2D, W: number, H: number) {
     g.beginPath();
     g.arc(x, y, (0.0105 / pageW) * W, 0, Math.PI * 2);
     g.fill();
+  }
+}
+
+/* ---------- The About book's pages (16 Nov): the About section and the CV, set like the earlier About book's spreads ---------- */
+
+const A_INK = "#1B1B1C";
+const A_MUTED = "#7A7D84";
+const A_RULE = "#CFCFD2";
+const A_SERIF = '"Roboto Slab", Georgia, serif';
+const A_SANS = '"DM Sans", "Helvetica Neue", Arial, sans-serif';
+
+function wrapped(g: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, lh: number) {
+  const words = text.split(" ");
+  let line = "";
+  for (const w of words) {
+    const next = line ? `${line} ${w}` : w;
+    if (g.measureText(next).width > maxW && line) {
+      g.fillText(line, x, y);
+      line = w;
+      y += lh;
+    } else line = next;
+  }
+  if (line) g.fillText(line, x, y);
+  return y + lh;
+}
+
+/** A picture cropped to fill a rounded box (or a soft grey box until it has loaded). */
+function photo(g: CanvasRenderingContext2D, src: string, x: number, y: number, w: number, h: number, again: () => void) {
+  const img = imageFor(src, again);
+  g.save();
+  g.beginPath();
+  g.roundRect(x, y, w, h, 18);
+  g.clip();
+  if (img) {
+    const s = Math.max(w / img.width, h / img.height);
+    const sw = w / s;
+    const sh = h / s;
+    g.drawImage(img, (img.width - sw) / 2, (img.height - sh) / 2, sw, sh, x, y, w, h);
+  } else {
+    g.fillStyle = "#E7E4DC";
+    g.fillRect(x, y, w, h);
+  }
+  g.restore();
+}
+
+const dash = (d: string) => d.replace(/\u2018/g, "\u2019");
+
+/**
+ * The About book's type and grid (16 Nov), in the spread's own 1342 x 900 units: one margin all round (78), one baseline for
+ * every page's title (114), the same bottom edge for everything (819, where the photo grid ends), and four type sizes:
+ *   title 30 serif, body 22 / 32, label 20 medium (section headings), row 18 / 24 with 14 for detail lines and 13 mono for dates.
+ */
+const GRID = { margin: 78, top: 80, bottom: 819, colW: 530, rightX: 738, titleY: 114, gutter: 16 };
+
+function paintAbout(g: CanvasRenderingContext2D, i: number, W: number, H: number, again: () => void) {
+  const k = W / 1342;
+  const { margin, bottom, colW, rightX, titleY, gutter } = GRID;
+  const lx = margin * k;
+  const rx = rightX * k;
+  const cw = colW * k;
+  g.textBaseline = "alphabetic";
+  g.textAlign = "left";
+  const title = (text: string, x: number) => {
+    g.fillStyle = A_INK;
+    g.font = `400 ${30 * k}px ${A_SERIF}`;
+    g.fillText(text, x, titleY * k);
+  };
+  const label = (text: string, x: number, y: number) => {
+    g.fillStyle = A_INK;
+    g.font = `500 ${20 * k}px ${A_SANS}`;
+    g.fillText(text, x, y);
+  };
+  const body = (text: string, x: number, y: number) => {
+    g.fillStyle = A_MUTED;
+    g.font = `400 ${22 * k}px ${A_SANS}`;
+    return wrapped(g, text, x, y, cw, 32 * k);
+  };
+  if (i === 0) {
+    // Spread 1: the About copy over three photographs on the left; four photographs on the right. Both pages end on one edge.
+    title("Hi, I\u2019m Dvija Patel.", lx);
+    let y = 170 * k;
+    for (const p of ABOUT.paragraphs) y = body(p, lx, y) + 10 * k;
+    const px = (n: number) => n * k;
+    // Left: one tall photograph and two stacked, from the top of the right page's lower-left photo (416) to the common bottom.
+    const half = (colW - gutter) / 2;
+    photo(g, "/assets/aboutme/Images/Image_5.jpg", px(margin), px(416), px(half), px(bottom - 416), again);
+    photo(g, "/assets/aboutme/Images/Image_6.jpg", px(margin + half + gutter), px(416), px(half), px((bottom - 416 - gutter) / 2), again);
+    photo(g, "/assets/aboutme/Images/Image_7.jpg", px(margin + half + gutter), px(416 + (bottom - 416 - gutter) / 2 + gutter), px(half), px((bottom - 416 - gutter) / 2), again);
+    // Right: the four-up grid, as in the earlier book.
+    photo(g, "/assets/aboutme/Images/Image_1.jpg", px(731), px(80), px(251.5), px(320), again);
+    photo(g, "/assets/aboutme/Images/Image_2.jpg", px(1012.5), px(80), px(251.5), px(360), again);
+    photo(g, "/assets/aboutme/Images/Image_3.jpg", px(731), px(416), px(251.5), px(bottom - 416), again);
+    photo(g, "/assets/aboutme/Images/Image_4.jpg", px(1012.5), px(456), px(251.5), px(bottom - 456), again);
+    return;
+  }
+  // Spread 2: the r\u00e9sum\u00e9. Left: title, summary, work experience. Right: education, then contact, above the PDF button.
+  title("R\u00e9sum\u00e9", lx);
+  let y = body(CV.summary, lx, 170 * k);
+  const logoAt = (src: string | undefined, name: string, x: number, yy: number) => {
+    const sz = 26 * k;
+    const img = src ? imageFor(src, again) : null;
+    g.save();
+    g.beginPath();
+    g.roundRect(x, yy, sz, sz, 5 * k);
+    g.clip();
+    if (img) g.drawImage(img, x, yy, sz, sz);
+    else {
+      g.fillStyle = A_INK;
+      g.fillRect(x, yy, sz, sz);
+      g.fillStyle = PAPER;
+      g.font = `700 ${14 * k}px ${A_SERIF}`;
+      g.textAlign = "center";
+      g.fillText(name.charAt(0), x + sz / 2, yy + sz * 0.7);
+    }
+    g.restore();
+    g.textAlign = "left";
+  };
+  const lines = (text: string, maxW: number, font: string) => {
+    g.font = font;
+    const out: string[] = [];
+    let line = "";
+    for (const w of text.split(" ")) {
+      const next = line ? `${line} ${w}` : w;
+      if (g.measureText(next).width > maxW && line) {
+        out.push(line);
+        line = w;
+      } else line = next;
+    }
+    out.push(line);
+    return out;
+  };
+  // One row of the CV: mark and organisation, role (with a detail line), dates on the right. Returns the next row's top.
+  const row = (x: number, top: number, logo: string | undefined, org: string, role: string, sub: string | undefined, dates: string) => {
+    const f17 = `400 ${18 * k}px ${A_SANS}`;
+    const f14 = `400 ${14 * k}px ${A_SANS}`;
+    const base = top + 20 * k;
+    logoAt(logo, org, x, top);
+    const o = lines(org, 150 * k, f17);
+    const r = lines(role, 150 * k, f17);
+    const sl = sub ? lines(sub, 150 * k, f14) : [];
+    g.fillStyle = A_INK;
+    g.font = f17;
+    o.forEach((l, n) => g.fillText(l, x + 38 * k, base + n * 24 * k));
+    r.forEach((l, n) => g.fillText(l, x + 214 * k, base + n * 24 * k));
+    g.fillStyle = A_MUTED;
+    g.font = f14;
+    sl.forEach((l, n) => g.fillText(l, x + 214 * k, base + r.length * 24 * k - 2 * k + n * 19 * k));
+    g.font = `400 ${13 * k}px "DM Mono", monospace`;
+    g.textAlign = "right";
+    g.fillText(dash(dates), x + cw, base);
+    g.textAlign = "left";
+    const h = Math.max(o.length * 24 * k, r.length * 24 * k + sl.length * 19 * k);
+    return top + h + 28 * k;
+  };
+  // Left page: work experience.
+  y += 36 * k;
+  label("Work Experience", lx, y);
+  y += 30 * k;
+  for (const e of EXPERIENCE.slice(0, 5)) y = row(lx, y, e.logo, e.company, e.role, undefined, e.dates);
+  // Right page: education from the title baseline, contact up from the bottom.
+  label("Education", rx, titleY * k);
+  let ey = (titleY + 30) * k;
+  for (const e of EDUCATION) ey = row(rx, ey, e.logo, e.school, e.degree, e.details, e.dates);
+  const contactTop = 640;
+  label("Contact", rx, contactTop * k);
+  let cy = (contactTop + 40) * k;
+  for (const c of CV.contact) {
+    g.fillStyle = A_MUTED;
+    g.font = `400 ${18 * k}px ${A_SANS}`;
+    g.fillText(c.label, rx, cy);
+    g.fillStyle = A_INK;
+    g.fillText(c.value, rx + 150 * k, cy);
+    g.fillStyle = A_RULE;
+    g.fillRect(rx, cy + 14 * k, cw, 1.5);
+    cy += 46 * k;
   }
 }
 
@@ -143,6 +319,7 @@ function paint(book: BookId, i: number, sp: Spread) {
   g.fillStyle = PAPER;
   g.fillRect(0, 0, W, H);
   if (top) holes(g, W, H);
+  if (book === "about") paintAbout(g, i, W, H, () => refresh(book, i));
   const pw = top ? W : W / 2;
   // The page's own button, lower right of the right-hand page.
   const label = actionLabel(book, i);
@@ -202,9 +379,16 @@ function spread(book: BookId, i: number): Spread {
   c.height = ph;
   sp = { canvas: c, textures: {} };
   spreads.set(key, sp);
-  paint(book, i, sp);
+  try {
+    paint(book, i, sp);
+  } catch (err) {
+    // A page that failed to paint is dropped, so the next request paints it again instead of showing a blank sheet for good.
+    spreads.delete(key);
+    console.warn("[shelf] a page failed to paint", err);
+  }
   // The display faces may still be loading: paint again once they're in.
   if (!document.fonts.check(`600 34px ${SANS}`)) document.fonts.load(`600 34px ${SANS}`).then(() => refresh(book, i));
+  if (book === "about" && !document.fonts.check(`400 30px ${A_SERIF}`)) Promise.all([document.fonts.load(`400 30px ${A_SERIF}`), document.fonts.load(`400 30px ${A_SANS}`)]).then(() => refresh(book, i));
   return sp;
 }
 

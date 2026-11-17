@@ -73,6 +73,23 @@ export const anim = {
   hangerLift: 0,
   /** A white sheet over the shelf while a book is open, so the spread sits on white (frame 7). */
   backdrop: 0,
+  /** The camera's gentle lean toward the pointer: whether it's on, and the offsets it has eased to (scene units). */
+  par: { on: true, ox: 0, oy: 0 },
+  /** The coffee view's zoom on the machine (1 = the whole shelf). */
+  camZoom: 1,
+  /** The coffee's level in the cup (0 empty, 1 full), the cup brought to the middle and enlarged (0 on the tray, 1 centred), and the name written on its sleeve (letters, 0 to 1). */
+  fill: 0,
+  /** The cup knocked over on the tray when sending fails (0 upright, 1 on its side with the coffee spilt). */
+  tip: 0,
+  /** The spilt coffee running on: off the tray's edge and down the machine (0 to 1, after the cup has tipped). */
+  spillRun: 0,
+  /** How much of the cup's coffee has left it (0 to 1); set by the spill. */
+  spillOut: 0,
+  cupFocus: 0,
+  /** How the cup has been moved and grown (set by the scene each frame), so its lid can stay where it was put. */
+  cupXf: { dx: 0, dy: 0, dz: 0, sc: 1, rz: 0 },
+  ink: 0,
+  inkName: "",
   /** The cup's lid lifting (0 to 1) and the coffee pouring (0 to 1). */
   lid: 0,
   pour: 0,
@@ -188,7 +205,8 @@ export function zoomPose(id: BookId): BookPose {
 export function toScreen(x: number, y: number, z: number, camX = anim.camX) {
   const near = CAM_D / (CAM_D - z);
   const W = view.right - view.left;
-  return { x: ((x - camX) * near + W / 2) * view.pxPerUnit, y: (view.top - y * near) * view.pxPerUnit };
+  // The camera leans (anim.par) with a lens shift that holds the z = 0 plane still, so a nearer thing moves by ox * (1 - near).
+  return { x: ((x - camX) * near + anim.par.ox * (1 - near) + W / 2) * view.pxPerUnit, y: (view.top - (y * near + anim.par.oy * (1 - near))) * view.pxPerUnit };
 }
 
 /**

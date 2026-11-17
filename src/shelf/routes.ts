@@ -18,7 +18,8 @@ import { useEffect, useState } from "react";
  * announces it; `useRoute` follows that announcement and Back/Forward.
  */
 
-export const CASES = ["bind-desk", "billy-and-buddy", "greenera", "the-family-table"] as const;
+// Only the three deployed case studies for now (16 Nov); The Family Table comes back here (and in content.ts) when it ships.
+export const CASES = ["bind-desk", "billy-and-buddy", "greenera"] as const;
 export type Case = (typeof CASES)[number];
 
 export type Route =
@@ -110,6 +111,31 @@ export function useRoute(): Route {
  */
 export function applyLegacyRedirect() {
   const path = window.location.pathname;
-  const target = legacyRedirect(path) ?? routePath(parseRoute(path));
-  if (target !== path) history.replaceState(null, "", target + window.location.search);
+  const legacy = legacyRedirect(path);
+  const target = legacy ?? routePath(parseRoute(path));
+  if (target !== path) {
+    // An address that is neither old nor valid: say so, instead of silently showing something else.
+    const clean = path.replace(/\/+$/, "") || "/";
+    if (!legacy && clean !== target) (window as unknown as { __shelfNotice?: string }).__shelfNotice = `There's nothing at ${clean}, so here's ${target === "/" ? "the shelf" : "the closest page"}.`;
+    history.replaceState(null, "", target + window.location.search);
+  }
+}
+
+/** The address's page title and description (also read by search results and the browser's history). */
+export function metaFor(route: Route): { title: string; description: string } {
+  const name = "Dvija Patel";
+  switch (route.kind) {
+    case "home":
+      return { title: `${name} \u2014 Product Designer`, description: "Dvija Patel is a product designer. Case studies, experiments and a way to say hello, all on one shelf." };
+    case "work":
+      return route.read
+        ? { title: `${route.case.replace(/-/g, " ").replace(/\b\w/g, (m) => m.toUpperCase())} \u2014 Case study \u2014 ${name}`, description: `A product design case study by ${name}.` }
+        : { title: `Work \u2014 ${name}`, description: `Case studies by ${name}, product designer.` };
+    case "playground":
+      return { title: `Playground \u2014 ${name}`, description: `Illustration, experiments and notes by ${name}.` };
+    case "about":
+      return { title: `About \u2014 ${name}`, description: `About ${name}, and her r\u00e9sum\u00e9.` };
+    case "contact":
+      return { title: `Say hello \u2014 ${name}`, description: `Get in touch with ${name}: a message, a coffee chat, GitHub, X or LinkedIn.` };
+  }
 }

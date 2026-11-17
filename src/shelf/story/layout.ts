@@ -92,7 +92,7 @@ export const MIN_HEADROOM = 0.04;
  * Kept up to date by the camera rig: screen pixels (CSS) per scene unit at
  * the objects' depth, and the scene's edges on screen.
  */
-export const view = { pxPerUnit: 450, left: -1.6, right: 1.6, top: 1.76, bottom: -0.24 };
+export const view = { pxPerUnit: 450, left: -1.6, right: 1.6, top: 1.76, bottom: -0.24, /** The unzoomed frame's top (the hanging planter is pinned to it, so a camera zoom doesn't carry it along). */ baseTop: 1.76 };
 
 /**
  * The hanging plant is drawn in the same place in every storyboard frame,
